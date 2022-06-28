@@ -1,2 +1,3 @@
-# pephub_db
-Database for storing pep projects
+# pepagent + pep_db
+
+Database and pep_db_agent for storing and processing pep projects
