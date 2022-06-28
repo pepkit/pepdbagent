@@ -1,12 +1,12 @@
 import psycopg2
 import json
 import logmuse
-
 import sys
 import peppy
-from pprint import pprint
 
-_LOGGER = logmuse.init_logger('pepDB_connector')
+# from pprint import pprint
+
+_LOGGER = logmuse.init_logger("pepDB_connector")
 
 
 class PepAgent:
@@ -15,22 +15,19 @@ class PepAgent:
     """
 
     def __init__(
-            self,
-            host="localhost",
-            port=5432,
-            database="pep-base-sql",
-            user=None,
-            password=None,
+        self,
+        host="localhost",
+        port=5432,
+        database="pep-base-sql",
+        user=None,
+        password=None,
     ):
         _LOGGER.info(f"Initializing connection to {database}...")
 
         try:
             self.postgresConnection = psycopg2.connect(
-                host=host,
-                port=port,
-                database=database,
-                user=user,
-                password=password)
+                host=host, port=port, database=database, user=user, password=password
+            )
 
             _LOGGER.info(f"Connected!")
 
@@ -54,8 +51,8 @@ class PepAgent:
         cursor = self.postgresConnection.cursor()
         try:
             proj_dict = project.to_dict(extended=True)
-            proj_name = proj_dict['name']
-            proj_description = proj_dict['description']
+            proj_name = proj_dict["name"]
+            proj_description = proj_dict["description"]
             n_samples = len(project)
             proj_dict = json.dumps(proj_dict)
 
@@ -70,7 +67,9 @@ class PepAgent:
             print(f"{e}")
             cursor.close()
 
-    def get_project(self, project_name: str = None, project_id: int = None) -> peppy.Project:
+    def get_project(
+        self, project_name: str = None, project_id: int = None
+    ) -> peppy.Project:
         """
         Retrieving project from database by specifying project name or id
         :param str project_name: project name in database
@@ -90,7 +89,9 @@ class PepAgent:
             found_prj = self.run_sql_search_single(sql_q, project_id)
 
         else:
-            _LOGGER.error("You haven't provided neither name nor id! Execution is unsuccessful")
+            _LOGGER.error(
+                "You haven't provided neither name nor id! Execution is unsuccessful"
+            )
             _LOGGER.info("Files haven't been downloaded, returning empty project")
             return peppy.Project()
 
@@ -150,10 +151,12 @@ class PepAgent:
             cursor.close()
 
 
-
 def main():
     # Create connection to db:
-    projectDB = PepAgent(user="postgres", password="docker",)
+    projectDB = PepAgent(
+        user="postgres",
+        password="docker",
+    )
 
     # # Add new project to database
     # prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable3/project_config.yaml")
@@ -164,7 +167,7 @@ def main():
     print(pr_ob.samples)
 
     # #Get project by name
-    pr_ob = projectDB.get_project(project_name='imply')
+    pr_ob = projectDB.get_project(project_name="imply")
     print(pr_ob.samples)
 
     # Get list of available projects:
@@ -172,7 +175,7 @@ def main():
     print(list_of_projects)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         sys.exit(main())
     except KeyboardInterrupt:
