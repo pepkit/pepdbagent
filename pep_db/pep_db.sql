@@ -10,6 +10,7 @@ CREATE TABLE projects (
     project_name text NOT NULL,
     project_value json NOT NULL,
     description text,
+    namespace text,
     n_samples_project int
 );
 

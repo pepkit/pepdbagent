@@ -47,7 +47,7 @@ class PepAgent:
         """
         self.postgresConnection.close()
 
-    def upload_project(self, project: peppy) -> None:
+    def upload_project(self, project: peppy, namespace=None) -> None:
         cursor = self.postgresConnection.cursor()
         try:
             proj_dict = project.to_dict(extended=True)
@@ -56,12 +56,15 @@ class PepAgent:
             n_samples = len(project)
             proj_dict = json.dumps(proj_dict)
 
-            sql = """INSERT INTO projects(project_name, project_value, description, n_samples_project)
-            VALUES (%s, %s, %s, %s) RETURNING id;"""
-            cursor.execute(sql, (proj_name, proj_dict, proj_description, n_samples))
+            sql = """INSERT INTO projects(project_name, project_value, description, n_samples_project, namespace)
+            VALUES (%s, %s, %s, %s, %s) RETURNING id;"""
+            cursor.execute(sql, (proj_name, proj_dict, proj_description, n_samples, namespace))
+
+            proj_id = cursor.fetchone()[0]
 
             self._commit_connection()
             cursor.close()
+            _LOGGER.info(f"Project: {proj_name} was successfully uploaded. The Id of this project is {proj_id}")
 
         except psycopg2.Error as e:
             print(f"{e}")
@@ -158,21 +161,21 @@ def main():
         password="docker",
     )
 
-    # # Add new project to database
-    # prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable3/project_config.yaml")
-    # projectDB.upload_project(prp_project2)
+    # Add new project to database
+    prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable2/project_config.yaml")
+    projectDB.upload_project(prp_project2)
 
-    # Get project by id:
-    pr_ob = projectDB.get_project(project_id=3)
-    print(pr_ob.samples)
-
-    # #Get project by name
-    pr_ob = projectDB.get_project(project_name="imply")
-    print(pr_ob.samples)
-
-    # Get list of available projects:
-    list_of_projects = projectDB.get_projects_list()
-    print(list_of_projects)
+    # # Get project by id:
+    # pr_ob = projectDB.get_project(project_id=3)
+    # print(pr_ob.samples)
+    #
+    # # #Get project by name
+    # pr_ob = projectDB.get_project(project_name="imply")
+    # print(pr_ob.samples)
+    #
+    # # Get list of available projects:
+    # list_of_projects = projectDB.get_projects_list()
+    # print(list_of_projects)
 
 
 if __name__ == "__main__":
