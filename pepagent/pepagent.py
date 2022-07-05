@@ -3,11 +3,13 @@ import json
 import logmuse
 import sys
 import peppy
+import os
 
 # from pprint import pprint
 
 _LOGGER = logmuse.init_logger("pepDB_connector")
 
+# TODO: create constant variables for col names and some peppy variables
 
 class PepAgent:
     """
@@ -50,15 +52,26 @@ class PepAgent:
     def upload_project(self, project: peppy, namespace=None) -> None:
         cursor = self.postgresConnection.cursor()
         try:
+            if namespace is None:
+                namespace = "other"
             proj_dict = project.to_dict(extended=True)
             proj_name = proj_dict["name"]
-            proj_description = proj_dict["description"]
-            n_samples = len(project)
+            proj_digest = self._create_digest(proj_dict)
+            anno_info = json.dumps(
+                {"proj_description": proj_dict["description"],
+                 "n_samples": len(project.samples)}
+            )
+
             proj_dict = json.dumps(proj_dict)
 
-            sql = """INSERT INTO projects(project_name, project_value, description, n_samples_project, namespace)
+            sql = """INSERT INTO projects(namespace, name, digest, project_value, anno_info)
             VALUES (%s, %s, %s, %s, %s) RETURNING id;"""
-            cursor.execute(sql, (proj_name, proj_dict, proj_description, n_samples, namespace))
+            cursor.execute(sql, (namespace,
+                                 proj_name,
+                                 proj_digest,
+                                 proj_dict,
+                                 anno_info,
+                                 ))
 
             proj_id = cursor.fetchone()[0]
 
@@ -80,11 +93,11 @@ class PepAgent:
         :return: peppy object with found project
         """
         sql_q = """
-                select project_name, project_value from projects
+                select name, project_value from projects
                 """
 
         if project_name is not None:
-            sql_q = f""" {sql_q} where project_name=%s;"""
+            sql_q = f""" {sql_q} where name=%s;"""
             found_prj = self.run_sql_search_single(sql_q, project_name)
 
         elif project_id is not None:
@@ -112,7 +125,7 @@ class PepAgent:
         return: list with ids, names, and descriptions of the project
         """
 
-        sql_q = """select id, project_name, description from projects"""
+        sql_q = """select id, name, anno_info from projects"""
         result = self.run_sql_search_all(sql_q)
 
         return result
@@ -154,6 +167,17 @@ class PepAgent:
             cursor.close()
 
 
+    @staticmethod
+    def _create_digest(project_dict: dict):
+        """
+        Create digest for PEP project
+        :param dict project_dict: project dict
+        :return: digest string
+        """
+        _LOGGER.info(f"Creating digest for: {project_dict['name']}")
+        return "digest007"
+
+
 def main():
     # Create connection to db:
     projectDB = PepAgent(
@@ -162,20 +186,31 @@ def main():
     )
 
     # Add new project to database
-    prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable2/project_config.yaml")
-    projectDB.upload_project(prp_project2)
+    # prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable2/project_config.yaml")
+    # projectDB.upload_project(prp_project2)
 
-    # # Get project by id:
-    # pr_ob = projectDB.get_project(project_id=3)
-    # print(pr_ob.samples)
+    # directory = "/home/bnt4me/Virginia/pephub_db/sample_pep/"
+    # os.walk(directory)
+    # projects = ([os.path.join(x[0],'project_config.yaml') for x in os.walk(directory)])[1:]
     #
-    # # #Get project by name
-    # pr_ob = projectDB.get_project(project_name="imply")
-    # print(pr_ob.samples)
-    #
-    # # Get list of available projects:
-    # list_of_projects = projectDB.get_projects_list()
-    # print(list_of_projects)
+    # print(projects)
+    # for d in projects:
+    #     try:
+    #         prp_project2 = peppy.Project(d)
+    #         projectDB.upload_project(prp_project2)
+    #     except Exception:
+    #         pass
+    # Get project by id:
+    pr_ob = projectDB.get_project(project_id=3)
+    print(pr_ob.samples)
+
+    # #Get project by name
+    pr_ob = projectDB.get_project(project_name="imply")
+    print(pr_ob.samples)
+
+    # Get list of available projects:
+    list_of_projects = projectDB.get_projects_list()
+    print(list_of_projects)
 
 
 if __name__ == "__main__":
