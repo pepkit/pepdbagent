@@ -1,3 +1,4 @@
 psycopg2
 logmuse
 peppy
+ubiquerg>=0.6.2

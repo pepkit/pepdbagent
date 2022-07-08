@@ -4,10 +4,17 @@ import logmuse
 import sys
 import peppy
 import os
+from hashlib import md5
+import ubiquerg
 
 # from pprint import pprint
 
+DB_TABLE_NAME = "projects"
+DB_COLUMNS = ['id', 'project_value', 'anno_info', 'namespace', 'name', 'digest']
+
+
 _LOGGER = logmuse.init_logger("pepDB_connector")
+
 
 # TODO: create constant variables for col names and some peppy variables
 
@@ -18,6 +25,7 @@ class PepAgent:
 
     def __init__(
         self,
+        dsn=None,
         host="localhost",
         port=5432,
         database="pep-base-sql",
@@ -27,11 +35,22 @@ class PepAgent:
         _LOGGER.info(f"Initializing connection to {database}...")
 
         try:
-            self.postgresConnection = psycopg2.connect(
-                host=host, port=port, database=database, user=user, password=password
-            )
+            if dsn is not None:
+                self.postgresConnection = psycopg2.connect(dsn)
+            else:
+                self.postgresConnection = psycopg2.connect(
+                    host=host,
+                    port=port,
+                    database=database,
+                    user=user,
+                    password=password,
+                )
 
-            _LOGGER.info(f"Connected!")
+            # Ensure data is added to the database immediately after write commands
+            self.postgresConnection.autocommit = True
+
+            self._check_conn_db()
+            _LOGGER.info(f"Connected successfully!")
 
         except psycopg2.Error as e:
             _LOGGER.error(f"Error occurred while connecting to db {e}")
@@ -84,25 +103,35 @@ class PepAgent:
             cursor.close()
 
     def get_project(
-        self, project_name: str = None, project_id: int = None
+            self,
+            registry: str = None,
+            namespace: str = None,
+            name: str = None,
+            id: int = None
     ) -> peppy.Project:
         """
         Retrieving project from database by specifying project name or id
-        :param str project_name: project name in database
-        :param str project_id: project id in database
+        :param str registry: project registry
+        :param str namespace: project registry [should be used with name]
+        :param str name: project name in database [should be used with namespace]
+        :param str id: project id in database
         :return: peppy object with found project
         """
         sql_q = """
                 select name, project_value from projects
                 """
+        if registry is not None:
+            reg = ubiquerg.parse_registry_path(registry)
+            namespace = reg['namespace']
+            name = reg['item']
 
-        if project_name is not None:
-            sql_q = f""" {sql_q} where name=%s;"""
-            found_prj = self.run_sql_search_single(sql_q, project_name)
+        if name is not None and namespace is not None:
+            sql_q = f""" {sql_q} where name=%s and namespace=%s;"""
+            found_prj = self.run_sql_search_single(sql_q, name, namespace)
 
-        elif project_id is not None:
+        elif id is not None:
             sql_q = f""" {sql_q} where id=%s; """
-            found_prj = self.run_sql_search_single(sql_q, project_id)
+            found_prj = self.run_sql_search_single(sql_q, id)
 
         else:
             _LOGGER.error(
@@ -130,7 +159,7 @@ class PepAgent:
 
         return result
 
-    def run_sql_search_single(self, sql_query: str, *argv) -> set:
+    def run_sql_search_single(self, sql_query: str, *argv) -> list:
         """
         Fetching one result by providing sql query and arguments
         :param str sql_query: sql string that has to run
@@ -142,7 +171,7 @@ class PepAgent:
             cursor.execute(sql_query, argv)
             output_result = cursor.fetchone()
             cursor.close()
-            return output_result
+            return list(output_result)
         except psycopg2.Error as e:
             _LOGGER.error(f"Error occurred while running query: {e}")
         finally:
@@ -166,7 +195,6 @@ class PepAgent:
         finally:
             cursor.close()
 
-
     @staticmethod
     def _create_digest(project_dict: dict):
         """
@@ -175,15 +203,36 @@ class PepAgent:
         :return: digest string
         """
         _LOGGER.info(f"Creating digest for: {project_dict['name']}")
-        return "digest007"
+        sample_digest = md5(json.dumps(project_dict["_samples"], sort_keys=True).encode('utf-8')).hexdigest()
+
+        return sample_digest
+
+    def _check_conn_db(self):
+        """
+        Checking if connected database has correct column_names
+        """
+        a = f"""
+            SELECT *
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = N'{DB_TABLE_NAME}'
+            """
+        result = self.run_sql_search_all(a)
+        cols_name = []
+        for col in result:
+            cols_name.append(col[3])
+        DB_COLUMNS.sort()
+        cols_name.sort()
+        if DB_COLUMNS != cols_name:
+            raise psycopg2.Error
 
 
 def main():
     # Create connection to db:
-    projectDB = PepAgent(
-        user="postgres",
-        password="docker",
-    )
+    # projectDB = PepAgent(
+    #     user="postgres",
+    #     password="docker",
+    # )
+    projectDB = PepAgent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
 
     # Add new project to database
     # prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable2/project_config.yaml")
@@ -201,16 +250,16 @@ def main():
     #     except Exception:
     #         pass
     # Get project by id:
-    pr_ob = projectDB.get_project(project_id=3)
+    pr_ob = projectDB.get_project(registry="other/imply")
     print(pr_ob.samples)
-
-    # #Get project by name
-    pr_ob = projectDB.get_project(project_name="imply")
-    print(pr_ob.samples)
-
-    # Get list of available projects:
-    list_of_projects = projectDB.get_projects_list()
-    print(list_of_projects)
+    #
+    # # #Get project by name
+    # pr_ob = projectDB.get_project(project_name="imply")
+    # print(pr_ob.samples)
+    #
+    # # Get list of available projects:
+    # list_of_projects = projectDB.get_projects_list()
+    # print(list_of_projects)
 
 
 if __name__ == "__main__":

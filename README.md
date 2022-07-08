@@ -2,7 +2,12 @@
 
 Database and pep_db_agent for storing and processing pep projects
 
---
+---
+## How to create pep_db:
+
+Complete instruction can be found here: [pep_db](pep_db)
+
+---
 ## How to use pepagent
 1) Create connection with DB:
 ```python
