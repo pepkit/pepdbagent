@@ -11,12 +11,12 @@ from .exceptions import *
 # from pprint import pprint
 
 DB_TABLE_NAME = "projects"
-ID_COL = 'id'
-PROJ_COL = 'project_value'
-ANNO_COL = 'anno_info'
-NAMESPACE_COL = 'namespace'
-NAME_COL = 'name'
-DIGEST_COL = 'digest'
+ID_COL = "id"
+PROJ_COL = "project_value"
+ANNO_COL = "anno_info"
+NAMESPACE_COL = "namespace"
+NAME_COL = "name"
+DIGEST_COL = "digest"
 
 DB_COLUMNS = [ID_COL, PROJ_COL, ANNO_COL, NAMESPACE_COL, NAME_COL, DIGEST_COL]
 
@@ -68,12 +68,19 @@ class PepAgent:
         """
         self.postgresConnection.close()
 
-    def upload_project(self, project: peppy.Project, namespace=None, name=None, anno=None) -> None:
+    def upload_project(
+        self,
+        project: peppy.Project,
+        namespace: str = None,
+        name: str = None,
+        anno: dict = None,
+    ) -> None:
         """
         Upload project to the database
         :param peppy.Project project: Project object that has to be uploaded to the DB
         :param str namespace: namespace of the project (Default: 'other')
         :param str name: name of the project (Default: name is taken from the project object)
+        :param dict anno: dict with annotations about current project
         """
         cursor = self.postgresConnection.cursor()
         try:
@@ -85,8 +92,10 @@ class PepAgent:
             else:
                 proj_name = proj_dict["name"]
             proj_digest = self._create_digest(proj_dict)
-            anno_info = {"proj_description": proj_dict["description"],
-                         "n_samples": len(project.samples), }
+            anno_info = {
+                "proj_description": proj_dict["description"],
+                "n_samples": len(project.samples),
+            }
             if anno:
                 anno_info.update(anno)
             anno_info = json.dumps(anno_info)
@@ -94,31 +103,37 @@ class PepAgent:
 
             sql = f"""INSERT INTO projects({NAMESPACE_COL}, {NAME_COL}, {DIGEST_COL}, {PROJ_COL}, {ANNO_COL})
             VALUES (%s, %s, %s, %s, %s) RETURNING {ID_COL};"""
-            cursor.execute(sql, (namespace,
-                                 proj_name,
-                                 proj_digest,
-                                 proj_dict,
-                                 anno_info,
-                                 ))
+            cursor.execute(
+                sql,
+                (
+                    namespace,
+                    proj_name,
+                    proj_digest,
+                    proj_dict,
+                    anno_info,
+                ),
+            )
 
             proj_id = cursor.fetchone()[0]
             # _LOGGER.info(f"Uploading {proj_name} project!")
             print("dsfasdf")
             self._commit_connection()
             cursor.close()
-            _LOGGER.info(f"Project: {proj_name} was successfully uploaded. The Id of this project is {proj_id}")
+            _LOGGER.info(
+                f"Project: {proj_name} was successfully uploaded. The Id of this project is {proj_id}"
+            )
 
         except psycopg2.Error as e:
             print(f"{e}")
             cursor.close()
 
     def get_project(
-            self,
-            registry: str = None,
-            namespace: str = None,
-            name: str = None,
-            id: int = None,
-            digest: str = None,
+        self,
+        registry: str = None,
+        namespace: str = None,
+        name: str = None,
+        id: int = None,
+        digest: str = None,
     ) -> peppy.Project:
         """
         Retrieving project from database by specifying project name or id
@@ -134,8 +149,8 @@ class PepAgent:
                 """
         if registry is not None:
             reg = ubiquerg.parse_registry_path(registry)
-            namespace = reg['namespace']
-            name = reg['item']
+            namespace = reg["namespace"]
+            name = reg["item"]
 
         if name is not None and namespace is not None:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s;"""
@@ -197,12 +212,12 @@ class PepAgent:
         return namespace_list
 
     def get_anno(
-            self,
-            registry: str = None,
-            namespace: str = None,
-            name: str = None,
-            id: int = None,
-            digest: str = None,
+        self,
+        registry: str = None,
+        namespace: str = None,
+        name: str = None,
+        id: int = None,
+        digest: str = None,
     ) -> dict:
         """
         Retrieving project annotation dict by specifying project namespace/name, id, or digest
@@ -224,13 +239,13 @@ class PepAgent:
                 """
         if registry:
             reg = ubiquerg.parse_registry_path(registry)
-            namespace = reg['namespace']
-            name = reg['item']
+            namespace = reg["namespace"]
+            name = reg["item"]
 
         if not name and namespace:
             return self._get_namespace_proj_anno(namespace)
 
-        if name and namespace :
+        if name and namespace:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s;"""
             found_prj = self.run_sql_search_single(sql_q, name, namespace)
 
@@ -251,10 +266,12 @@ class PepAgent:
 
         _LOGGER.info(f"Project has been found: {found_prj[0]}")
 
-        anno_dict = {ID_COL: found_prj[0],
-                     NAMESPACE_COL: found_prj[1],
-                     NAME_COL: found_prj[2],
-                     ANNO_COL: found_prj[3]}
+        anno_dict = {
+            ID_COL: found_prj[0],
+            NAMESPACE_COL: found_prj[1],
+            NAME_COL: found_prj[2],
+            ANNO_COL: found_prj[3],
+        }
 
         return anno_dict
 
@@ -279,9 +296,11 @@ class PepAgent:
         results = self.run_sql_search_all(sql_q)
         res_dict = {}
         for result in results:
-            res_dict[result[2]] = {ID_COL: result[0],
-                                   NAMESPACE_COL: result[1],
-                                   ANNO_COL: result[3]}
+            res_dict[result[2]] = {
+                ID_COL: result[0],
+                NAMESPACE_COL: result[1],
+                ANNO_COL: result[3],
+            }
 
         return res_dict
 
@@ -329,7 +348,9 @@ class PepAgent:
         :return: digest string
         """
         _LOGGER.info(f"Creating digest for: {project_dict['name']}")
-        sample_digest = md5(json.dumps(project_dict["_samples"], sort_keys=True).encode('utf-8')).hexdigest()
+        sample_digest = md5(
+            json.dumps(project_dict["_samples"], sort_keys=True).encode("utf-8")
+        ).hexdigest()
 
         return sample_digest
 
@@ -361,7 +382,9 @@ def main():
     projectDB = PepAgent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
 
     # Add new project to database
-    prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable3/project_config.yaml").to_dict(extended=True)
+    prp_project2 = peppy.Project(
+        "/home/bnt4me/Virginia/pephub_db/sample_pep/subtable3/project_config.yaml"
+    ).to_dict(extended=True)
     # projectDB.upload_project(prp_project2, namespace="Bruno")
 
     # new_pr = peppy.Project(project_dict=prp_project2)
@@ -369,7 +392,9 @@ def main():
     # print(new_pr)
     directory = "/home/bnt4me/Virginia/pephub_db/sample_pep/"
     os.walk(directory)
-    projects = ([os.path.join(x[0],'project_config.yaml') for x in os.walk(directory)])[1:]
+    projects = (
+        [os.path.join(x[0], "project_config.yaml") for x in os.walk(directory)]
+    )[1:]
 
     # print(projects)
     # for d in projects:
@@ -392,9 +417,8 @@ def main():
     # print(list_of_projects)
     # peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable2/project_config.yaml")
     # print()
-    dfd = projectDB.get_anno(namespace='other')
+    dfd = projectDB.get_anno(namespace="other")
     print(dfd)
-
 
 
 if __name__ == "__main__":
