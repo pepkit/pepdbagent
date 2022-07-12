@@ -56,8 +56,6 @@ class PepAgent:
         self._check_conn_db()
         _LOGGER.info(f"Connected successfully!")
 
-
-
     def _commit_connection(self) -> None:
         """
         Commit connection
@@ -164,7 +162,7 @@ class PepAgent:
 
         return new_project
 
-    def get_projects(self, namespace: str = None) -> dict:
+    def get_project_list(self, namespace: str = None) -> dict:
         """
         Get list of all projects in namespace
         return: dict with all projects in namespace
@@ -392,9 +390,9 @@ def main():
     # print(list_of_projects)
     # peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable2/project_config.yaml")
     # print()
-    dfd = projectDB.get_projects('other')
-    dfd
-    # print(projectDB.get_namespaces())
+    dfd = projectDB.get_anno(namespace='other')
+    print(dfd)
+
 
 
 if __name__ == "__main__":
