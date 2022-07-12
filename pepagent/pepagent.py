@@ -120,7 +120,8 @@ class PepAgent:
             registry: str = None,
             namespace: str = None,
             name: str = None,
-            id: int = None
+            id: int = None,
+            digest: str = None,
     ) -> peppy.Project:
         """
         Retrieving project from database by specifying project name or id
@@ -128,6 +129,7 @@ class PepAgent:
         :param str namespace: project registry [should be used with name]
         :param str name: project name in database [should be used with namespace]
         :param str id: project id in database
+        :param str digest: project digest in database
         :return: peppy object with found project
         """
         sql_q = """
@@ -145,6 +147,10 @@ class PepAgent:
         elif id is not None:
             sql_q = f""" {sql_q} where {ID_COL}=%s; """
             found_prj = self.run_sql_search_single(sql_q, id)
+
+        elif digest is not None:
+            sql_q = f""" {sql_q} where {DIGEST_COL}=%s; """
+            found_prj = self.run_sql_search_single(sql_q, digest)
 
         else:
             _LOGGER.error(
