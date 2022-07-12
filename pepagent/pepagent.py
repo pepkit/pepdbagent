@@ -6,7 +6,7 @@ import peppy
 import os
 from hashlib import md5
 import ubiquerg
-from exceptions import *
+from .exceptions import *
 
 # from pprint import pprint
 
@@ -68,7 +68,7 @@ class PepAgent:
         """
         self.postgresConnection.close()
 
-    def upload_project(self, project: peppy.Project, namespace=None, name=None) -> None:
+    def upload_project(self, project: peppy.Project, namespace=None, name=None, anno=None) -> None:
         """
         Upload project to the database
         :param peppy.Project project: Project object that has to be uploaded to the DB
@@ -85,11 +85,11 @@ class PepAgent:
             else:
                 proj_name = proj_dict["name"]
             proj_digest = self._create_digest(proj_dict)
-            anno_info = json.dumps(
-                {"proj_description": proj_dict["description"],
-                 "n_samples": len(project.samples)}
-            )
-
+            anno_info = {"proj_description": proj_dict["description"],
+                         "n_samples": len(project.samples), }
+            if anno:
+                anno_info.update(anno)
+            anno_info = json.dumps(anno_info)
             proj_dict = json.dumps(proj_dict)
 
             sql = f"""INSERT INTO projects({NAMESPACE_COL}, {NAME_COL}, {DIGEST_COL}, {PROJ_COL}, {ANNO_COL})
@@ -102,7 +102,8 @@ class PepAgent:
                                  ))
 
             proj_id = cursor.fetchone()[0]
-
+            # _LOGGER.info(f"Uploading {proj_name} project!")
+            print("dsfasdf")
             self._commit_connection()
             cursor.close()
             _LOGGER.info(f"Project: {proj_name} was successfully uploaded. The Id of this project is {proj_id}")
@@ -366,17 +367,18 @@ def main():
     # new_pr = peppy.Project(project_dict=prp_project2)
 
     # print(new_pr)
-    # directory = "/home/bnt4me/Virginia/pephub_db/sample_pep/"
-    # os.walk(directory)
-    # projects = ([os.path.join(x[0],'project_config.yaml') for x in os.walk(directory)])[1:]
-    #
+    directory = "/home/bnt4me/Virginia/pephub_db/sample_pep/"
+    os.walk(directory)
+    projects = ([os.path.join(x[0],'project_config.yaml') for x in os.walk(directory)])[1:]
+
     # print(projects)
     # for d in projects:
     #     try:
     #         prp_project2 = peppy.Project(d)
-    #         projectDB.upload_project(prp_project2)
+    #         projectDB.upload_project(prp_project2, namespace="Test", anno={"Bulba": "Taras"})
     #     except Exception:
     #         pass
+
     # Get project by id:
     # pr_ob = projectDB.get_project(registry="other/imply")
     # print(pr_ob.samples)

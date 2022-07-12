@@ -22,8 +22,9 @@ projectDB = PepAgent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
 # initiate peppy Project
 pep_project = peppy.Project("/sample_pep/subtable3/project_config.yaml")
 # use upload_project function to add this project to the DB
-projectDB.upload_project(pep_project, namespace = "Test")  
+projectDB.upload_project(pep_project, namespace = "Test", anno={"project": "annotation_dict"})  
 # additionally you can specify name of the project
+
 ```
 
 3) Get list of available namespaces:
@@ -60,10 +61,14 @@ print(projects_list)
 
 6) Get annotation about single project or projects:
 ```python
-# Get project by id:
+# Get dictionary of annotation for multiple projects by namespace
 projects_anno_list = projectDB.get_anno(namespace='Test')
+# Get dictionary of annotation for 1 project by id 
 projects_anno_list = projectDB.get_anno(id='5')
+# Get dictionary of annotation for 1 project by digest
 projects_anno_list = projectDB.get_anno(digest='1495b8d5b586ab71c9f3a30dd265b3c3')
+# Get dictionary of annotation for 1 project by registry
+projects_anno_list = projectDB.get_anno(digest='Test/subtable3')
 
 ```
 
