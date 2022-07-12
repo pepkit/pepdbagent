@@ -56,13 +56,13 @@ class PepAgent:
             _LOGGER.error(f"Error occurred while connecting to db {e}")
             sys.exit("Exiting")
 
-    def _commit_connection(self):
+    def _commit_connection(self) -> None:
         """
         Commit connection
         """
         self.postgresConnection.commit()
 
-    def close_connection(self):
+    def close_connection(self) -> None:
         """
         Close connection with database
         """
@@ -159,6 +159,20 @@ class PepAgent:
 
         return result
 
+    def get_namespaces(self) -> list:
+        """
+        Get list of all available namespaces
+        :return: list of available namespaces
+        """
+        sql_query = f"""SELECT DISTINCT namespace FROM {DB_TABLE_NAME};"""
+        namespace_list = []
+        try:
+            for namespace in self.run_sql_search_all(sql_query):
+                namespace_list.append(namespace[0])
+        except KeyError:
+            _LOGGER.warning("Error while getting list of namespaces")
+        return namespace_list
+
     def run_sql_search_single(self, sql_query: str, *argv) -> list:
         """
         Fetching one result by providing sql query and arguments
@@ -196,7 +210,7 @@ class PepAgent:
             cursor.close()
 
     @staticmethod
-    def _create_digest(project_dict: dict):
+    def _create_digest(project_dict: dict) -> str:
         """
         Create digest for PEP project
         :param dict project_dict: project dict
@@ -207,7 +221,7 @@ class PepAgent:
 
         return sample_digest
 
-    def _check_conn_db(self):
+    def _check_conn_db(self) -> None:
         """
         Checking if connected database has correct column_names
         """
@@ -235,8 +249,8 @@ def main():
     projectDB = PepAgent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
 
     # Add new project to database
-    # prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable2/project_config.yaml")
-    # projectDB.upload_project(prp_project2)
+    prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable3/project_config.yaml")
+    projectDB.upload_project(prp_project2, namespace="Bruno")
 
     # directory = "/home/bnt4me/Virginia/pephub_db/sample_pep/"
     # os.walk(directory)
@@ -250,8 +264,8 @@ def main():
     #     except Exception:
     #         pass
     # Get project by id:
-    pr_ob = projectDB.get_project(registry="other/imply")
-    print(pr_ob.samples)
+    # pr_ob = projectDB.get_project(registry="other/imply")
+    # print(pr_ob.samples)
     #
     # # #Get project by name
     # pr_ob = projectDB.get_project(project_name="imply")
@@ -260,6 +274,10 @@ def main():
     # # Get list of available projects:
     # list_of_projects = projectDB.get_projects_list()
     # print(list_of_projects)
+    # peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable2/project_config.yaml")
+    # print()
+
+    print(projectDB.get_namespaces())
 
 
 if __name__ == "__main__":
