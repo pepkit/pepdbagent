@@ -10,8 +10,14 @@ import ubiquerg
 # from pprint import pprint
 
 DB_TABLE_NAME = "projects"
-DB_COLUMNS = ['id', 'project_value', 'anno_info', 'namespace', 'name', 'digest']
+ID_COL = 'id'
+PROJ_COL = 'project_value'
+ANNO_COL = 'anno_info'
+NAMESPACE_COL = 'namespace'
+NAME_COL = 'name'
+DIGEST_COL = 'digest'
 
+DB_COLUMNS = [ID_COL, PROJ_COL, ANNO_COL, NAMESPACE_COL, NAME_COL, DIGEST_COL]
 
 _LOGGER = logmuse.init_logger("pepDB_connector")
 
@@ -143,21 +149,28 @@ class PepAgent:
         _LOGGER.info(f"Project has been found: {found_prj[0]}")
         project_value = found_prj[1]
 
-        new_project = peppy.Project()
-        new_project.from_dict(project_value)
+        new_project = peppy.Project(project_dict=project_value)
 
         return new_project
 
-    def get_projects_list(self) -> list:
+    def get_projects(self, namespace: str = None) -> dict:
         """
-        Get list of all projects
-        return: list with ids, names, and descriptions of the project
+        Get list of all projects in namespace
+        return: dict with all projects in namespace
         """
 
-        sql_q = """select id, name, anno_info from projects"""
-        result = self.run_sql_search_all(sql_q)
+        if not namespace:
+            _LOGGER.info(f"No namespace provided... returning empty list")
+            return {}
 
-        return result
+        sql_q = f"""select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace='{namespace}';"""
+
+        results = self.run_sql_search_all(sql_q)
+        res_dict = {}
+        for result in results:
+            res_dict[result[0]] = peppy.Project(project_dict=result[1])
+
+        return res_dict
 
     def get_namespaces(self) -> list:
         """
@@ -249,9 +262,12 @@ def main():
     projectDB = PepAgent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
 
     # Add new project to database
-    prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable3/project_config.yaml")
-    projectDB.upload_project(prp_project2, namespace="Bruno")
+    prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable3/project_config.yaml").to_dict(extended=True)
+    # projectDB.upload_project(prp_project2, namespace="Bruno")
 
+    # new_pr = peppy.Project(project_dict=prp_project2)
+
+    # print(new_pr)
     # directory = "/home/bnt4me/Virginia/pephub_db/sample_pep/"
     # os.walk(directory)
     # projects = ([os.path.join(x[0],'project_config.yaml') for x in os.walk(directory)])[1:]
@@ -276,8 +292,9 @@ def main():
     # print(list_of_projects)
     # peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable2/project_config.yaml")
     # print()
-
-    print(projectDB.get_namespaces())
+    dfd = projectDB.get_projects('other')
+    dfd
+    # print(projectDB.get_namespaces())
 
 
 if __name__ == "__main__":
