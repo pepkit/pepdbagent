@@ -74,13 +74,22 @@ class PepAgent:
         """
         self.postgresConnection.close()
 
-    def upload_project(self, project: peppy, namespace=None) -> None:
+    def upload_project(self, project: peppy.Project, namespace=None, name=None) -> None:
+        """
+        Upload project to the database
+        :param peppy.Project project: Project object that has to be uploaded to the DB
+        :param str namespace: namespace of the project (Default: 'other')
+        :param str name: name of the project (Default: name is taken from the project object)
+        """
         cursor = self.postgresConnection.cursor()
         try:
             if namespace is None:
                 namespace = "other"
             proj_dict = project.to_dict(extended=True)
-            proj_name = proj_dict["name"]
+            if name:
+                proj_name = name
+            else:
+                proj_name = proj_dict["name"]
             proj_digest = self._create_digest(proj_dict)
             anno_info = json.dumps(
                 {"proj_description": proj_dict["description"],
@@ -89,8 +98,8 @@ class PepAgent:
 
             proj_dict = json.dumps(proj_dict)
 
-            sql = """INSERT INTO projects(namespace, name, digest, project_value, anno_info)
-            VALUES (%s, %s, %s, %s, %s) RETURNING id;"""
+            sql = f"""INSERT INTO projects({NAMESPACE_COL}, {NAME_COL}, {DIGEST_COL}, {PROJ_COL}, {ANNO_COL})
+            VALUES (%s, %s, %s, %s, %s) RETURNING {ID_COL};"""
             cursor.execute(sql, (namespace,
                                  proj_name,
                                  proj_digest,
@@ -132,11 +141,11 @@ class PepAgent:
             name = reg['item']
 
         if name is not None and namespace is not None:
-            sql_q = f""" {sql_q} where name=%s and namespace=%s;"""
+            sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s;"""
             found_prj = self.run_sql_search_single(sql_q, name, namespace)
 
         elif id is not None:
-            sql_q = f""" {sql_q} where id=%s; """
+            sql_q = f""" {sql_q} where {ID_COL}=%s; """
             found_prj = self.run_sql_search_single(sql_q, id)
 
         else:
@@ -177,7 +186,7 @@ class PepAgent:
         Get list of all available namespaces
         :return: list of available namespaces
         """
-        sql_query = f"""SELECT DISTINCT namespace FROM {DB_TABLE_NAME};"""
+        sql_query = f"""SELECT DISTINCT {NAMESPACE_COL} FROM {DB_TABLE_NAME};"""
         namespace_list = []
         try:
             for namespace in self.run_sql_search_all(sql_query):
