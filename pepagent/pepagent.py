@@ -23,8 +23,6 @@ DB_COLUMNS = [ID_COL, PROJ_COL, ANNO_COL, NAMESPACE_COL, NAME_COL, DIGEST_COL]
 _LOGGER = logmuse.init_logger("pepDB_connector")
 
 
-# TODO: create constant variables for col names and some peppy variables
-
 class PepAgent:
     """
     A class to connect to pep-db and upload, download, read and process pep projects.
@@ -132,8 +130,8 @@ class PepAgent:
         :param str digest: project digest in database
         :return: peppy object with found project
         """
-        sql_q = """
-                select name, project_value from projects
+        sql_q = f"""
+                select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME}
                 """
         if registry is not None:
             reg = ubiquerg.parse_registry_path(registry)
@@ -154,7 +152,7 @@ class PepAgent:
 
         else:
             _LOGGER.error(
-                "You haven't provided neither name nor id! Execution is unsuccessful"
+                "You haven't provided neither namespace/name, digest nor id! Execution is unsuccessful"
             )
             _LOGGER.info("Files haven't been downloaded, returning empty project")
             return peppy.Project()
@@ -198,6 +196,95 @@ class PepAgent:
         except KeyError:
             _LOGGER.warning("Error while getting list of namespaces")
         return namespace_list
+
+    def get_anno(
+            self,
+            registry: str = None,
+            namespace: str = None,
+            name: str = None,
+            id: int = None,
+            digest: str = None,
+    ) -> dict:
+        """
+        Retrieving project annotation dict by specifying project namespace/name, id, or digest
+        Additionally can return all namespace project annotations
+        :param str registry: project registry
+        :param str namespace: project registry - will return dict of project annotations
+        :param str name: project name in database [should be used with namespace]
+        :param str id: project id in database
+        :param str digest: project digest in database
+        :return: dict of annotations
+        """
+        sql_q = f"""
+                select 
+                    {ID_COL}, 
+                    {NAMESPACE_COL},
+                    {NAME_COL},
+                    {ANNO_COL}
+                        from {DB_TABLE_NAME}
+                """
+        if registry:
+            reg = ubiquerg.parse_registry_path(registry)
+            namespace = reg['namespace']
+            name = reg['item']
+
+        if not name and namespace:
+            return self._get_namespace_proj_anno(namespace)
+
+        if name and namespace :
+            sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s;"""
+            found_prj = self.run_sql_search_single(sql_q, name, namespace)
+
+        elif id:
+            sql_q = f""" {sql_q} where {ID_COL}=%s; """
+            found_prj = self.run_sql_search_single(sql_q, id)
+
+        elif digest:
+            sql_q = f""" {sql_q} where {DIGEST_COL}=%s; """
+            found_prj = self.run_sql_search_single(sql_q, digest)
+
+        else:
+            _LOGGER.error(
+                "You haven't provided neither namespace/name, digest nor id! Execution is unsuccessful"
+            )
+            _LOGGER.info("Files haven't been downloaded, returning empty dict")
+            return {}
+
+        _LOGGER.info(f"Project has been found: {found_prj[0]}")
+
+        anno_dict = {ID_COL: found_prj[0],
+                     NAMESPACE_COL: found_prj[1],
+                     NAME_COL: found_prj[2],
+                     ANNO_COL: found_prj[3]}
+
+        return anno_dict
+
+    def _get_namespace_proj_anno(self, namespace: str = None) -> dict:
+        """
+        Get list of all project annotations in namespace
+        :param str namespace: namespace
+        return: dict of dicts with all projects in namespace
+        """
+
+        if not namespace:
+            _LOGGER.info(f"No namespace provided... returning empty list")
+            return {}
+
+        sql_q = f"""select 
+                    {ID_COL}, 
+                    {NAMESPACE_COL},
+                    {NAME_COL},
+                    {ANNO_COL} 
+                        from {DB_TABLE_NAME} where namespace='{namespace}';"""
+
+        results = self.run_sql_search_all(sql_q)
+        res_dict = {}
+        for result in results:
+            res_dict[result[2]] = {ID_COL: result[0],
+                                   NAMESPACE_COL: result[1],
+                                   ANNO_COL: result[3]}
+
+        return res_dict
 
     def run_sql_search_single(self, sql_query: str, *argv) -> list:
         """
