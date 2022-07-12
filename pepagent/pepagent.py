@@ -6,6 +6,7 @@ import peppy
 import os
 from hashlib import md5
 import ubiquerg
+from exceptions import *
 
 # from pprint import pprint
 
@@ -40,27 +41,24 @@ class PepAgent:
     ):
         _LOGGER.info(f"Initializing connection to {database}...")
 
-        try:
-            if dsn is not None:
-                self.postgresConnection = psycopg2.connect(dsn)
-            else:
-                self.postgresConnection = psycopg2.connect(
-                    host=host,
-                    port=port,
-                    database=database,
-                    user=user,
-                    password=password,
-                )
+        if dsn is not None:
+            self.postgresConnection = psycopg2.connect(dsn)
+        else:
+            self.postgresConnection = psycopg2.connect(
+                host=host,
+                port=port,
+                database=database,
+                user=user,
+                password=password,
+            )
 
-            # Ensure data is added to the database immediately after write commands
-            self.postgresConnection.autocommit = True
+        # Ensure data is added to the database immediately after write commands
+        self.postgresConnection.autocommit = True
 
-            self._check_conn_db()
-            _LOGGER.info(f"Connected successfully!")
+        self._check_conn_db()
+        _LOGGER.info(f"Connected successfully!")
 
-        except psycopg2.Error as e:
-            _LOGGER.error(f"Error occurred while connecting to db {e}")
-            sys.exit("Exiting")
+
 
     def _commit_connection(self) -> None:
         """
@@ -259,7 +257,7 @@ class PepAgent:
         DB_COLUMNS.sort()
         cols_name.sort()
         if DB_COLUMNS != cols_name:
-            raise psycopg2.Error
+            raise PEPDBCorrectnessError
 
 
 def main():
