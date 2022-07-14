@@ -1,3 +1,5 @@
+from inspect import istraceback
+from typing import List, Union
 import psycopg2
 import json
 import logmuse
@@ -5,20 +7,18 @@ import sys
 import peppy
 import os
 from hashlib import md5
+from itertools import chain
 import ubiquerg
+from yaml import parse
+
+from pepagent.utils import is_valid_resgistry_path
+
 from .exceptions import *
+from .const import *
+from .exceptions import SchemaError
 
 # from pprint import pprint
 
-DB_TABLE_NAME = "projects"
-ID_COL = "id"
-PROJ_COL = "project_value"
-ANNO_COL = "anno_info"
-NAMESPACE_COL = "namespace"
-NAME_COL = "name"
-DIGEST_COL = "digest"
-
-DB_COLUMNS = [ID_COL, PROJ_COL, ANNO_COL, NAMESPACE_COL, NAME_COL, DIGEST_COL]
 
 _LOGGER = logmuse.init_logger("pepDB_connector")
 
@@ -154,15 +154,15 @@ class PepAgent:
 
         if name is not None and namespace is not None:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s;"""
-            found_prj = self.run_sql_search_single(sql_q, name, namespace)
+            found_prj = self.run_sql_fetchone(sql_q, name, namespace)
 
         elif id is not None:
             sql_q = f""" {sql_q} where {ID_COL}=%s; """
-            found_prj = self.run_sql_search_single(sql_q, id)
+            found_prj = self.run_sql_fetchone(sql_q, id)
 
         elif digest is not None:
             sql_q = f""" {sql_q} where {DIGEST_COL}=%s; """
-            found_prj = self.run_sql_search_single(sql_q, digest)
+            found_prj = self.run_sql_fetchone(sql_q, digest)
 
         else:
             _LOGGER.error(
@@ -178,24 +178,77 @@ class PepAgent:
 
         return new_project
 
-    def get_project_list(self, namespace: str = None) -> dict:
+    def get_projects(
+        self,
+        registry_paths: Union[str, List[str]] = None,
+        namespace: str = None,
+    ) -> List[peppy.Project]:
         """
-        Get list of all projects in namespace
-        return: dict with all projects in namespace
+        Get a list of projects as peppy.Project instances. This function can be used in 3 ways:
+        1. Get all projects in the database (call empty)
+        2. Get a list of projects using a list registry paths
+        3. Get a list of projects in a namespace
+
+        :param Union[str, List[str]] registry_paths: A list of registry paths of the form {namespace}/{project}.
+        :param str namespace: The namespace to fetch all projects from.
+        :return List[peppy.Project]: a list of peppy.Project instances for the requested projects.
         """
+        # Case 1. Fetch all projects in database
+        if all([registry_paths is None, namespace is None]):
+            sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME}"
+            results = self.run_sql_fetchall(sql_q)
 
-        if not namespace:
-            _LOGGER.info(f"No namespace provided... returning empty list")
-            return {}
+        # Case 2. fetch list of registry paths
+        elif registry_paths is not None:
+            # check typing
+            if all(
+                [
+                    not isinstance(registry_paths, str),
+                    # not isinstance(registry_paths, List[str]) <-- want this, but python doesnt support type checking a subscripted generic
+                    not isinstance(registry_paths, list),
+                ]
+            ):
+                raise ValueError(
+                    f"Registry paths must be of the type str or List[str]. Supplied: {type(registry_paths)}"
+                )
+            else:
+                # coerce to list if necessary
+                if isinstance(registry_paths, str):
+                    registry_paths = [registry_paths]
+                
+                # check for valid registry paths
+                for rpath in registry_paths:
+                    if not is_valid_resgistry_path(rpath):
+                        # should we raise an error or just warn with the logger?
+                        raise ValueError(f"Invalid registry path supplied: '{rpath}'")
+                
+                # dynamically build filter for set of registry paths
+                _parametrized_filter = ""
+                for i in range(len(registry_paths)):
+                    _parametrized_filter += "(namespace=%s and name=%s)"
+                    if i < len(registry_paths) - 1:
+                        _parametrized_filter += " or "
 
-        sql_q = f"""select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace='{namespace}';"""
+            sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where {_parametrized_filter}"
+            flattened_registries = tuple(
+                chain(
+                    *[
+                        [r["namespace"], r["item"]]
+                        for r in map(
+                            lambda rpath: ubiquerg.parse_registry_path(rpath),
+                            registry_paths,
+                        )
+                    ]
+                )
+            )
+            results = self.run_sql_fetchall(sql_q, flattened_registries)
 
-        results = self.run_sql_search_all(sql_q)
-        res_dict = {}
-        for result in results:
-            res_dict[result[0]] = peppy.Project(project_dict=result[1])
-
-        return res_dict
+        # Case 3. Get projects by namespace
+        else:
+            sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace = %s"
+            results = self.run_sql_fetchall(sql_q, (namespace,))
+        
+        return [peppy.Project(project_dict=p) for p in results]
 
     def get_namespaces(self) -> list:
         """
@@ -205,7 +258,7 @@ class PepAgent:
         sql_query = f"""SELECT DISTINCT {NAMESPACE_COL} FROM {DB_TABLE_NAME};"""
         namespace_list = []
         try:
-            for namespace in self.run_sql_search_all(sql_query):
+            for namespace in self.run_sql_fetchall(sql_query):
                 namespace_list.append(namespace[0])
         except KeyError:
             _LOGGER.warning("Error while getting list of namespaces")
@@ -247,15 +300,15 @@ class PepAgent:
 
         if name and namespace:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s;"""
-            found_prj = self.run_sql_search_single(sql_q, name, namespace)
+            found_prj = self.run_sql_fetchone(sql_q, name, namespace)
 
         elif id:
             sql_q = f""" {sql_q} where {ID_COL}=%s; """
-            found_prj = self.run_sql_search_single(sql_q, id)
+            found_prj = self.run_sql_fetchone(sql_q, id)
 
         elif digest:
             sql_q = f""" {sql_q} where {DIGEST_COL}=%s; """
-            found_prj = self.run_sql_search_single(sql_q, digest)
+            found_prj = self.run_sql_fetchone(sql_q, digest)
 
         else:
             _LOGGER.error(
@@ -293,7 +346,7 @@ class PepAgent:
                     {ANNO_COL} 
                         from {DB_TABLE_NAME} where namespace='{namespace}';"""
 
-        results = self.run_sql_search_all(sql_q)
+        results = self.run_sql_fetchall(sql_q)
         res_dict = {}
         for result in results:
             res_dict[result[2]] = {
@@ -304,7 +357,7 @@ class PepAgent:
 
         return res_dict
 
-    def run_sql_search_single(self, sql_query: str, *argv) -> list:
+    def run_sql_fetchone(self, sql_query: str, *argv) -> list:
         """
         Fetching one result by providing sql query and arguments
         :param str sql_query: sql string that has to run
@@ -322,7 +375,7 @@ class PepAgent:
         finally:
             cursor.close()
 
-    def run_sql_search_all(self, sql_query: str, *argv) -> list:
+    def run_sql_fetchall(self, sql_query: str, args: tuple = None) -> list:
         """
         Fetching all result by providing sql query and arguments
         :param str sql_query: sql string that has to run
@@ -331,7 +384,7 @@ class PepAgent:
         """
         cursor = self.postgresConnection.cursor()
         try:
-            cursor.execute(sql_query, argv)
+            cursor.execute(sql_query, args)
             output_result = cursor.fetchall()
             cursor.close()
             return output_result
@@ -363,14 +416,14 @@ class PepAgent:
             FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_NAME = N'{DB_TABLE_NAME}'
             """
-        result = self.run_sql_search_all(a)
+        result = self.run_sql_fetchall(a)
         cols_name = []
         for col in result:
             cols_name.append(col[3])
         DB_COLUMNS.sort()
         cols_name.sort()
         if DB_COLUMNS != cols_name:
-            raise PEPDBCorrectnessError
+            raise SchemaError
 
 
 def main():
