@@ -154,7 +154,7 @@ class PepAgent:
 
         if name is not None and namespace is not None:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s;"""
-            found_prj = self.run_sql_fetchone(sql_q, name, namespace)
+            found_prj = self.run_sql_fetchone(sql_q, (name, namespace))
 
         elif id is not None:
             sql_q = f""" {sql_q} where {ID_COL}=%s; """
@@ -300,7 +300,7 @@ class PepAgent:
 
         if name and namespace:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s;"""
-            found_prj = self.run_sql_fetchone(sql_q, name, namespace)
+            found_prj = self.run_sql_fetchone(sql_q, (name, namespace))
 
         elif id:
             sql_q = f""" {sql_q} where {ID_COL}=%s; """
@@ -357,13 +357,16 @@ class PepAgent:
 
         return res_dict
 
-    def run_sql_fetchone(self, sql_query: str, *argv) -> list:
+    def run_sql_fetchone(self, sql_query: str, argv) -> list:
         """
         Fetching one result by providing sql query and arguments
         :param str sql_query: sql string that has to run
         :param argv: arguments that has to be added to sql query
         :return: set of query result
         """
+        # coerce argv to tuple if not
+        if not isinstance(argv, tuple):
+            argv = tuple(argv)
         cursor = self.postgresConnection.cursor()
         try:
             cursor.execute(sql_query, argv)
