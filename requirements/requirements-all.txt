@@ -1,4 +1,4 @@
 psycopg2
 logmuse
-peppy
+peppy @ git+https://github.com/pepkit/peppy.git@dev_alex#egg=peppy
 ubiquerg>=0.6.2
