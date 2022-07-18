@@ -44,6 +44,10 @@ class TestDatafetching():
         projects = self.db.get_projects(namespace=EXAMPLE_NAMESPACES[0])
         assert len(projects) == 2
 
+    def test_get_namespaces(self):
+        namespaces = self.db.get_namespaces()
+        assert len(namespaces) > 0
+    
     @pytest.mark.parametrize('namespace', EXAMPLE_NAMESPACES)
     def test_get_namespace(self, namespace: str):
         result = self.db.get_namespace(namespace)

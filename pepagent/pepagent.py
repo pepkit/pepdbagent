@@ -286,8 +286,9 @@ class PepAgent:
         namespaces = []
         try:
             for namespace in self.run_sql_fetchall(sql_query):
-                namespace_list.append(namespace[0])
-                namespaces.append(self.get_namespace(namespace))
+                n = namespace[0]
+                namespace_list.append(n)
+                namespaces.append(self.get_namespace(n))
         except IndexError as e:
             _LOGGER.warning(f"Error while getting list of namespaces: {e}")
         
