@@ -305,7 +305,7 @@ class PepAgent:
             sql_q = f"""SELECT DISTINCT {NAMESPACE_COL} FROM {DB_TABLE_NAME};"""
             namespaces = self.run_sql_fetchall(sql_q)
             if names_only:
-                return namespaces
+                return [n[0] for n in namespaces]
         
         return [self.get_namespace(n) for n in namespaces]
 
