@@ -10,8 +10,10 @@ def is_valid_resgistry_path(rpath: str) -> bool:
     # check for string
     if not isinstance(rpath, str):
         return False
-    return all([
-        "/" in rpath,
-        len(rpath.split("/")) == 2,
-        all([isinstance(s, str) for s in rpath.split("/")])
-    ])
+    return all(
+        [
+            "/" in rpath,
+            len(rpath.split("/")) == 2,
+            all([isinstance(s, str) for s in rpath.split("/")]),
+        ]
+    )

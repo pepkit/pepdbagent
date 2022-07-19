@@ -215,13 +215,13 @@ class PepAgent:
                 # coerce to list if necessary
                 if isinstance(registry_paths, str):
                     registry_paths = [registry_paths]
-                
+
                 # check for valid registry paths
                 for rpath in registry_paths:
                     if not is_valid_resgistry_path(rpath):
                         # should we raise an error or just warn with the logger?
                         raise ValueError(f"Invalid registry path supplied: '{rpath}'")
-                
+
                 # dynamically build filter for set of registry paths
                 parametrized_filter = ""
                 for i in range(len(registry_paths)):
@@ -247,10 +247,10 @@ class PepAgent:
         else:
             sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace = %s"
             results = self.run_sql_fetchall(sql_q, (namespace,))
-        
+
         # extract out the project config dictionary from the query
         return [peppy.Project(project_dict=p[1]) for p in results]
-    
+
     def get_namespace(self, namespace: str) -> dict:
         """
         Fetch a particular namespace from the database. This doesnt retrieve full project
@@ -261,18 +261,23 @@ class PepAgent:
         """
         sql_q = f"select {ID_COL}, {NAME_COL}, {DIGEST_COL}, {ANNO_COL} from {DB_TABLE_NAME} where namespace = %s"
         results = self.run_sql_fetchall(sql_q, namespace)
-        projects = list(map(lambda p: {
-            'id': p[0],
-            'name': p[1],
-            'digest': p[2],
-            'description': p[3]['proj_description'],
-            'n_samples': p[3]['n_samples']
-        }, results))
+        projects = list(
+            map(
+                lambda p: {
+                    "id": p[0],
+                    "name": p[1],
+                    "digest": p[2],
+                    "description": p[3]["proj_description"],
+                    "n_samples": p[3]["n_samples"],
+                },
+                results,
+            )
+        )
         result = {
-            'namespace': namespace,
-            'projects': projects,
-            'n_samples': sum(map(lambda p: p['n_samples'], projects)),
-            'n_projects': len(projects)
+            "namespace": namespace,
+            "projects": projects,
+            "n_samples": sum(map(lambda p: p["n_samples"], projects)),
+            "n_projects": len(projects),
         }
         return result
 
@@ -292,7 +297,7 @@ class PepAgent:
                 namespaces.append(self.get_namespace(n))
         except IndexError as e:
             _LOGGER.warning(f"Error while getting list of namespaces: {e}")
-        
+
         # determine which list to return
         if names_only:
             return namespace_list
@@ -392,14 +397,14 @@ class PepAgent:
 
         return res_dict
 
-    def run_sql_fetchone(self, sql_query: str, argv = ()) -> list:
+    def run_sql_fetchone(self, sql_query: str, argv=()) -> list:
         """
         Fetching one result by providing sql query and arguments
         :param str sql_query: sql string that has to run
         :param argv: arguments that has to be added to sql query
         :return: set of query result
         """
-                # coerce argv to tuple if not
+        # coerce argv to tuple if not
         if isinstance(argv, list):
             argv = tuple(argv)
         elif not isinstance(argv, tuple):
@@ -415,7 +420,7 @@ class PepAgent:
         finally:
             cursor.close()
 
-    def run_sql_fetchall(self, sql_query: str, argv = ()) -> list:
+    def run_sql_fetchall(self, sql_query: str, argv=()) -> list:
         """
         Fetching all result by providing sql query and arguments
         :param str sql_query: sql string that has to run
