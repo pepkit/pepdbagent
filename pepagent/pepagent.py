@@ -284,28 +284,30 @@ class PepAgent:
         }
         return result
 
-    def get_namespaces(self, names_only: bool = False) -> list:
+    def get_namespaces(self, namespaces: List[str] = None, names_only: bool = False) -> list:
         """
         Get list of all available namespaces
+
+        :param List[str] namespaces: An optional list of namespaces to fetch.
         :param bool names_only: Flag to indicate you only want unique namespace names
         :return: list of available namespaces
         """
-        sql_query = f"""SELECT DISTINCT {NAMESPACE_COL} FROM {DB_TABLE_NAME};"""
-        namespace_list = []
-        namespaces = []
-        try:
-            for namespace in self.run_sql_fetchall(sql_query):
-                n = namespace[0]
-                namespace_list.append(n)
-                namespaces.append(self.get_namespace(n))
-        except IndexError as e:
-            _LOGGER.warning(f"Error while getting list of namespaces: {e}")
-
-        # determine which list to return
-        if names_only:
-            return namespace_list
+        if namespaces is not None:
+            # coerce to list if not
+            if isinstance(namespaces, str):
+                namespaces = [namespaces]
+            # verify all strings
+            elif not all([
+                isinstance(n, str) for n in namespaces
+            ]):
+                raise ValueError(f"Namespace list must only contain str. Supplied: {namespaces}")  
         else:
-            return namespaces
+            sql_q = f"""SELECT DISTINCT {NAMESPACE_COL} FROM {DB_TABLE_NAME};"""
+            namespaces = self.run_sql_fetchall(sql_q)
+            if names_only:
+                return namespaces
+        
+        return [self.get_namespace(n) for n in namespaces]
 
     def get_anno(
         self,
