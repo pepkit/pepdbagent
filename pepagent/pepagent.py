@@ -303,7 +303,7 @@ class PepAgent:
                 raise ValueError(f"Namespace list must only contain str. Supplied: {namespaces}")  
         else:
             sql_q = f"""SELECT DISTINCT {NAMESPACE_COL} FROM {DB_TABLE_NAME};"""
-            namespaces = self.run_sql_fetchall(sql_q)
+            namespaces = [n[0] for n in self.run_sql_fetchall(sql_q)]
             if names_only:
                 return [n[0] for n in namespaces]
         
