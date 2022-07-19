@@ -171,12 +171,15 @@ class PepAgent:
             _LOGGER.info("Files haven't been downloaded, returning empty project")
             return peppy.Project()
 
-        _LOGGER.info(f"Project has been found: {found_prj[0]}")
-        project_value = found_prj[1]
-
-        new_project = peppy.Project(project_dict=project_value)
-
-        return new_project
+        if found_prj is not None:
+            _LOGGER.info(f"Project has been found: {found_prj[0]}")
+            project_value = found_prj[1]
+            return peppy.Project(project_dict=project_value)
+        else:
+            _LOGGER.warn(
+                f"No project found for supplied input. Did you supply a valid namespace and project? {sql_q}"
+            )
+            return None
 
     def get_projects(
         self,
@@ -413,8 +416,12 @@ class PepAgent:
         try:
             cursor.execute(sql_query, argv)
             output_result = cursor.fetchone()
-            cursor.close()
-            return list(output_result)
+
+            # must run check here since None is not iterable.
+            if output_result is not None:
+                return list(output_result)
+            else:
+                return None
         except psycopg2.Error as e:
             _LOGGER.error(f"Error occurred while running query: {e}")
         finally:
