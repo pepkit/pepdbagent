@@ -48,6 +48,11 @@ class TestDatafetching():
         namespaces = self.db.get_namespaces()
         assert len(namespaces) > 0
     
+    def test_get_namespace_list(self):
+        namespaces = self.db.get_namespaces(names_only=True)
+        assert all([
+            isinstance(n, str) for n in namespaces
+        ])
     @pytest.mark.parametrize('namespace', EXAMPLE_NAMESPACES)
     def test_get_namespace(self, namespace: str):
         result = self.db.get_namespace(namespace)

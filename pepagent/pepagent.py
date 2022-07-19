@@ -248,7 +248,8 @@ class PepAgent:
             sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace = %s"
             results = self.run_sql_fetchall(sql_q, (namespace,))
         
-        return [peppy.Project(project_dict=p) for p in results]
+        # extract out the project config dictionary from the query
+        return [peppy.Project(project_dict=p[1]) for p in results]
     
     def get_namespace(self, namespace: str) -> dict:
         """
