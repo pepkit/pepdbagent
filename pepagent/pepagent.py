@@ -279,7 +279,9 @@ class PepAgent:
         }
         return result
 
-    def get_namespaces(self, namespaces: List[str] = None, names_only: bool = False) -> list:
+    def get_namespaces(
+        self, namespaces: List[str] = None, names_only: bool = False
+    ) -> list:
         """
         Get list of all available namespaces
 
@@ -292,16 +294,16 @@ class PepAgent:
             if isinstance(namespaces, str):
                 namespaces = [namespaces]
             # verify all strings
-            elif not all([
-                isinstance(n, str) for n in namespaces
-            ]):
-                raise ValueError(f"Namespace list must only contain str. Supplied: {namespaces}")  
+            elif not all([isinstance(n, str) for n in namespaces]):
+                raise ValueError(
+                    f"Namespace list must only contain str. Supplied: {namespaces}"
+                )
         else:
             sql_q = f"""SELECT DISTINCT {NAMESPACE_COL} FROM {DB_TABLE_NAME};"""
             namespaces = [n[0] for n in self.run_sql_fetchall(sql_q)]
             if names_only:
                 return [n[0] for n in namespaces]
-        
+
         return [self.get_namespace(n) for n in namespaces]
 
     def get_anno(
