@@ -244,7 +244,7 @@ class PepAgent:
         # Case 3. Get projects by namespace
         else:
             sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace = %s"
-            results = self.run_sql_fetchall(sql_q, (namespace,))
+            results = self.run_sql_fetchall(sql_q, namespace)
 
         # extract out the project config dictionary from the query
         return [peppy.Project(project_dict=p[1]) for p in results]
