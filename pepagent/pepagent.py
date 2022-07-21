@@ -7,7 +7,7 @@ from hashlib import md5
 from itertools import chain
 import ubiquerg
 
-from pepagent.utils import is_valid_resgistry_path
+from pepagent.utils import all_elements_are_strings, is_valid_resgistry_path
 
 from .const import *
 from .exceptions import SchemaError
@@ -291,7 +291,7 @@ class PepAgent:
             if isinstance(namespaces, str):
                 namespaces = [namespaces]
             # verify all strings
-            elif not all([isinstance(n, str) for n in namespaces]):
+            elif not all_elements_are_strings(namespaces):
                 raise ValueError(
                     f"Namespace list must only contain str. Supplied: {namespaces}"
                 )

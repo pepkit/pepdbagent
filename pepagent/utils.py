@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+
 def is_valid_resgistry_path(rpath: str) -> bool:
     """
     Verify that a registry path is valid. Checks for two things:
@@ -17,3 +19,14 @@ def is_valid_resgistry_path(rpath: str) -> bool:
             all([isinstance(s, str) for s in rpath.split("/")]),
         ]
     )
+
+def all_elements_are_strings(iterable: Iterable) -> bool:
+    """
+    Helper method to determine if an iterable only contains `str` objects.
+
+    :param Iterable iterable: An iterable item
+    :returns bool: Boolean value indicating if the iterable only contains strings.
+    """
+    if not isinstance(iterable, Iterable):
+        return False
+    return all([isinstance(item, str) for item in iterable])
