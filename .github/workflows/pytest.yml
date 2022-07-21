@@ -14,6 +14,25 @@ jobs:
         python-version: ["3.6", "3.9", "3.10"]
         os: [ubuntu-latest]
 
+    services:
+      postgres:
+        image: postgres
+
+        env:
+          POSTGRES_PASSWORD: docker
+          POSTGRES_USER: postgres
+          POSTGRES_DB: pep-base-sql
+        
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        
+        ports:
+          # Opens tcp port 6379 on the host and service container
+          - 5432:5432
+
     steps:
     - uses: actions/checkout@v2
 
