@@ -259,18 +259,15 @@ class PepAgent:
         """
         sql_q = f"select {ID_COL}, {NAME_COL}, {DIGEST_COL}, {ANNO_COL} from {DB_TABLE_NAME} where namespace = %s"
         results = self.run_sql_fetchall(sql_q, namespace)
-        projects = list(
-            map(
-                lambda p: {
-                    "id": p[0],
-                    "name": p[1],
-                    "digest": p[2],
-                    "description": p[3]["proj_description"],
-                    "n_samples": p[3]["n_samples"],
-                },
-                results,
-            )
-        )
+        projects = [
+          {
+              "id": p[0],
+              "name": p[1],
+              "digest": p[2],
+              "description": p[3]["proj_description"],
+              "n_samples": p[3]["n_samples"],
+          } for p in results
+        ]
         result = {
             "namespace": namespace,
             "projects": projects,
