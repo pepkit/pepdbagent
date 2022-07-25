@@ -1,0 +1,54 @@
+name: Run pytests
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [master]
+
+jobs:
+  pytest:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python-version: ["3.6", "3.9", "3.10"]
+        os: [ubuntu-latest]
+
+    services:
+      postgres:
+        image: postgres
+
+        env:
+          POSTGRES_PASSWORD: docker
+          POSTGRES_USER: postgres
+          POSTGRES_DB: pep-base-sql
+        
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        
+        ports:
+          # Opens tcp port 6379 on the host and service container
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dev dependancies
+      run: if [ -f requirements/requirements-dev.txt ]; then pip install -r requirements/requirements-dev.txt; fi
+
+    - name: Install test dependancies
+      run: if [ -f requirements/requirements-test.txt ]; then pip install -r requirements/requirements-test.txt; fi
+
+    - name: Install package
+      run: python -m pip install .
+
+    - name: Run pytest tests
+      run: pytest tests -x -vv

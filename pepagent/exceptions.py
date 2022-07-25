@@ -1,10 +1,10 @@
 """ Custom error types """
 
 
-__all__ = ["PEPDBCorrectnessError"]
+__all__ = ["SchemaError"]
 
 
-class PEPDBCorrectnessError(Exception):
+class SchemaError(Exception):
     def __init__(self):
         # Call the base class constructor with the parameters it needs
         super().__init__(

@@ -1,24 +1,19 @@
+from typing import List, Union
 import psycopg2
 import json
 import logmuse
-import sys
 import peppy
-import os
 from hashlib import md5
+from itertools import chain
 import ubiquerg
-from .exceptions import *
+
+from pepagent.utils import all_elements_are_strings, is_valid_resgistry_path
+
+from .const import *
+from .exceptions import SchemaError
 
 # from pprint import pprint
 
-DB_TABLE_NAME = "projects"
-ID_COL = "id"
-PROJ_COL = "project_value"
-ANNO_COL = "anno_info"
-NAMESPACE_COL = "namespace"
-NAME_COL = "name"
-DIGEST_COL = "digest"
-
-DB_COLUMNS = [ID_COL, PROJ_COL, ANNO_COL, NAMESPACE_COL, NAME_COL, DIGEST_COL]
 
 _LOGGER = logmuse.init_logger("pepDB_connector")
 
@@ -154,15 +149,15 @@ class PepAgent:
 
         if name is not None and namespace is not None:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s;"""
-            found_prj = self.run_sql_search_single(sql_q, name, namespace)
+            found_prj = self.run_sql_fetchone(sql_q, name, namespace)
 
         elif id is not None:
             sql_q = f""" {sql_q} where {ID_COL}=%s; """
-            found_prj = self.run_sql_search_single(sql_q, id)
+            found_prj = self.run_sql_fetchone(sql_q, id)
 
         elif digest is not None:
             sql_q = f""" {sql_q} where {DIGEST_COL}=%s; """
-            found_prj = self.run_sql_search_single(sql_q, digest)
+            found_prj = self.run_sql_fetchone(sql_q, digest)
 
         else:
             _LOGGER.error(
@@ -171,45 +166,143 @@ class PepAgent:
             _LOGGER.info("Files haven't been downloaded, returning empty project")
             return peppy.Project()
 
-        _LOGGER.info(f"Project has been found: {found_prj[0]}")
-        project_value = found_prj[1]
+        if found_prj is not None:
+            _LOGGER.info(f"Project has been found: {found_prj[0]}")
+            project_value = found_prj[1]
+            return peppy.Project(project_dict=project_value)
+        else:
+            _LOGGER.warn(
+                f"No project found for supplied input. Did you supply a valid namespace and project? {sql_q}"
+            )
+            return None
 
-        new_project = peppy.Project(project_dict=project_value)
-
-        return new_project
-
-    def get_project_list(self, namespace: str = None) -> dict:
+    def get_projects(
+        self,
+        registry_paths: Union[str, List[str]] = None,
+        namespace: str = None,
+    ) -> List[peppy.Project]:
         """
-        Get list of all projects in namespace
-        return: dict with all projects in namespace
+        Get a list of projects as peppy.Project instances. This function can be used in 3 ways:
+        1. Get all projects in the database (call empty)
+        2. Get a list of projects using a list registry paths
+        3. Get a list of projects in a namespace
+
+        :param Union[str, List[str]] registry_paths: A list of registry paths of the form {namespace}/{project}.
+        :param str namespace: The namespace to fetch all projects from.
+        :return List[peppy.Project]: a list of peppy.Project instances for the requested projects.
         """
+        # Case 1. Fetch all projects in database
+        if all([registry_paths is None, namespace is None]):
+            sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME}"
+            results = self.run_sql_fetchall(sql_q)
 
-        if not namespace:
-            _LOGGER.info(f"No namespace provided... returning empty list")
-            return {}
+        # Case 2. fetch list of registry paths
+        elif registry_paths is not None:
+            # check typing
+            if all(
+                [
+                    not isinstance(registry_paths, str),
+                    # not isinstance(registry_paths, List[str]) <-- want this, but python doesnt support type checking a subscripted generic
+                    not isinstance(registry_paths, list),
+                ]
+            ):
+                raise ValueError(
+                    f"Registry paths must be of the type str or List[str]. Supplied: {type(registry_paths)}"
+                )
+            else:
+                # coerce to list if necessary
+                if isinstance(registry_paths, str):
+                    registry_paths = [registry_paths]
 
-        sql_q = f"""select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace='{namespace}';"""
+                # check for valid registry paths
+                for rpath in registry_paths:
+                    if not is_valid_resgistry_path(rpath):
+                        # should we raise an error or just warn with the logger?
+                        raise ValueError(f"Invalid registry path supplied: '{rpath}'")
 
-        results = self.run_sql_search_all(sql_q)
-        res_dict = {}
-        for result in results:
-            res_dict[result[0]] = peppy.Project(project_dict=result[1])
+                # dynamically build filter for set of registry paths
+                parametrized_filter = ""
+                for i in range(len(registry_paths)):
+                    parametrized_filter += "(namespace=%s and name=%s)"
+                    if i < len(registry_paths) - 1:
+                        parametrized_filter += " or "
 
-        return res_dict
+            sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where {parametrized_filter}"
+            flattened_registries = tuple(
+                chain(
+                    *[
+                        [r["namespace"], r["item"]]
+                        for r in map(
+                            lambda rpath: ubiquerg.parse_registry_path(rpath),
+                            registry_paths,
+                        )
+                    ]
+                )
+            )
+            results = self.run_sql_fetchall(sql_q, *flattened_registries)
 
-    def get_namespaces(self) -> list:
+        # Case 3. Get projects by namespace
+        else:
+            sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace = %s"
+            results = self.run_sql_fetchall(sql_q, namespace)
+
+        # extract out the project config dictionary from the query
+        return [peppy.Project(project_dict=p[1]) for p in results]
+
+    def get_namespace(self, namespace: str) -> dict:
+        """
+        Fetch a particular namespace from the database. This doesnt retrieve full project
+        objects. For that, one should utilize the `get_projects(namespace=...)` function.
+
+        :param str namespace: the namespace to fetch
+        :return dict: A dictionary representation of the namespace in the database
+        """
+        sql_q = f"select {ID_COL}, {NAME_COL}, {DIGEST_COL}, {ANNO_COL} from {DB_TABLE_NAME} where namespace = %s"
+        results = self.run_sql_fetchall(sql_q, namespace)
+        projects = [
+            {
+                "id": p[0],
+                "name": p[1],
+                "digest": p[2],
+                "description": p[3]["proj_description"],
+                "n_samples": p[3]["n_samples"],
+            }
+            for p in results
+        ]
+        result = {
+            "namespace": namespace,
+            "projects": projects,
+            "n_samples": sum(map(lambda p: p["n_samples"], projects)),
+            "n_projects": len(projects),
+        }
+        return result
+
+    def get_namespaces(
+        self, namespaces: List[str] = None, names_only: bool = False
+    ) -> list:
         """
         Get list of all available namespaces
+
+        :param List[str] namespaces: An optional list of namespaces to fetch.
+        :param bool names_only: Flag to indicate you only want unique namespace names
         :return: list of available namespaces
         """
-        sql_query = f"""SELECT DISTINCT {NAMESPACE_COL} FROM {DB_TABLE_NAME};"""
-        namespace_list = []
-        try:
-            for namespace in self.run_sql_search_all(sql_query):
-                namespace_list.append(namespace[0])
-        except KeyError:
-            _LOGGER.warning("Error while getting list of namespaces")
-        return namespace_list
+        if namespaces is not None:
+            # coerce to list if not
+            if isinstance(namespaces, str):
+                namespaces = [namespaces]
+            # verify all strings
+            elif not all_elements_are_strings(namespaces):
+                raise ValueError(
+                    f"Namespace list must only contain str. Supplied: {namespaces}"
+                )
+        else:
+            sql_q = f"""SELECT DISTINCT {NAMESPACE_COL} FROM {DB_TABLE_NAME};"""
+            namespaces = [n[0] for n in self.run_sql_fetchall(sql_q)]
+            if names_only:
+                return [n[0] for n in namespaces]
+
+        return [self.get_namespace(n) for n in namespaces]
 
     def get_anno(
         self,
@@ -247,15 +340,15 @@ class PepAgent:
 
         if name and namespace:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s;"""
-            found_prj = self.run_sql_search_single(sql_q, name, namespace)
+            found_prj = self.run_sql_fetchone(sql_q, name, namespace)
 
         elif id:
             sql_q = f""" {sql_q} where {ID_COL}=%s; """
-            found_prj = self.run_sql_search_single(sql_q, id)
+            found_prj = self.run_sql_fetchone(sql_q, id)
 
         elif digest:
             sql_q = f""" {sql_q} where {DIGEST_COL}=%s; """
-            found_prj = self.run_sql_search_single(sql_q, digest)
+            found_prj = self.run_sql_fetchone(sql_q, digest)
 
         else:
             _LOGGER.error(
@@ -293,7 +386,7 @@ class PepAgent:
                     {ANNO_COL} 
                         from {DB_TABLE_NAME} where namespace='{namespace}';"""
 
-        results = self.run_sql_search_all(sql_q)
+        results = self.run_sql_fetchall(sql_q)
         res_dict = {}
         for result in results:
             res_dict[result[2]] = {
@@ -304,7 +397,7 @@ class PepAgent:
 
         return res_dict
 
-    def run_sql_search_single(self, sql_query: str, *argv) -> list:
+    def run_sql_fetchone(self, sql_query: str, *argv) -> list:
         """
         Fetching one result by providing sql query and arguments
         :param str sql_query: sql string that has to run
@@ -315,14 +408,18 @@ class PepAgent:
         try:
             cursor.execute(sql_query, argv)
             output_result = cursor.fetchone()
-            cursor.close()
-            return list(output_result)
+
+            # must run check here since None is not iterable.
+            if output_result is not None:
+                return list(output_result)
+            else:
+                return None
         except psycopg2.Error as e:
             _LOGGER.error(f"Error occurred while running query: {e}")
         finally:
             cursor.close()
 
-    def run_sql_search_all(self, sql_query: str, *argv) -> list:
+    def run_sql_fetchall(self, sql_query: str, *argv) -> list:
         """
         Fetching all result by providing sql query and arguments
         :param str sql_query: sql string that has to run
@@ -363,67 +460,11 @@ class PepAgent:
             FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_NAME = N'{DB_TABLE_NAME}'
             """
-        result = self.run_sql_search_all(a)
+        result = self.run_sql_fetchall(a)
         cols_name = []
         for col in result:
             cols_name.append(col[3])
         DB_COLUMNS.sort()
         cols_name.sort()
         if DB_COLUMNS != cols_name:
-            raise PEPDBCorrectnessError
-
-
-def main():
-    # Create connection to db:
-    # projectDB = PepAgent(
-    #     user="postgres",
-    #     password="docker",
-    # )
-    projectDB = PepAgent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
-
-    # Add new project to database
-    prp_project2 = peppy.Project(
-        "/home/bnt4me/Virginia/pephub_db/sample_pep/subtable3/project_config.yaml"
-    ).to_dict(extended=True)
-    # projectDB.upload_project(prp_project2, namespace="Bruno")
-
-    # new_pr = peppy.Project(project_dict=prp_project2)
-
-    # print(new_pr)
-    directory = "/home/bnt4me/Virginia/pephub_db/sample_pep/"
-    os.walk(directory)
-    projects = (
-        [os.path.join(x[0], "project_config.yaml") for x in os.walk(directory)]
-    )[1:]
-
-    # print(projects)
-    # for d in projects:
-    #     try:
-    #         prp_project2 = peppy.Project(d)
-    #         projectDB.upload_project(prp_project2, namespace="Test", anno={"Bulba": "Taras"})
-    #     except Exception:
-    #         pass
-
-    # Get project by id:
-    # pr_ob = projectDB.get_project(registry="other/imply")
-    # print(pr_ob.samples)
-    #
-    # # #Get project by name
-    # pr_ob = projectDB.get_project(project_name="imply")
-    # print(pr_ob.samples)
-    #
-    # # Get list of available projects:
-    # list_of_projects = projectDB.get_projects_list()
-    # print(list_of_projects)
-    # peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/subtable2/project_config.yaml")
-    # print()
-    dfd = projectDB.get_anno(namespace="other")
-    print(dfd)
-
-
-if __name__ == "__main__":
-    try:
-        sys.exit(main())
-    except KeyboardInterrupt:
-        print("Pipeline aborted.")
-        sys.exit(1)
+            raise SchemaError
