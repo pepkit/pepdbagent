@@ -60,15 +60,16 @@ print(projects_list)
 ```
 
 6) Get annotation about single project or projects:
+
 ```python
 # Get dictionary of annotation for multiple projects by namespace
-projects_anno_list = projectDB.get_anno(namespace='Test')
+projects_anno_list = projectDB.get_project_annotation(namespace='Test')
 # Get dictionary of annotation for 1 project by id 
-projects_anno_list = projectDB.get_anno(id='5')
+projects_anno_list = projectDB.get_project_annotation(id='5')
 # Get dictionary of annotation for 1 project by digest
-projects_anno_list = projectDB.get_anno(digest='1495b8d5b586ab71c9f3a30dd265b3c3')
+projects_anno_list = projectDB.get_project_annotation(digest='1495b8d5b586ab71c9f3a30dd265b3c3')
 # Get dictionary of annotation for 1 project by registry
-projects_anno_list = projectDB.get_anno(digest='Test/subtable3')
+projects_anno_list = projectDB.get_project_annotation(digest='Test/subtable3')
 
 ```
 

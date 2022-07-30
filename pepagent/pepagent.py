@@ -6,9 +6,10 @@ import peppy
 from hashlib import md5
 from itertools import chain
 import ubiquerg
+import sys
+import os
 
-from pepagent.utils import all_elements_are_strings, is_valid_resgistry_path
-
+from .utils import all_elements_are_strings, is_valid_resgistry_path
 from .const import *
 from .exceptions import SchemaError
 
@@ -73,9 +74,9 @@ class PepAgent:
         """
         Upload project to the database
         :param peppy.Project project: Project object that has to be uploaded to the DB
-        :param str namespace: namespace of the project (Default: 'other')
-        :param str name: name of the project (Default: name is taken from the project object)
-        :param dict anno: dict with annotations about current project
+        :param namespace: namespace of the project (Default: 'other')
+        :param name: name of the project (Default: name is taken from the project object)
+        :param anno: dict with annotations about current project
         """
         cursor = self.postgresConnection.cursor()
         try:
@@ -110,8 +111,7 @@ class PepAgent:
             )
 
             proj_id = cursor.fetchone()[0]
-            # _LOGGER.info(f"Uploading {proj_name} project!")
-            print("dsfasdf")
+            _LOGGER.info(f"Uploading {proj_name} project!")
             self._commit_connection()
             cursor.close()
             _LOGGER.info(
@@ -132,11 +132,11 @@ class PepAgent:
     ) -> peppy.Project:
         """
         Retrieving project from database by specifying project name or id
-        :param str registry: project registry
-        :param str namespace: project registry [should be used with name]
-        :param str name: project name in database [should be used with namespace]
-        :param str id: project id in database
-        :param str digest: project digest in database
+        :param registry: project registry
+        :param namespace: project registry [should be used with name]
+        :param name: project name in database [should be used with namespace]
+        :param id: project id in database
+        :param digest: project digest in database
         :return: peppy object with found project
         """
         sql_q = f"""
@@ -174,7 +174,7 @@ class PepAgent:
             _LOGGER.warn(
                 f"No project found for supplied input. Did you supply a valid namespace and project? {sql_q}"
             )
-            return None
+            return peppy.Project()
 
     def get_projects(
         self,
@@ -202,7 +202,8 @@ class PepAgent:
             if all(
                 [
                     not isinstance(registry_paths, str),
-                    # not isinstance(registry_paths, List[str]) <-- want this, but python doesnt support type checking a subscripted generic
+                    # not isinstance(registry_paths, List[str]) <-- want this,
+                    # but python doesnt support type checking a subscripted generic
                     not isinstance(registry_paths, list),
                 ]
             ):
@@ -254,8 +255,8 @@ class PepAgent:
         Fetch a particular namespace from the database. This doesnt retrieve full project
         objects. For that, one should utilize the `get_projects(namespace=...)` function.
 
-        :param str namespace: the namespace to fetch
-        :return dict: A dictionary representation of the namespace in the database
+        :param namespace: the namespace to fetch
+        :return: A dictionary representation of the namespace in the database
         """
         sql_q = f"select {ID_COL}, {NAME_COL}, {DIGEST_COL}, {ANNO_COL} from {DB_TABLE_NAME} where namespace = %s"
         results = self.run_sql_fetchall(sql_q, namespace)
@@ -304,7 +305,7 @@ class PepAgent:
 
         return [self.get_namespace(n) for n in namespaces]
 
-    def get_anno(
+    def get_project_annotation(
         self,
         registry: str = None,
         namespace: str = None,
@@ -314,12 +315,12 @@ class PepAgent:
     ) -> dict:
         """
         Retrieving project annotation dict by specifying project namespace/name, id, or digest
-        Additionally can return all namespace project annotations
-        :param str registry: project registry
-        :param str namespace: project registry - will return dict of project annotations
-        :param str name: project name in database [should be used with namespace]
-        :param str id: project id in database
-        :param str digest: project digest in database
+        Additionally you can return all namespace project annotations by specifying only namespace
+        :param registry: project registry
+        :param namespace: project registry - will return dict of project annotations
+        :param name: project name in database [should be used with namespace]
+        :param id: project id in database
+        :param digest: project digest in database
         :return: dict of annotations
         """
         sql_q = f"""
@@ -371,7 +372,7 @@ class PepAgent:
     def _get_namespace_proj_anno(self, namespace: str = None) -> dict:
         """
         Get list of all project annotations in namespace
-        :param str namespace: namespace
+        :param namespace: namespace
         return: dict of dicts with all projects in namespace
         """
 
@@ -397,10 +398,45 @@ class PepAgent:
 
         return res_dict
 
+    def get_namespace_annotation(self, namespace: str = None) -> dict:
+        """
+        Retrieving namespace annotation dict.
+        If namespace is None it will retrieve dict with all namespace annotations.
+        :param namespace: project registry
+        """
+        sql_q = f"""
+        select {NAMESPACE_COL}, count({NAME_COL}) as n_namespace, SUM(({ANNO_COL} ->> 'n_samples')::int)  
+            as n_samples 
+                from {DB_TABLE_NAME}
+                    group by {NAMESPACE_COL};
+        """
+        result = self.run_sql_fetchall(sql_q)
+        anno_dict = {}
+
+        for name_sp_result in result:
+            anno_dict[name_sp_result[0]] = {
+                "namespace": name_sp_result[0],
+                "n_namespace": name_sp_result[1],
+                "n_samples": name_sp_result[2],
+            }
+
+        if namespace:
+            try:
+                return anno_dict[namespace]
+            except KeyError:
+                _LOGGER.warning(f"Namespace '{namespace}' was not found.")
+                return {
+                    "namespace": namespace,
+                    "n_namespace": 0,
+                    "n_samples": 0,
+                }
+
+        return anno_dict
+
     def run_sql_fetchone(self, sql_query: str, *argv) -> list:
         """
         Fetching one result by providing sql query and arguments
-        :param str sql_query: sql string that has to run
+        :param sql_query: sql string that has to run
         :param argv: arguments that has to be added to sql query
         :return: set of query result
         """
@@ -413,7 +449,7 @@ class PepAgent:
             if output_result is not None:
                 return list(output_result)
             else:
-                return None
+                return []
         except psycopg2.Error as e:
             _LOGGER.error(f"Error occurred while running query: {e}")
         finally:
@@ -441,7 +477,7 @@ class PepAgent:
     def _create_digest(project_dict: dict) -> str:
         """
         Create digest for PEP project
-        :param dict project_dict: project dict
+        :param project_dict: project dict
         :return: digest string
         """
         _LOGGER.info(f"Creating digest for: {project_dict['name']}")
@@ -468,3 +504,38 @@ class PepAgent:
         cols_name.sort()
         if DB_COLUMNS != cols_name:
             raise SchemaError
+
+
+def main():
+    # Create connection to db:
+    # projectDB = PepAgent(
+    #     user="postgres",
+    #     password="docker",
+    # )
+    projectDB = PepAgent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
+
+    # Add new projects to database
+    # directory = "/home/bnt4me/Virginia/pephub_db/sample_pep/"
+    # os.walk(directory)
+    # projects = (
+    #     [os.path.join(x[0], "project_config.yaml") for x in os.walk(directory)]
+    # )[1:]
+    #
+    # print(projects)
+    # for d in projects:
+    #     try:
+    #         prp_project2 = peppy.Project(d)
+    #         projectDB.upload_project(prp_project2, namespace="King", anno={"sample_anno": "Tony Stark "})
+    #     except Exception:
+    #         pass
+
+    # dfd = projectDB.get_project_annotation(namespace="other")
+    print(projectDB.get_namespace_annotation())
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("Pipeline aborted.")
+        sys.exit(1)
