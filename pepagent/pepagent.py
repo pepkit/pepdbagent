@@ -10,9 +10,9 @@ import ubiquerg
 import sys
 import os
 
-from utils import all_elements_are_strings, is_valid_resgistry_path
-from const import *
-from exceptions import SchemaError
+from .utils import all_elements_are_strings, is_valid_resgistry_path
+from .const import *
+from .exceptions import SchemaError
 
 # from pprint import pprint
 
