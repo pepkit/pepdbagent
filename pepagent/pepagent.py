@@ -1,5 +1,6 @@
 from typing import List, Union
 import psycopg2
+from psycopg2.errors import UniqueViolation
 import json
 import logmuse
 import peppy
@@ -9,9 +10,9 @@ import ubiquerg
 import sys
 import os
 
-from .utils import all_elements_are_strings, is_valid_resgistry_path
-from .const import *
-from .exceptions import SchemaError
+from utils import all_elements_are_strings, is_valid_resgistry_path
+from const import *
+from exceptions import SchemaError
 
 # from pprint import pprint
 
@@ -69,19 +70,25 @@ class PepAgent:
         project: peppy.Project,
         namespace: str = None,
         name: str = None,
+        tag: str = None,
         anno: dict = None,
+        update: bool = False,
     ) -> None:
         """
         Upload project to the database
         :param peppy.Project project: Project object that has to be uploaded to the DB
         :param namespace: namespace of the project (Default: 'other')
         :param name: name of the project (Default: name is taken from the project object)
+        :param tag: tag (or version) of the project
         :param anno: dict with annotations about current project
+        :param update: boolean value if project hase to be updated
         """
         cursor = self.postgresConnection.cursor()
         try:
             if namespace is None:
-                namespace = "other"
+                namespace = DEFAULT_NAMESPACE
+            if tag is None:
+                tag = DEFAULT_TAG
             proj_dict = project.to_dict(extended=True)
             if name:
                 proj_name = name
@@ -97,26 +104,52 @@ class PepAgent:
             anno_info = json.dumps(anno_info)
             proj_dict = json.dumps(proj_dict)
 
-            sql = f"""INSERT INTO projects({NAMESPACE_COL}, {NAME_COL}, {DIGEST_COL}, {PROJ_COL}, {ANNO_COL})
-            VALUES (%s, %s, %s, %s, %s) RETURNING {ID_COL};"""
-            cursor.execute(
-                sql,
-                (
-                    namespace,
-                    proj_name,
-                    proj_digest,
-                    proj_dict,
-                    anno_info,
-                ),
-            )
+            if update and self.check_project_existance(namespace=namespace, name=proj_name, tag=tag):
+                _LOGGER.info(f"Updating {proj_name} project!")
+                sql = f"""UPDATE {DB_TABLE_NAME}
+                SET {DIGEST_COL} = %s, {PROJ_COL}= %s, {ANNO_COL}= %s
+                WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
+                cursor.execute(
+                    sql,
+                    (
+                        proj_digest,
+                        proj_dict,
+                        anno_info,
+                        namespace,
+                        proj_name,
+                        tag,
+                    ),
+                )
+                _LOGGER.info("Project has been updated!")
 
-            proj_id = cursor.fetchone()[0]
-            _LOGGER.info(f"Uploading {proj_name} project!")
-            self._commit_connection()
-            cursor.close()
-            _LOGGER.info(
-                f"Project: {proj_name} was successfully uploaded. The Id of this project is {proj_id}"
-            )
+            else:
+                try:
+                    _LOGGER.info(f"Uploading {proj_name} project!")
+                    sql = f"""INSERT INTO {DB_TABLE_NAME}({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {ANNO_COL})
+                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING {ID_COL};"""
+                    cursor.execute(
+                        sql,
+                        (
+                            namespace,
+                            proj_name,
+                            tag,
+                            proj_digest,
+                            proj_dict,
+                            anno_info,
+                        ),
+                    )
+                    proj_id = cursor.fetchone()[0]
+                    _LOGGER.info(
+                        f"Project: {proj_name} was successfully uploaded. The Id of this project is {proj_id}"
+                    )
+
+                    self._commit_connection()
+                    cursor.close()
+
+                except UniqueViolation:
+                    _LOGGER.warning(f"Namespace, name and tag already exists. Project won't be uploaded. "
+                                    f"Solution: Set update value as True (project will be overwritten),"
+                                    f" or change tag!")
 
         except psycopg2.Error as e:
             print(f"{e}")
@@ -127,6 +160,7 @@ class PepAgent:
         registry: str = None,
         namespace: str = None,
         name: str = None,
+        tag: str = None,
         id: int = None,
         digest: str = None,
     ) -> peppy.Project:
@@ -146,10 +180,15 @@ class PepAgent:
             reg = ubiquerg.parse_registry_path(registry)
             namespace = reg["namespace"]
             name = reg["item"]
+            tag = reg["tag"]
 
-        if name is not None and namespace is not None:
-            sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s;"""
-            found_prj = self.run_sql_fetchone(sql_q, name, namespace)
+        if name is not None:
+            if namespace is None:
+                namespace = DEFAULT_NAMESPACE
+            if tag is None:
+                tag = DEFAULT_TAG
+            sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
+            found_prj = self.run_sql_fetchone(sql_q, name, namespace, tag)
 
         elif id is not None:
             sql_q = f""" {sql_q} where {ID_COL}=%s; """
@@ -166,12 +205,12 @@ class PepAgent:
             _LOGGER.info("Files haven't been downloaded, returning empty project")
             return peppy.Project()
 
-        if found_prj is not None:
+        if found_prj:
             _LOGGER.info(f"Project has been found: {found_prj[0]}")
             project_value = found_prj[1]
             return peppy.Project(project_dict=project_value)
         else:
-            _LOGGER.warn(
+            _LOGGER.warning(
                 f"No project found for supplied input. Did you supply a valid namespace and project? {sql_q}"
             )
             return peppy.Project()
@@ -180,30 +219,31 @@ class PepAgent:
         self,
         registry_paths: Union[str, List[str]] = None,
         namespace: str = None,
+        tag: str = None,
     ) -> List[peppy.Project]:
         """
         Get a list of projects as peppy.Project instances. This function can be used in 3 ways:
         1. Get all projects in the database (call empty)
         2. Get a list of projects using a list registry paths
         3. Get a list of projects in a namespace
+        4. Get a list of projects with certain tag (can be used with namespace)
 
-        :param Union[str, List[str]] registry_paths: A list of registry paths of the form {namespace}/{project}.
-        :param str namespace: The namespace to fetch all projects from.
-        :return List[peppy.Project]: a list of peppy.Project instances for the requested projects.
+        :param registry_paths: A list of registry paths of the form {namespace}/{name}.
+        :param namespace: The namespace to fetch all projects from.
+        :param tag: The tag to fetch all projects from.
+        :return: a list of peppy.Project instances for the requested projects.
         """
         # Case 1. Fetch all projects in database
-        if all([registry_paths is None, namespace is None]):
+        if all([registry_paths is None, namespace is None, tag is None]):
             sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME}"
             results = self.run_sql_fetchall(sql_q)
 
         # Case 2. fetch list of registry paths
-        elif registry_paths is not None:
+        elif registry_paths:
             # check typing
             if all(
                 [
                     not isinstance(registry_paths, str),
-                    # not isinstance(registry_paths, List[str]) <-- want this,
-                    # but python doesnt support type checking a subscripted generic
                     not isinstance(registry_paths, list),
                 ]
             ):
@@ -243,40 +283,60 @@ class PepAgent:
             results = self.run_sql_fetchall(sql_q, *flattened_registries)
 
         # Case 3. Get projects by namespace
+        elif namespace:
+            if tag:
+                sql_q = f"select {NAME_COL}, {PROJ_COL} " \
+                        f"from {DB_TABLE_NAME} " \
+                        f"where namespace = %s and tag = %s"
+                results = self.run_sql_fetchall(sql_q, namespace, tag)
+            else:
+                sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace = %s"
+                results = self.run_sql_fetchall(sql_q, namespace)
+
+        # Case 4. Get projects by namespace
+        elif tag:
+            sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where tag = %s"
+            results = self.run_sql_fetchall(sql_q, tag)
+            print(results)
+
         else:
-            sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace = %s"
-            results = self.run_sql_fetchall(sql_q, namespace)
+            _LOGGER.warning(f"Incorrect input!")
+            results = []
 
         # extract out the project config dictionary from the query
         return [peppy.Project(project_dict=p[1]) for p in results]
 
     def get_namespace(self, namespace: str) -> dict:
         """
-        Fetch a particular namespace from the database. This doesnt retrieve full project
+        Fetch a particular namespace from the database. This doesn't retrieve full project
         objects. For that, one should utilize the `get_projects(namespace=...)` function.
 
         :param namespace: the namespace to fetch
         :return: A dictionary representation of the namespace in the database
         """
-        sql_q = f"select {ID_COL}, {NAME_COL}, {DIGEST_COL}, {ANNO_COL} from {DB_TABLE_NAME} where namespace = %s"
-        results = self.run_sql_fetchall(sql_q, namespace)
-        projects = [
-            {
-                "id": p[0],
-                "name": p[1],
-                "digest": p[2],
-                "description": p[3]["proj_description"],
-                "n_samples": p[3]["n_samples"],
+        try:
+            sql_q = f"select {ID_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {ANNO_COL} from {DB_TABLE_NAME} where namespace = %s"
+            results = self.run_sql_fetchall(sql_q, namespace)
+            projects = [
+                {
+                    "id": p[0],
+                    "name": p[1],
+                    "tag": p[2],
+                    "digest": p[3],
+                    "description": p[4]["proj_description"],
+                    "n_samples": p[4]["n_samples"],
+                }
+                for p in results
+            ]
+            result = {
+                "namespace": namespace,
+                "projects": projects,
+                "n_samples": sum(map(lambda p: p["n_samples"], projects)),
+                "n_projects": len(projects),
             }
-            for p in results
-        ]
-        result = {
-            "namespace": namespace,
-            "projects": projects,
-            "n_samples": sum(map(lambda p: p["n_samples"], projects)),
-            "n_projects": len(projects),
-        }
-        return result
+            return result
+        except TypeError:
+            _LOGGER.warning(f"Error occurred while getting data from '{namespace}' namespace")
 
     def get_namespaces(
         self, namespaces: List[str] = None, names_only: bool = False
@@ -303,13 +363,21 @@ class PepAgent:
             if names_only:
                 return [n[0] for n in namespaces]
 
-        return [self.get_namespace(n) for n in namespaces]
+        namespaces_list = []
+        for ns in namespaces:
+            try:
+                namespaces_list.append(self.get_namespace(ns))
+            except TypeError:
+                _LOGGER.warning(f"Warning: Error in collecting projects from database. {ns} wasn't collected!")
+
+        return namespaces_list
 
     def get_project_annotation(
         self,
         registry: str = None,
         namespace: str = None,
         name: str = None,
+        tag: str = None,
         id: int = None,
         digest: str = None,
     ) -> dict:
@@ -319,6 +387,7 @@ class PepAgent:
         :param registry: project registry
         :param namespace: project registry - will return dict of project annotations
         :param name: project name in database [should be used with namespace]
+        :param tag: tag of the projects
         :param id: project id in database
         :param digest: project digest in database
         :return: dict of annotations
@@ -328,6 +397,7 @@ class PepAgent:
                     {ID_COL}, 
                     {NAMESPACE_COL},
                     {NAME_COL},
+                    {TAG_COL},
                     {ANNO_COL}
                         from {DB_TABLE_NAME}
                 """
@@ -335,17 +405,26 @@ class PepAgent:
             reg = ubiquerg.parse_registry_path(registry)
             namespace = reg["namespace"]
             name = reg["item"]
+            tag = reg["tag"]
 
-        if not name and namespace:
+        if not name and not tag and namespace:
             return self._get_namespace_proj_anno(namespace)
 
-        if name and namespace:
+        if name and namespace and tag:
+            sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
+            found_prj = self.run_sql_fetchone(sql_q, name, namespace, tag)
+
+        elif name and namespace:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s;"""
             found_prj = self.run_sql_fetchone(sql_q, name, namespace)
 
         elif id:
             sql_q = f""" {sql_q} where {ID_COL}=%s; """
             found_prj = self.run_sql_fetchone(sql_q, id)
+
+        elif tag:
+            sql_q = f""" {sql_q} where {TAG_COL}=%s; """
+            found_prj = self.run_sql_fetchone(sql_q, tag)
 
         elif digest:
             sql_q = f""" {sql_q} where {DIGEST_COL}=%s; """
@@ -393,7 +472,8 @@ class PepAgent:
             res_dict[result[2]] = {
                 ID_COL: result[0],
                 NAMESPACE_COL: result[1],
-                ANNO_COL: result[3],
+                TAG_COL: result[3],
+                ANNO_COL: result[4],
             }
 
         return res_dict
@@ -405,7 +485,7 @@ class PepAgent:
         :param namespace: project registry
         """
         sql_q = f"""
-        select {NAMESPACE_COL}, count({NAME_COL}) as n_namespace, SUM(({ANNO_COL} ->> 'n_samples')::int)  
+        select {NAMESPACE_COL}, count(DISTINCT {TAG_COL}) as n_tags , count({NAME_COL}) as n_namespace, SUM(({ANNO_COL} ->> 'n_samples')::int)  
             as n_samples 
                 from {DB_TABLE_NAME}
                     group by {NAMESPACE_COL};
@@ -416,8 +496,9 @@ class PepAgent:
         for name_sp_result in result:
             anno_dict[name_sp_result[0]] = {
                 "namespace": name_sp_result[0],
-                "n_namespace": name_sp_result[1],
-                "n_samples": name_sp_result[2],
+                "n_tags": name_sp_result[1],
+                "n_projects": name_sp_result[2],
+                "n_samples": name_sp_result[3],
             }
 
         if namespace:
@@ -427,11 +508,36 @@ class PepAgent:
                 _LOGGER.warning(f"Namespace '{namespace}' was not found.")
                 return {
                     "namespace": namespace,
-                    "n_namespace": 0,
+                    "n_projects": 0,
                     "n_samples": 0,
                 }
 
         return anno_dict
+
+    def check_project_existance(self,
+                                registry: str = None,
+                                namespace: str = DEFAULT_NAMESPACE,
+                                name: str = None,
+                                tag: str = DEFAULT_TAG,
+                                ) -> bool:
+        if registry is not None:
+            reg = ubiquerg.parse_registry_path(registry,
+                                               defaults=[('namespace', DEFAULT_NAMESPACE),
+                                                         ('item', None),
+                                                         ('tag', DEFAULT_TAG)])
+            namespace = reg["namespace"]
+            name = reg["item"]
+            tag = reg["tag"]
+        sql = f"""SELECT {ID_COL} from {DB_TABLE_NAME} 
+                    WHERE {NAMESPACE_COL} = %s AND
+                          {NAME_COL} = %s AND 
+                          {TAG_COL} = %s;"""
+
+        if self.run_sql_fetchone(sql, namespace, name, tag):
+            return True
+        else:
+            return False
+
 
     def run_sql_fetchone(self, sql_query: str, *argv) -> list:
         """
@@ -514,7 +620,10 @@ def main():
     # )
     projectDB = PepAgent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
 
-    # Add new projects to database
+    #prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/amendments2/project_config.yaml")
+    # projectDB.upload_project(prp_project2, namespace="King", anno={"sample_anno": "Tony Stark "})
+
+    #Add new projects to database
     # directory = "/home/bnt4me/Virginia/pephub_db/sample_pep/"
     # os.walk(directory)
     # projects = (
@@ -525,12 +634,22 @@ def main():
     # for d in projects:
     #     try:
     #         prp_project2 = peppy.Project(d)
-    #         projectDB.upload_project(prp_project2, namespace="King", anno={"sample_anno": "Tony Stark "})
+    #         projectDB.upload_project(prp_project2, namespace="King", tag="new_tag", anno={"sample_anno": "Tony Stark "})
     #     except Exception:
     #         pass
 
-    # dfd = projectDB.get_project_annotation(namespace="other")
-    print(projectDB.get_namespace_annotation())
+    # dfd = projectDB.get_project(registry="King/amendments2")
+    # print(dfd)
+    # dfd = projectDB.get_projects(tag="new_tag")
+    # print(dfd)
+    # dfd = projectDB.get_namespaces()
+    # print(dfd)
+    # dfd = projectDB.get_namespace(namespace="other")
+    # print(dfd)
+
+    d = projectDB.get_namespace_annotation()
+    print(d)
+    #print(projectDB.get_namespace_annotation())
 
 
 if __name__ == "__main__":
