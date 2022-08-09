@@ -104,7 +104,9 @@ class PepAgent:
             anno_info = json.dumps(anno_info)
             proj_dict = json.dumps(proj_dict)
 
-            if update and self.check_project_existance(namespace=namespace, name=proj_name, tag=tag):
+            if update and self.check_project_existance(
+                namespace=namespace, name=proj_name, tag=tag
+            ):
                 _LOGGER.info(f"Updating {proj_name} project!")
                 sql = f"""UPDATE {DB_TABLE_NAME}
                 SET {DIGEST_COL} = %s, {PROJ_COL}= %s, {ANNO_COL}= %s
@@ -147,9 +149,11 @@ class PepAgent:
                     cursor.close()
 
                 except UniqueViolation:
-                    _LOGGER.warning(f"Namespace, name and tag already exists. Project won't be uploaded. "
-                                    f"Solution: Set update value as True (project will be overwritten),"
-                                    f" or change tag!")
+                    _LOGGER.warning(
+                        f"Namespace, name and tag already exists. Project won't be uploaded. "
+                        f"Solution: Set update value as True (project will be overwritten),"
+                        f" or change tag!"
+                    )
 
         except psycopg2.Error as e:
             print(f"{e}")
@@ -285,9 +289,11 @@ class PepAgent:
         # Case 3. Get projects by namespace
         elif namespace:
             if tag:
-                sql_q = f"select {NAME_COL}, {PROJ_COL} " \
-                        f"from {DB_TABLE_NAME} " \
-                        f"where namespace = %s and tag = %s"
+                sql_q = (
+                    f"select {NAME_COL}, {PROJ_COL} "
+                    f"from {DB_TABLE_NAME} "
+                    f"where namespace = %s and tag = %s"
+                )
                 results = self.run_sql_fetchall(sql_q, namespace, tag)
             else:
                 sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace = %s"
@@ -336,7 +342,9 @@ class PepAgent:
             }
             return result
         except TypeError:
-            _LOGGER.warning(f"Error occurred while getting data from '{namespace}' namespace")
+            _LOGGER.warning(
+                f"Error occurred while getting data from '{namespace}' namespace"
+            )
 
     def get_namespaces(
         self, namespaces: List[str] = None, names_only: bool = False
@@ -368,7 +376,9 @@ class PepAgent:
             try:
                 namespaces_list.append(self.get_namespace(ns))
             except TypeError:
-                _LOGGER.warning(f"Warning: Error in collecting projects from database. {ns} wasn't collected!")
+                _LOGGER.warning(
+                    f"Warning: Error in collecting projects from database. {ns} wasn't collected!"
+                )
 
         return namespaces_list
 
@@ -514,17 +524,22 @@ class PepAgent:
 
         return anno_dict
 
-    def check_project_existance(self,
-                                registry: str = None,
-                                namespace: str = DEFAULT_NAMESPACE,
-                                name: str = None,
-                                tag: str = DEFAULT_TAG,
-                                ) -> bool:
+    def check_project_existance(
+        self,
+        registry: str = None,
+        namespace: str = DEFAULT_NAMESPACE,
+        name: str = None,
+        tag: str = DEFAULT_TAG,
+    ) -> bool:
         if registry is not None:
-            reg = ubiquerg.parse_registry_path(registry,
-                                               defaults=[('namespace', DEFAULT_NAMESPACE),
-                                                         ('item', None),
-                                                         ('tag', DEFAULT_TAG)])
+            reg = ubiquerg.parse_registry_path(
+                registry,
+                defaults=[
+                    ("namespace", DEFAULT_NAMESPACE),
+                    ("item", None),
+                    ("tag", DEFAULT_TAG),
+                ],
+            )
             namespace = reg["namespace"]
             name = reg["item"]
             tag = reg["tag"]
@@ -537,7 +552,6 @@ class PepAgent:
             return True
         else:
             return False
-
 
     def run_sql_fetchone(self, sql_query: str, *argv) -> list:
         """
@@ -620,10 +634,10 @@ def main():
     # )
     projectDB = PepAgent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
 
-    #prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/amendments2/project_config.yaml")
+    # prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/amendments2/project_config.yaml")
     # projectDB.upload_project(prp_project2, namespace="King", anno={"sample_anno": "Tony Stark "})
 
-    #Add new projects to database
+    # Add new projects to database
     # directory = "/home/bnt4me/Virginia/pephub_db/sample_pep/"
     # os.walk(directory)
     # projects = (
@@ -649,7 +663,7 @@ def main():
 
     d = projectDB.get_namespace_annotation()
     print(d)
-    #print(projectDB.get_namespace_annotation())
+    # print(projectDB.get_namespace_annotation())
 
 
 if __name__ == "__main__":

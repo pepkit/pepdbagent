@@ -7,14 +7,7 @@ NAME_COL = "name"
 TAG_COL = "tag"
 DIGEST_COL = "digest"
 
-DB_COLUMNS = [ID_COL,
-              DIGEST_COL,
-              PROJ_COL,
-              ANNO_COL,
-              NAMESPACE_COL,
-              NAME_COL,
-              TAG_COL
-              ]
+DB_COLUMNS = [ID_COL, DIGEST_COL, PROJ_COL, ANNO_COL, NAMESPACE_COL, NAME_COL, TAG_COL]
 
 DEFAULT_NAMESPACE = "other"
 DEFAULT_TAG = "primary"
