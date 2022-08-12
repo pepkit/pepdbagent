@@ -1,6 +1,6 @@
 from typing import List, Union
 import psycopg2
-from psycopg2.errors import UniqueViolation
+from psycopg2.errors import UniqueViolation, NotNullViolation
 import json
 import logmuse
 import peppy
@@ -9,16 +9,17 @@ from itertools import chain
 import ubiquerg
 import sys
 import os
+import datetime
 
 from .utils import all_elements_are_strings, is_valid_resgistry_path
 from .const import *
 from .exceptions import SchemaError
+import coloredlogs
 
 # from pprint import pprint
 
-
 _LOGGER = logmuse.init_logger("pepDB_connector")
-
+coloredlogs.install(logger=_LOGGER, datefmt="%H:%M:%S", fmt="[%(levelname)s] [%(asctime)s] %(message)s",)
 
 class PepAgent:
     """
@@ -26,13 +27,13 @@ class PepAgent:
     """
 
     def __init__(
-        self,
-        dsn=None,
-        host="localhost",
-        port=5432,
-        database="pep-base-sql",
-        user=None,
-        password=None,
+            self,
+            dsn=None,
+            host="localhost",
+            port=5432,
+            database="pep-base-sql",
+            user=None,
+            password=None,
     ):
         _LOGGER.info(f"Initializing connection to {database}...")
 
@@ -66,13 +67,13 @@ class PepAgent:
         self.postgresConnection.close()
 
     def upload_project(
-        self,
-        project: peppy.Project,
-        namespace: str = None,
-        name: str = None,
-        tag: str = None,
-        anno: dict = None,
-        update: bool = False,
+            self,
+            project: peppy.Project,
+            namespace: str = None,
+            name: str = None,
+            tag: str = None,
+            anno: dict = None,
+            update: bool = False,
     ) -> None:
         """
         Upload project to the database
@@ -98,19 +99,102 @@ class PepAgent:
             anno_info = {
                 "proj_description": proj_dict["description"],
                 "n_samples": len(project.samples),
+                "last_update": str(datetime.datetime.now()),
             }
             if anno:
                 anno_info.update(anno)
             anno_info = json.dumps(anno_info)
             proj_dict = json.dumps(proj_dict)
 
-            if update and self.check_project_existance(
+            try:
+                _LOGGER.info(f"Uploading {proj_name} project...")
+                sql = f"""INSERT INTO {DB_TABLE_NAME}({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {ANNO_COL})
+                VALUES (%s, %s, %s, %s, %s, %s) RETURNING {ID_COL};"""
+                cursor.execute(
+                    sql,
+                    (
+                        namespace,
+                        proj_name,
+                        tag,
+                        proj_digest,
+                        proj_dict,
+                        anno_info,
+                    ),
+                )
+                proj_id = cursor.fetchone()[0]
+                _LOGGER.info(
+                    f"Project: '{namespace}/{proj_name}:{tag}' was successfully uploaded."
+                )
+
+                self._commit_connection()
+                cursor.close()
+
+            except UniqueViolation:
+                if update:
+                    self.update_project(namespace=namespace, name=proj_name, tag=tag, project=project, anno=anno)
+                else:
+                    _LOGGER.warning(
+                        f"Namespace, name and tag already exists. Project won't be uploaded. "
+                        f"Solution: Set update value as True (project will be overwritten),"
+                        f" or change tag!"
+                    )
+            except NotNullViolation:
+                _LOGGER.error(
+                    f"Name of the project wasn't provided. Project will not be uploaded"
+                )
+
+        except psycopg2.Error as e:
+            _LOGGER.error(
+                f"Error while uploading project. Project hasn't ben uploaded!"
+            )
+            cursor.close()
+
+    def update_project(
+            self,
+            project: peppy.Project,
+            namespace: str = None,
+            name: str = None,
+            tag: str = None,
+            anno: dict = None,
+    ) -> None:
+        """
+        Upload project to the database
+        :param peppy.Project project: Project object that has to be uploaded to the DB
+        :param namespace: namespace of the project (Default: 'other')
+        :param name: name of the project (Default: name is taken from the project object)
+        :param tag: tag (or version) of the project
+        :param anno: dict with annotations about current project
+        :param update: boolean value if project hase to be updated
+        """
+        cursor = self.postgresConnection.cursor()
+        if namespace is None:
+            namespace = DEFAULT_NAMESPACE
+        if tag is None:
+            tag = DEFAULT_TAG
+        proj_dict = project.to_dict(extended=True)
+        if name:
+            proj_name = name
+        else:
+            proj_name = proj_dict["name"]
+
+        proj_digest = self._create_digest(proj_dict)
+        anno_info = {
+            "proj_description": proj_dict["description"],
+            "n_samples": len(project.samples),
+        }
+        if anno:
+            anno_info.update(anno)
+        anno_info = json.dumps(anno_info)
+        proj_dict = json.dumps(proj_dict)
+
+        if self.check_project_existance(
                 namespace=namespace, name=proj_name, tag=tag
-            ):
-                _LOGGER.info(f"Updating {proj_name} project!")
+        ):
+            try:
+                _LOGGER.info(f"Updating {proj_name} project...")
                 sql = f"""UPDATE {DB_TABLE_NAME}
-                SET {DIGEST_COL} = %s, {PROJ_COL}= %s, {ANNO_COL}= %s
-                WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
+                    SET {DIGEST_COL} = %s, {PROJ_COL}= %s, {ANNO_COL}= %s
+                    WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
                 cursor.execute(
                     sql,
                     (
@@ -122,57 +206,27 @@ class PepAgent:
                         tag,
                     ),
                 )
-                _LOGGER.info("Project has been updated!")
-
-            else:
-                try:
-                    _LOGGER.info(f"Uploading {proj_name} project!")
-                    sql = f"""INSERT INTO {DB_TABLE_NAME}({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {ANNO_COL})
-                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING {ID_COL};"""
-                    cursor.execute(
-                        sql,
-                        (
-                            namespace,
-                            proj_name,
-                            tag,
-                            proj_digest,
-                            proj_dict,
-                            anno_info,
-                        ),
-                    )
-                    proj_id = cursor.fetchone()[0]
-                    _LOGGER.info(
-                        f"Project: {proj_name} was successfully uploaded. The Id of this project is {proj_id}"
-                    )
-
-                    self._commit_connection()
-                    cursor.close()
-
-                except UniqueViolation:
-                    _LOGGER.warning(
-                        f"Namespace, name and tag already exists. Project won't be uploaded. "
-                        f"Solution: Set update value as True (project will be overwritten),"
-                        f" or change tag!"
-                    )
-
-        except psycopg2.Error as e:
-            print(f"{e}")
-            cursor.close()
+                _LOGGER.info(f"Project '{namespace}/{proj_name}:{tag}' has been updated!")
+            except psycopg2.Error:
+                _LOGGER.error("Error occurred while updating the project!")
+        else:
+            _LOGGER.error("Project does not exist! No project will be updated!")
 
     def get_project(
-        self,
-        registry: str = None,
-        namespace: str = None,
-        name: str = None,
-        tag: str = None,
-        id: int = None,
-        digest: str = None,
+            self,
+            registry: str = None,
+            namespace: str = None,
+            name: str = None,
+            tag: str = None,
+            id: int = None,
+            digest: str = None,
     ) -> peppy.Project:
         """
         Retrieving project from database by specifying project name or id
         :param registry: project registry
         :param namespace: project registry [should be used with name]
         :param name: project name in database [should be used with namespace]
+        :param tag: tag of the project
         :param id: project id in database
         :param digest: project digest in database
         :return: peppy object with found project
@@ -220,10 +274,10 @@ class PepAgent:
             return peppy.Project()
 
     def get_projects(
-        self,
-        registry_paths: Union[str, List[str]] = None,
-        namespace: str = None,
-        tag: str = None,
+            self,
+            registry_paths: Union[str, List[str]] = None,
+            namespace: str = None,
+            tag: str = None,
     ) -> List[peppy.Project]:
         """
         Get a list of projects as peppy.Project instances. This function can be used in 3 ways:
@@ -246,10 +300,10 @@ class PepAgent:
         elif registry_paths:
             # check typing
             if all(
-                [
-                    not isinstance(registry_paths, str),
-                    not isinstance(registry_paths, list),
-                ]
+                    [
+                        not isinstance(registry_paths, str),
+                        not isinstance(registry_paths, list),
+                    ]
             ):
                 raise ValueError(
                     f"Registry paths must be of the type str or List[str]. Supplied: {type(registry_paths)}"
@@ -347,7 +401,7 @@ class PepAgent:
             )
 
     def get_namespaces(
-        self, namespaces: List[str] = None, names_only: bool = False
+            self, namespaces: List[str] = None, names_only: bool = False
     ) -> list:
         """
         Get list of all available namespaces
@@ -383,13 +437,13 @@ class PepAgent:
         return namespaces_list
 
     def get_project_annotation(
-        self,
-        registry: str = None,
-        namespace: str = None,
-        name: str = None,
-        tag: str = None,
-        id: int = None,
-        digest: str = None,
+            self,
+            registry: str = None,
+            namespace: str = None,
+            name: str = None,
+            tag: str = None,
+            id: int = None,
+            digest: str = None,
     ) -> dict:
         """
         Retrieving project annotation dict by specifying project namespace/name, id, or digest
@@ -453,7 +507,8 @@ class PepAgent:
             ID_COL: found_prj[0],
             NAMESPACE_COL: found_prj[1],
             NAME_COL: found_prj[2],
-            ANNO_COL: found_prj[3],
+            TAG_COL: found_prj[3],
+            ANNO_COL: found_prj[4],
         }
 
         return anno_dict
@@ -525,11 +580,11 @@ class PepAgent:
         return anno_dict
 
     def check_project_existance(
-        self,
-        registry: str = None,
-        namespace: str = DEFAULT_NAMESPACE,
-        name: str = None,
-        tag: str = DEFAULT_TAG,
+            self,
+            registry: str = None,
+            namespace: str = DEFAULT_NAMESPACE,
+            name: str = None,
+            tag: str = DEFAULT_TAG,
     ) -> bool:
         if registry is not None:
             reg = ubiquerg.parse_registry_path(
@@ -552,6 +607,9 @@ class PepAgent:
             return True
         else:
             return False
+
+    def check_project_status(self, registry: str = None, namespace: str = None, name: str = None, tag: str = None):
+        print()
 
     def run_sql_fetchone(self, sql_query: str, *argv) -> list:
         """
@@ -625,6 +683,10 @@ class PepAgent:
         if DB_COLUMNS != cols_name:
             raise SchemaError
 
+    def _registry(self, registry: str = None, namespace: str = None, name: str = None, tag: str = None):
+            pass
+
+
 
 def main():
     # Create connection to db:
@@ -635,7 +697,7 @@ def main():
     projectDB = PepAgent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
 
     # prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/amendments2/project_config.yaml")
-    # projectDB.upload_project(prp_project2, namespace="King", anno={"sample_anno": "Tony Stark "})
+    # projectDB.upload_project(prp_project2, namespace="Date", anno={"sample_anno": "Tony Stark "})
 
     # Add new projects to database
     # directory = "/home/bnt4me/Virginia/pephub_db/sample_pep/"
@@ -648,7 +710,7 @@ def main():
     # for d in projects:
     #     try:
     #         prp_project2 = peppy.Project(d)
-    #         projectDB.upload_project(prp_project2, namespace="King", tag="new_tag", anno={"sample_anno": "Tony Stark "})
+    #         projectDB.upload_project(prp_project2, namespace="other1", anno={"sample_anno": "Tony Stark ", "status": 1})
     #     except Exception:
     #         pass
 
@@ -661,7 +723,7 @@ def main():
     # dfd = projectDB.get_namespace(namespace="other")
     # print(dfd)
 
-    d = projectDB.get_namespace_annotation()
+    d = projectDB.get_project_annotation(registry="Date/amendments2:primary")
     print(d)
     # print(projectDB.get_namespace_annotation())
 
