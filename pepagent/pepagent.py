@@ -11,9 +11,9 @@ import sys
 import os
 import datetime
 
-from .utils import all_elements_are_strings, is_valid_resgistry_path
-from .const import *
-from .exceptions import SchemaError
+from utils import all_elements_are_strings, is_valid_resgistry_path
+from const import *
+from exceptions import SchemaError
 import coloredlogs
 
 # from pprint import pprint
@@ -82,7 +82,7 @@ class PepAgent:
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project
         :param anno: dict with annotations about current project
-        :param update: boolean value if project hase to be updated
+        :param update: boolean value if existed project has to be updated automatically
         """
         cursor = self.postgresConnection.cursor()
         try:
@@ -95,11 +95,21 @@ class PepAgent:
                 proj_name = name
             else:
                 proj_name = proj_dict["name"]
+
             proj_digest = self._create_digest(proj_dict)
+
+            # adding project status to db:
+            if STATUS_KEY in anno:
+                proj_status = anno[STATUS_KEY]
+                del anno[STATUS_KEY]
+            else:
+                proj_status = DEFAULT_STATUS
+
             anno_info = {
                 "proj_description": proj_dict["description"],
                 "n_samples": len(project.samples),
                 "last_update": str(datetime.datetime.now()),
+                "status": proj_status,
             }
             if anno:
                 anno_info.update(anno)
@@ -178,18 +188,27 @@ class PepAgent:
             proj_name = proj_dict["name"]
 
         proj_digest = self._create_digest(proj_dict)
+
+        # adding project status to db:
+        if STATUS_KEY in anno:
+            proj_status = anno[STATUS_KEY]
+            del anno[STATUS_KEY]
+        else:
+            proj_status = DEFAULT_STATUS
+
         anno_info = {
             "proj_description": proj_dict["description"],
             "n_samples": len(project.samples),
+            "last_update": str(datetime.datetime.now()),
+            "status": proj_status,
         }
+
         if anno:
             anno_info.update(anno)
         anno_info = json.dumps(anno_info)
         proj_dict = json.dumps(proj_dict)
 
-        if self.check_project_existance(
-                namespace=namespace, name=proj_name, tag=tag
-        ):
+        if self.check_project_existance(namespace=namespace, name=proj_name, tag=tag):
             try:
                 _LOGGER.info(f"Updating {proj_name} project...")
                 sql = f"""UPDATE {DB_TABLE_NAME}
@@ -214,7 +233,7 @@ class PepAgent:
 
     def get_project(
             self,
-            registry: str = None,
+            registry_path: str = None,
             namespace: str = None,
             name: str = None,
             tag: str = None,
@@ -223,8 +242,8 @@ class PepAgent:
     ) -> peppy.Project:
         """
         Retrieving project from database by specifying project name or id
-        :param registry: project registry
-        :param namespace: project registry [should be used with name]
+        :param registry_path: project registry_path
+        :param namespace: project registry_path [should be used with name]
         :param name: project name in database [should be used with namespace]
         :param tag: tag of the project
         :param id: project id in database
@@ -234,8 +253,8 @@ class PepAgent:
         sql_q = f"""
                 select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME}
                 """
-        if registry is not None:
-            reg = ubiquerg.parse_registry_path(registry)
+        if registry_path is not None:
+            reg = ubiquerg.parse_registry_path(registry_path)
             namespace = reg["namespace"]
             name = reg["item"]
             tag = reg["tag"]
@@ -423,7 +442,7 @@ class PepAgent:
             sql_q = f"""SELECT DISTINCT {NAMESPACE_COL} FROM {DB_TABLE_NAME};"""
             namespaces = [n[0] for n in self.run_sql_fetchall(sql_q)]
             if names_only:
-                return [n[0] for n in namespaces]
+                return [n for n in namespaces]
 
         namespaces_list = []
         for ns in namespaces:
@@ -438,7 +457,7 @@ class PepAgent:
 
     def get_project_annotation(
             self,
-            registry: str = None,
+            registry_path: str = None,
             namespace: str = None,
             name: str = None,
             tag: str = None,
@@ -448,8 +467,8 @@ class PepAgent:
         """
         Retrieving project annotation dict by specifying project namespace/name, id, or digest
         Additionally you can return all namespace project annotations by specifying only namespace
-        :param registry: project registry
-        :param namespace: project registry - will return dict of project annotations
+        :param registry_path: project registry_path
+        :param namespace: project registry_path - will return dict of project annotations
         :param name: project name in database [should be used with namespace]
         :param tag: tag of the projects
         :param id: project id in database
@@ -465,8 +484,8 @@ class PepAgent:
                     {ANNO_COL}
                         from {DB_TABLE_NAME}
                 """
-        if registry:
-            reg = ubiquerg.parse_registry_path(registry)
+        if registry_path:
+            reg = ubiquerg.parse_registry_path(registry_path)
             namespace = reg["namespace"]
             name = reg["item"]
             tag = reg["tag"]
@@ -547,10 +566,10 @@ class PepAgent:
         """
         Retrieving namespace annotation dict.
         If namespace is None it will retrieve dict with all namespace annotations.
-        :param namespace: project registry
+        :param namespace: project namespace
         """
         sql_q = f"""
-        select {NAMESPACE_COL}, count(DISTINCT {TAG_COL}) as n_tags , count({NAME_COL}) as n_namespace, SUM(({ANNO_COL} ->> 'n_samples')::int)  
+        select {NAMESPACE_COL}, count(DISTINCT {TAG_COL}) as n_tags , count({NAME_COL}) as n_namespace, SUM(({ANNO_COL} ->> 'n_samples')::int) 
             as n_samples 
                 from {DB_TABLE_NAME}
                     group by {NAMESPACE_COL};
@@ -581,14 +600,23 @@ class PepAgent:
 
     def check_project_existance(
             self,
-            registry: str = None,
+            *,
+            registry_path: str = None,
             namespace: str = DEFAULT_NAMESPACE,
             name: str = None,
             tag: str = DEFAULT_TAG,
     ) -> bool:
-        if registry is not None:
+        """
+        Checking if project exists in the database
+        :param registry_path: project registry path
+        :param namespace: project namespace
+        :param name: project name
+        :param tag: project tag
+        :return: Returning True if project exist
+        """
+        if registry_path is not None:
             reg = ubiquerg.parse_registry_path(
-                registry,
+                registry_path,
                 defaults=[
                     ("namespace", DEFAULT_NAMESPACE),
                     ("item", None),
@@ -608,8 +636,56 @@ class PepAgent:
         else:
             return False
 
-    def check_project_status(self, registry: str = None, namespace: str = None, name: str = None, tag: str = None):
-        print()
+    def check_project_status(
+            self,
+            *,
+            registry_path: str = None,
+            namespace: str = None,
+            name: str = None,
+            tag: str = None,
+    ) -> str:
+        """
+        Retrieve project status by providing registry path or name, namespace and tag
+        :param registry_path: project registry
+        :param namespace: project registry - will return dict of project annotations
+        :param name: project name in database. [required if registry_path does not specify]
+        :param tag: tag of the projects
+        :return: status
+        """
+        sql_q = f"""
+                select ({ANNO_COL}->>'status') as status
+                        from {DB_TABLE_NAME}
+                            WHERE {NAMESPACE_COL}=%s AND
+                                {NAME_COL}=%s AND {TAG_COL}=%s;
+                """
+        if registry_path:
+            reg = ubiquerg.parse_registry_path(registry_path)
+            namespace = reg["namespace"]
+            name = reg["item"]
+            tag = reg["tag"]
+
+        if not namespace:
+            namespace = DEFAULT_NAMESPACE
+
+        if not tag:
+            tag = DEFAULT_TAG
+
+        if not name:
+            _LOGGER.error(
+                "You haven't provided neither registry_path or name! Execution is unsuccessful. "
+                "Files haven't been downloaded, returning empty dict"
+            )
+            return "None"
+
+        if not self.check_project_existance(namespace=namespace, name=name, tag=tag):
+            _LOGGER.error(
+                "Project does not exist, returning None"
+            )
+            return "None"
+
+        result = self.run_sql_fetchone(sql_q, namespace, name, tag)
+
+        return result[0]
 
     def run_sql_fetchone(self, sql_query: str, *argv) -> list:
         """
@@ -683,9 +759,6 @@ class PepAgent:
         if DB_COLUMNS != cols_name:
             raise SchemaError
 
-    def _registry(self, registry: str = None, namespace: str = None, name: str = None, tag: str = None):
-            pass
-
 
 
 def main():
@@ -723,8 +796,8 @@ def main():
     # dfd = projectDB.get_namespace(namespace="other")
     # print(dfd)
 
-    d = projectDB.get_project_annotation(registry="Date/amendments2:primary")
-    print(d)
+    d = projectDB.check_project_status(registry_path="other1/subtable4:primary")
+
     # print(projectDB.get_namespace_annotation())
 
 

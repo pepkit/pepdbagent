@@ -43,13 +43,14 @@ print(list_of_namespaces)
 ```
 
 5) Get project
+
 ```python
 # Get project by id:
 pr_ob = projectDB.get_project(id=3)
 print(pr_ob.samples)
 
 # Get project by registry
-pr_ob = projectDB.get_project(registry='Test/subtable3')
+pr_ob = projectDB.get_project(registry_path='Test/subtable3')
 print(pr_ob.samples)
 
 # Get project by namespace and name
@@ -57,7 +58,7 @@ pr_ob = projectDB.get_project(namespace='Test', name='subtable3')
 print(pr_ob.samples)
 
 # Get project by registry
-pr_ob = projectDB.get_project(registry='Test/subtable3:this_is_tag')
+pr_ob = projectDB.get_project(registry_path='Test/subtable3:this_is_tag')
 print(pr_ob.samples)
 
 # Get project by namespace and name
