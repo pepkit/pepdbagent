@@ -26,7 +26,7 @@ coloredlogs.install(
 )
 
 
-class PepAgent:
+class PEPagent:
     """
     A class to connect to pep-db and upload, download, read and process pep projects.
     """
@@ -244,32 +244,61 @@ class PepAgent:
         else:
             _LOGGER.error("Project does not exist! No project will be updated!")
 
-    def get_project(
-        self,
-        *,
-        registry_path: str = None,
-        namespace: str = None,
-        name: str = None,
-        tag: str = None,
-        digest: str = None,
-    ) -> peppy.Project:
+    def get_project_by_registry(self, registry_path: str = None):
         """
-        Retrieving project from database by specifying project registry_path, name, or digest
-        :param registry_path: project registry_path
-        :param namespace: project registry_path
-        :param name: project name in database
-        :param tag: tag of the project
-        :param digest: project digest in database
+        Retrieving project from database by specifying project registry_path
+        :param registry_path: project registry_path [e.g. namespace/name:tag]
+        :return: peppy object with found project
+        """
+        if not registry_path:
+            _LOGGER.error(
+                "No registry path provided! Returning empty project!"
+            )
+            return peppy.Project()
+        else:
+            reg = ubiquerg.parse_registry_path(registry_path)
+            namespace = reg["namespace"]
+            name = reg["item"]
+            tag = reg["tag"]
+        return self.get_project(namespace=namespace, name=name, tag=tag)
+
+    def get_project_by_digest(self, digest: str = None):
+        """
+        Retrieving project from database by specifying project registry_path
+        :param registry_path: project registry_path [e.g. namespace/name:tag]
         :return: peppy object with found project
         """
         sql_q = f"""
                 select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME}
                 """
-        if registry_path is not None:
-            reg = ubiquerg.parse_registry_path(registry_path)
-            namespace = reg["namespace"]
-            name = reg["item"]
-            tag = reg["tag"]
+        if not digest:
+            _LOGGER.error(
+                "No digest was provided! Returning empty project!"
+            )
+            return peppy.Project()
+        else:
+            sql_q = f""" {sql_q} where {DIGEST_COL}=%s; """
+            found_prj = self.run_sql_fetchone(sql_q, digest)
+            project_value = found_prj[1]
+            return peppy.Project(project_dict=project_value)
+
+    def get_project(
+        self,
+        *,
+        namespace: str = None,
+        name: str = None,
+        tag: str = None,
+    ) -> peppy.Project:
+        """
+        Retrieving project from database by specifying project registry_path, name, or digest
+        :param namespace: project registry_path
+        :param name: project name in database
+        :param tag: tag of the project
+        :return: peppy object with found project
+        """
+        sql_q = f"""
+                select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME}
+                """
 
         if name is not None:
             if namespace is None:
@@ -279,13 +308,9 @@ class PepAgent:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
             found_prj = self.run_sql_fetchone(sql_q, name, namespace, tag)
 
-        elif digest is not None:
-            sql_q = f""" {sql_q} where {DIGEST_COL}=%s; """
-            found_prj = self.run_sql_fetchone(sql_q, digest)
-
         else:
             _LOGGER.error(
-                "You haven't provided neither registry_path, name nor digest! Execution is unsuccessful"
+                "You haven't provided name! Execution is unsuccessful"
                 "Files haven't been downloaded, returning empty project"
             )
             return peppy.Project()
@@ -770,7 +795,7 @@ def main():
     #     user="postgres",
     #     password="docker",
     # )
-    projectDB = PepAgent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
+    projectDB = PEPagent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
 
     # prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/amendments2/project_config.yaml")
     # projectDB.upload_project(prp_project2, namespace="Date", anno={"sample_anno": "Tony Stark "})

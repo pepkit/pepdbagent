@@ -1,6 +1,6 @@
 # pepagent + pep_db
 
-Database and pep_db_agent for storing and processing pep projects
+Database and PEPagent for storing and processing pep projects
 
 ---
 ## How to create pep_db:
@@ -12,9 +12,9 @@ Complete instruction can be found here: [pep_db](pep_db)
 1) Create connection with DB:
 ```python
 # 1) By providing credentials and connection information:
-projectDB = PepAgent(user="postgres", password="docker",)
+projectDB = PEPagent(user="postgres", password="docker",)
 # 2) or By providing connection string:
-projectDB = PepAgent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
+projectDB = PEPagent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
 ```
 
 2) Add new project to the DB
