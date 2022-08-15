@@ -11,15 +11,20 @@ import sys
 import os
 import datetime
 
-from utils import all_elements_are_strings, is_valid_resgistry_path
-from const import *
-from exceptions import SchemaError
+from .utils import all_elements_are_strings, is_valid_resgistry_path
+from .const import *
+from .exceptions import SchemaError
 import coloredlogs
 
 # from pprint import pprint
 
 _LOGGER = logmuse.init_logger("pepDB_connector")
-coloredlogs.install(logger=_LOGGER, datefmt="%H:%M:%S", fmt="[%(levelname)s] [%(asctime)s] %(message)s",)
+coloredlogs.install(
+    logger=_LOGGER,
+    datefmt="%H:%M:%S",
+    fmt="[%(levelname)s] [%(asctime)s] %(message)s",
+)
+
 
 class PepAgent:
     """
@@ -27,13 +32,13 @@ class PepAgent:
     """
 
     def __init__(
-            self,
-            dsn=None,
-            host="localhost",
-            port=5432,
-            database="pep-base-sql",
-            user=None,
-            password=None,
+        self,
+        dsn=None,
+        host="localhost",
+        port=5432,
+        database="pep-base-sql",
+        user=None,
+        password=None,
     ):
         _LOGGER.info(f"Initializing connection to {database}...")
 
@@ -67,13 +72,13 @@ class PepAgent:
         self.postgresConnection.close()
 
     def upload_project(
-            self,
-            project: peppy.Project,
-            namespace: str = None,
-            name: str = None,
-            tag: str = None,
-            anno: dict = None,
-            update: bool = False,
+        self,
+        project: peppy.Project,
+        namespace: str = None,
+        name: str = None,
+        tag: str = None,
+        anno: dict = None,
+        update: bool = False,
     ) -> None:
         """
         Upload project to the database
@@ -141,7 +146,13 @@ class PepAgent:
 
             except UniqueViolation:
                 if update:
-                    self.update_project(namespace=namespace, name=proj_name, tag=tag, project=project, anno=anno)
+                    self.update_project(
+                        namespace=namespace,
+                        name=proj_name,
+                        tag=tag,
+                        project=project,
+                        anno=anno,
+                    )
                 else:
                     _LOGGER.warning(
                         f"Namespace, name and tag already exists. Project won't be uploaded. "
@@ -160,12 +171,12 @@ class PepAgent:
             cursor.close()
 
     def update_project(
-            self,
-            project: peppy.Project,
-            namespace: str = None,
-            name: str = None,
-            tag: str = None,
-            anno: dict = None,
+        self,
+        project: peppy.Project,
+        namespace: str = None,
+        name: str = None,
+        tag: str = None,
+        anno: dict = None,
     ) -> None:
         """
         Upload project to the database
@@ -225,28 +236,29 @@ class PepAgent:
                         tag,
                     ),
                 )
-                _LOGGER.info(f"Project '{namespace}/{proj_name}:{tag}' has been updated!")
+                _LOGGER.info(
+                    f"Project '{namespace}/{proj_name}:{tag}' has been updated!"
+                )
             except psycopg2.Error:
                 _LOGGER.error("Error occurred while updating the project!")
         else:
             _LOGGER.error("Project does not exist! No project will be updated!")
 
     def get_project(
-            self,
-            registry_path: str = None,
-            namespace: str = None,
-            name: str = None,
-            tag: str = None,
-            id: int = None,
-            digest: str = None,
+        self,
+        *,
+        registry_path: str = None,
+        namespace: str = None,
+        name: str = None,
+        tag: str = None,
+        digest: str = None,
     ) -> peppy.Project:
         """
-        Retrieving project from database by specifying project name or id
+        Retrieving project from database by specifying project registry_path, name, or digest
         :param registry_path: project registry_path
-        :param namespace: project registry_path [should be used with name]
-        :param name: project name in database [should be used with namespace]
+        :param namespace: project registry_path
+        :param name: project name in database
         :param tag: tag of the project
-        :param id: project id in database
         :param digest: project digest in database
         :return: peppy object with found project
         """
@@ -267,19 +279,15 @@ class PepAgent:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
             found_prj = self.run_sql_fetchone(sql_q, name, namespace, tag)
 
-        elif id is not None:
-            sql_q = f""" {sql_q} where {ID_COL}=%s; """
-            found_prj = self.run_sql_fetchone(sql_q, id)
-
         elif digest is not None:
             sql_q = f""" {sql_q} where {DIGEST_COL}=%s; """
             found_prj = self.run_sql_fetchone(sql_q, digest)
 
         else:
             _LOGGER.error(
-                "You haven't provided neither namespace/name, digest nor id! Execution is unsuccessful"
+                "You haven't provided neither registry_path, name nor digest! Execution is unsuccessful"
+                "Files haven't been downloaded, returning empty project"
             )
-            _LOGGER.info("Files haven't been downloaded, returning empty project")
             return peppy.Project()
 
         if found_prj:
@@ -293,10 +301,11 @@ class PepAgent:
             return peppy.Project()
 
     def get_projects(
-            self,
-            registry_paths: Union[str, List[str]] = None,
-            namespace: str = None,
-            tag: str = None,
+        self,
+        *,
+        registry_paths: Union[str, List[str]] = None,
+        namespace: str = None,
+        tag: str = None,
     ) -> List[peppy.Project]:
         """
         Get a list of projects as peppy.Project instances. This function can be used in 3 ways:
@@ -319,10 +328,10 @@ class PepAgent:
         elif registry_paths:
             # check typing
             if all(
-                    [
-                        not isinstance(registry_paths, str),
-                        not isinstance(registry_paths, list),
-                    ]
+                [
+                    not isinstance(registry_paths, str),
+                    not isinstance(registry_paths, list),
+                ]
             ):
                 raise ValueError(
                     f"Registry paths must be of the type str or List[str]. Supplied: {type(registry_paths)}"
@@ -420,10 +429,10 @@ class PepAgent:
             )
 
     def get_namespaces(
-            self, namespaces: List[str] = None, names_only: bool = False
+        self, namespaces: List[str] = None, names_only: bool = False
     ) -> list:
         """
-        Get list of all available namespaces
+        Get list of all available namespaces.
 
         :param List[str] namespaces: An optional list of namespaces to fetch.
         :param bool names_only: Flag to indicate you only want unique namespace names
@@ -456,22 +465,20 @@ class PepAgent:
         return namespaces_list
 
     def get_project_annotation(
-            self,
-            registry_path: str = None,
-            namespace: str = None,
-            name: str = None,
-            tag: str = None,
-            id: int = None,
-            digest: str = None,
+        self,
+        registry_path: str = None,
+        namespace: str = None,
+        name: str = None,
+        tag: str = None,
+        digest: str = None,
     ) -> dict:
         """
-        Retrieving project annotation dict by specifying project namespace/name, id, or digest
+        Retrieving project annotation dict by specifying project name, or digest
         Additionally you can return all namespace project annotations by specifying only namespace
         :param registry_path: project registry_path
         :param namespace: project registry_path - will return dict of project annotations
-        :param name: project name in database [should be used with namespace]
+        :param name: project name in database
         :param tag: tag of the projects
-        :param id: project id in database
         :param digest: project digest in database
         :return: dict of annotations
         """
@@ -501,10 +508,6 @@ class PepAgent:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s;"""
             found_prj = self.run_sql_fetchone(sql_q, name, namespace)
 
-        elif id:
-            sql_q = f""" {sql_q} where {ID_COL}=%s; """
-            found_prj = self.run_sql_fetchone(sql_q, id)
-
         elif tag:
             sql_q = f""" {sql_q} where {TAG_COL}=%s; """
             found_prj = self.run_sql_fetchone(sql_q, tag)
@@ -529,6 +532,45 @@ class PepAgent:
             TAG_COL: found_prj[3],
             ANNO_COL: found_prj[4],
         }
+
+        return anno_dict
+
+    def get_namespace_annotation(self, namespace: str = None) -> dict:
+        """
+        Retrieving namespace annotation dict with number of tags, projects and samples.
+        If namespace is None it will retrieve dict with all namespace annotations.
+        :param namespace: project namespace
+        """
+        sql_q = f"""
+        select {NAMESPACE_COL}, count(DISTINCT {TAG_COL}) as n_tags , 
+        count({NAME_COL}) as 
+        n_namespace, SUM(({ANNO_COL} ->> 'n_samples')::int) 
+        as n_samples 
+            from {DB_TABLE_NAME}
+                group by {NAMESPACE_COL};
+        """
+        result = self.run_sql_fetchall(sql_q)
+        anno_dict = {}
+
+        for name_sp_result in result:
+            anno_dict[name_sp_result[0]] = {
+                "namespace": name_sp_result[0],
+                "n_tags": name_sp_result[1],
+                "n_projects": name_sp_result[2],
+                "n_samples": name_sp_result[3],
+            }
+
+        if namespace:
+            try:
+                return anno_dict[namespace]
+            except KeyError:
+                _LOGGER.warning(f"Namespace '{namespace}' was not found.")
+                return {
+                    "namespace": namespace,
+                    "n_tags": 0,
+                    "n_projects": 0,
+                    "n_samples": 0,
+                }
 
         return anno_dict
 
@@ -562,49 +604,13 @@ class PepAgent:
 
         return res_dict
 
-    def get_namespace_annotation(self, namespace: str = None) -> dict:
-        """
-        Retrieving namespace annotation dict.
-        If namespace is None it will retrieve dict with all namespace annotations.
-        :param namespace: project namespace
-        """
-        sql_q = f"""
-        select {NAMESPACE_COL}, count(DISTINCT {TAG_COL}) as n_tags , count({NAME_COL}) as n_namespace, SUM(({ANNO_COL} ->> 'n_samples')::int) 
-            as n_samples 
-                from {DB_TABLE_NAME}
-                    group by {NAMESPACE_COL};
-        """
-        result = self.run_sql_fetchall(sql_q)
-        anno_dict = {}
-
-        for name_sp_result in result:
-            anno_dict[name_sp_result[0]] = {
-                "namespace": name_sp_result[0],
-                "n_tags": name_sp_result[1],
-                "n_projects": name_sp_result[2],
-                "n_samples": name_sp_result[3],
-            }
-
-        if namespace:
-            try:
-                return anno_dict[namespace]
-            except KeyError:
-                _LOGGER.warning(f"Namespace '{namespace}' was not found.")
-                return {
-                    "namespace": namespace,
-                    "n_projects": 0,
-                    "n_samples": 0,
-                }
-
-        return anno_dict
-
     def check_project_existance(
-            self,
-            *,
-            registry_path: str = None,
-            namespace: str = DEFAULT_NAMESPACE,
-            name: str = None,
-            tag: str = DEFAULT_TAG,
+        self,
+        *,
+        registry_path: str = None,
+        namespace: str = DEFAULT_NAMESPACE,
+        name: str = None,
+        tag: str = DEFAULT_TAG,
     ) -> bool:
         """
         Checking if project exists in the database
@@ -637,12 +643,12 @@ class PepAgent:
             return False
 
     def check_project_status(
-            self,
-            *,
-            registry_path: str = None,
-            namespace: str = None,
-            name: str = None,
-            tag: str = None,
+        self,
+        *,
+        registry_path: str = None,
+        namespace: str = None,
+        name: str = None,
+        tag: str = None,
     ) -> str:
         """
         Retrieve project status by providing registry path or name, namespace and tag
@@ -678,9 +684,7 @@ class PepAgent:
             return "None"
 
         if not self.check_project_existance(namespace=namespace, name=name, tag=tag):
-            _LOGGER.error(
-                "Project does not exist, returning None"
-            )
+            _LOGGER.error("Project does not exist, returning None")
             return "None"
 
         result = self.run_sql_fetchone(sql_q, namespace, name, tag)
@@ -758,7 +762,6 @@ class PepAgent:
         cols_name.sort()
         if DB_COLUMNS != cols_name:
             raise SchemaError
-
 
 
 def main():
