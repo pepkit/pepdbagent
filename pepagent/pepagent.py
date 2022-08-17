@@ -247,9 +247,7 @@ class PEPagent:
         :return: peppy object with found project
         """
         if not registry_path:
-            _LOGGER.error(
-                "No registry path provided! Returning empty project!"
-            )
+            _LOGGER.error("No registry path provided! Returning empty project!")
             return peppy.Project()
         else:
             reg = ubiquerg.parse_registry_path(registry_path)
@@ -263,7 +261,7 @@ class PEPagent:
         *,
         namespace: str = DEFAULT_NAMESPACE,
         name: str = None,
-        tag: str = DEFAULT_TAG
+        tag: str = DEFAULT_TAG,
     ) -> Union[peppy.Project | None]:
         """
         Retrieving project from database by specifying project registry_path, name, or digest
@@ -700,7 +698,6 @@ class PEPagent:
         result = self.run_sql_fetchone(sql_q, namespace, name, tag)
 
         return result[0]
-
 
     def project_status_by_registry(
         self,
