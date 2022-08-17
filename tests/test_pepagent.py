@@ -1,7 +1,7 @@
 import os
 import pytest
 import peppy
-from pepagent import PepAgent
+from pepagent import PEPagent
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,17 +13,17 @@ EXAMPLE_REGISTRIES = ["geo/GSE102804:default", "demo/basic:default", "nfcore/dem
 
 class TestDatafetching:
 
-    db = PepAgent(
+    db = PEPagent(
         user=os.environ.get("POSTGRES_USER") or "postgres",
         password=os.environ.get("POSTGRES_PASSWORD") or "docker",
     )
 
     def test_connection(self):
-        assert isinstance(self.db, PepAgent)
+        assert isinstance(self.db, PEPagent)
 
     @pytest.mark.parametrize("registry", EXAMPLE_REGISTRIES)
     def test_get_project_by_registry(self, registry):
-        project = self.db.get_project(registry)
+        project = self.db.get_project_by_registry(registry)
         assert isinstance(project, peppy.Project)
 
     def test_get_projects_by_list(self):
@@ -39,7 +39,7 @@ class TestDatafetching:
         assert len(namespaces) > 0
 
     def test_get_namespace_list(self):
-        namespaces = self.db.get_namespaces(names_only=True)
+        namespaces = self.db.get_namespaces_info(names_only=True)
         assert all([isinstance(n, str) for n in namespaces])
 
     @pytest.mark.parametrize("namespace", EXAMPLE_NAMESPACES)
@@ -52,5 +52,5 @@ class TestDatafetching:
     def test_nonexistent_project(self):
         this_registry_doesnt_exist = "blueberry/pancakes"
         with pytest.warns():
-            proj = self.db.get_project(this_registry_doesnt_exist)
+            proj = self.db.get_project_by_registry(this_registry_doesnt_exist)
             assert proj is None

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import List, Union
 import psycopg2
 from psycopg2.errors import UniqueViolation, NotNullViolation
@@ -213,7 +215,7 @@ class PEPagent:
         anno_info = json.dumps(anno_info)
         proj_dict = json.dumps(proj_dict)
 
-        if self.check_project_existance(namespace=namespace, name=proj_name, tag=tag):
+        if self.project_exists(namespace=namespace, name=proj_name, tag=tag):
             try:
                 _LOGGER.info(f"Updating {proj_name} project...")
                 sql = f"""UPDATE {DB_TABLE_NAME}
@@ -262,7 +264,7 @@ class PEPagent:
         namespace: str = DEFAULT_NAMESPACE,
         name: str = None,
         tag: str = DEFAULT_TAG
-    ) -> peppy.Project:
+    ) -> Union[peppy.Project | None]:
         """
         Retrieving project from database by specifying project registry_path, name, or digest
         :param namespace: project registry_path
@@ -293,7 +295,7 @@ class PEPagent:
             _LOGGER.warning(
                 f"No project found for supplied input. Did you supply a valid namespace and project? {sql_q}"
             )
-            return peppy.Project()
+            return None
 
     def get_projects(
         self,
@@ -608,7 +610,7 @@ class PEPagent:
 
         return res_dict
 
-    def check_project_existance(
+    def project_exists(
         self,
         *,
         namespace: str = DEFAULT_NAMESPACE,
@@ -636,7 +638,7 @@ class PEPagent:
         else:
             return False
 
-    def check_project_existance_by_registry(
+    def project_exists_by_registry(
         self,
         registry_path: str,
     ) -> bool:
@@ -658,12 +660,12 @@ class PEPagent:
         name = reg["item"]
         tag = reg["tag"]
 
-        if self.check_project_existance(namespace=namespace, name=name, tag=tag):
+        if self.project_exists(namespace=namespace, name=name, tag=tag):
             return True
         else:
             return False
 
-    def check_project_status(
+    def project_status(
         self,
         *,
         namespace: str = DEFAULT_NAMESPACE,
@@ -691,7 +693,7 @@ class PEPagent:
             )
             return "None"
 
-        if not self.check_project_existance(namespace=namespace, name=name, tag=tag):
+        if not self.project_exists(namespace=namespace, name=name, tag=tag):
             _LOGGER.error("Project does not exist, returning None")
             return "None"
 
@@ -700,7 +702,7 @@ class PEPagent:
         return result[0]
 
 
-    def check_project_status_by_registry(
+    def project_status_by_registry(
         self,
         registry_path: str = None,
     ) -> str:
@@ -715,7 +717,7 @@ class PEPagent:
         name = reg["item"]
         tag = reg["tag"]
 
-        return self.check_project_status(namespace=namespace, name=name, tag=tag)
+        return self.project_status(namespace=namespace, name=name, tag=tag)
 
     def get_registry_paths_by_digest(self, digest: str):
         """
@@ -803,53 +805,3 @@ class PEPagent:
         cols_name.sort()
         if DB_COLUMNS != cols_name:
             raise SchemaError
-
-
-def main():
-    # Create connection to db:
-    # projectDB = PepAgent(
-    #     user="postgres",
-    #     password="docker",
-    # )
-    projectDB = PEPagent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
-
-    # dd = projectDB.get_registry_paths_by_digest("c39e0d451741b11d3bfdcaa2b1a3c161")
-    # print(dd)
-    dd = projectDB.get_projects_all()
-    print()
-    # projectDB.upload_project(prp_project2, namespace="Date", anno={"sample_anno": "Tony Stark "})
-
-    # Add new projects to database
-    # directory = "/home/bnt4me/Virginia/pephub_db/sample_pep/"
-    # os.walk(directory)
-    # projects = (
-    #     [os.path.join(x[0], "project_config.yaml") for x in os.walk(directory)]
-    # )[1:]
-    #
-    # print(projects)
-    # for d in projects:
-    #     try:
-    #         prp_project2 = peppy.Project(d)
-    #         projectDB.upload_project(prp_project2, namespace="other1", anno={"sample_anno": "Tony Stark ", "status": 1})
-    #     except Exception:
-    #         pass
-
-    # dfd = projectDB.get_project(registry="King/amendments2")
-    # print(dfd)
-    # dfd = projectDB.get_projects(tag="new_tag")
-    # print(dfd)
-    # dfd = projectDB.get_namespaces()
-    # print(dfd)
-    # dfd = projectDB.get_namespace(namespace="other")
-    # print(dfd)
-
-    # d = projectDB.check_project_status(registry_path="other1/subtable4:primary")
-
-    # print(projectDB.get_namespace_annotation())
-
-if __name__ == "__main__":
-    try:
-        sys.exit(main())
-    except KeyboardInterrupt:
-        print("Pipeline aborted.")
-        sys.exit(1)

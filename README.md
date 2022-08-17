@@ -25,18 +25,23 @@ pep_project = peppy.Project("/sample_pep/subtable3/project_config.yaml")
 projectDB.upload_project(pep_project, namespace = "Test", anno={"project": "annotation_dict"})  
 # additionally you can specify name and tag of the project
 
+# update project
+
+projectDB.update_project(pep_project, namespace = "Test", anno={"enot": "annotation_dict"})  
+# additionally you can specify name and tag of the project
+
 ```
 
 3) Get list of projects in namespace:
 ```python
-list_of_namespaces = projectDB.get_namespace(namespace="King")
+list_of_namespaces = projectDB.get_namespace_info(namespace="King")
 print(list_of_namespaces)
 
 ```
 
 4) Get list of available namespaces:
 ```python
-list_of_namespaces = projectDB.get_namespaces()
+list_of_namespaces = projectDB.get_namespaces_info()
 print(list_of_namespaces)
 # To get list with with just names of namespaces set: names=True
 # otherwise you will get list with namespaces with information about all projects
@@ -45,47 +50,45 @@ print(list_of_namespaces)
 5) Get project
 
 ```python
-# Get project by id:
-pr_ob = projectDB.get_project(id=3)
+
+# Get project by registry
+pr_ob = projectDB.get_project_by_registry(registry_path='Test/subtable3')
 print(pr_ob.samples)
 
 # Get project by registry
-pr_ob = projectDB.get_project(registry_path='Test/subtable3')
+pr_ob = projectDB.get_project_by_registry(registry_path='Test/subtable3:this_is_tag')
 print(pr_ob.samples)
 
 # Get project by namespace and name
 pr_ob = projectDB.get_project(namespace='Test', name='subtable3')
 print(pr_ob.samples)
 
-# Get project by registry
-pr_ob = projectDB.get_project(registry_path='Test/subtable3:this_is_tag')
-print(pr_ob.samples)
-
 # Get project by namespace and name
 pr_ob = projectDB.get_project(namespace='Test', name='subtable3', tag='this_is_tag')
 print(pr_ob.samples)
 
-# Get project by digest
-pr_ob = projectDB.get_project(digest='1495b8d5b586ab71c9f3a30dd265b3c3')
-print(pr_ob.samples)
 ```
 
 4) Get list of projects
 ```python
-# Get projects by registry
-pr_ob = projectDB.get_projects(registry='Test/subtable3')
-print(pr_ob.samples)
-
-# Get projects by list of registries
-pr_ob = projectDB.get_projects(registry=['Test/subtable3', 'King/pr25'] )
+# Get projects by tag
+pr_ob = projectDB.get_projects(tag='new_tag')
 print(pr_ob.samples)
 
 # Get projects by namespace
-pr_ob = projectDB.get_projects(namespace='Test')
+pr_ob = projectDB.get_projects(namespace='King')
 print(pr_ob.samples)
 
-# Get project by tag
-pr_ob = projectDB.get_project(tag='this_is_tag')
+# Get projects by namespace and tag
+pr_ob = projectDB.get_projects(namespace='King', tag='taggg')
+print(pr_ob.samples)
+
+# Get projects by list of registry paths
+pr_ob = projectDB.get_projects_by_list(registry_paths=['Test/subtable3:default', 'Test/subtable3:bbb'])
+print(pr_ob.samples)
+
+# Get all the projects
+pr_ob = projectDB.get_project_all()
 print(pr_ob.samples)
 
 ```
@@ -94,10 +97,6 @@ print(pr_ob.samples)
 
 ```python
 
-# Get dictionary of annotation for 1 project by id 
-projects_anno_list = projectDB.get_project_annotation(id='5')
-# Get dictionary of annotation for 1 project by digest
-projects_anno_list = projectDB.get_project_annotation(digest='1495b8d5b586ab71c9f3a30dd265b3c3')
 # Get dictionary of annotation for 1 project by registry
 projects_anno_list = projectDB.get_project_annotation(digest='Test/subtable3:this_is_tag')
 # if tag is not set default tag will be set
@@ -112,4 +111,37 @@ namespace_anno = projectDB.get_namespace_annotation(namespace='Test')
 
 # Get dictiionary of annotations for all namespaces
 namespace_anno_all = projectDB.get_namespace_annotation()
+```
+
+
+7) Check project existance:
+
+```python
+# by name and namespace:
+projectDB.project_exists(namespace="nn", name="buu")
+
+# by name and namespace and tag:
+projectDB.project_exists(namespace="nn", name="buu", tag='dog')
+
+# by registry path:
+projectDB.project_exists_by_registry(registry_path='nn/buu/dog')
+
+```
+
+
+8) Check project status:
+
+```python
+# by name and namespace and tag:
+# Get dictionary of annotation for specific namespace
+projectDB.project_status(namespace="nn", name="buu", tag='dog')
+
+# by registry path:
+projectDB.project_status_by_registry(registry_path='nn/buu/dog')
+```
+
+9) Get registry paths of all the projects by digest:
+
+```python
+projectDB.get_registry_paths_by_digest(digest='sdafsgwerg243rt2gregw3qr24')
 ```
