@@ -8,7 +8,7 @@ load_dotenv()
 
 EXAMPLE_NAMESPACES = ["nfcore", "geo", "demo"]
 
-EXAMPLE_REGISTRIES = ["geo/GSE102804", "demo/basic", "nfcore/demo_rna_pep"]
+EXAMPLE_REGISTRIES = ["geo/GSE102804:default", "demo/basic:default", "nfcore/demo_rna_pep:default"]
 
 
 class TestDatafetching:
@@ -27,19 +27,15 @@ class TestDatafetching:
         assert isinstance(project, peppy.Project)
 
     def test_get_projects_by_list(self):
-        projects = self.db.get_projects(EXAMPLE_REGISTRIES)
+        projects = self.db.get_projects_by_list(EXAMPLE_REGISTRIES)
         assert len(projects) == 3
-
-    def test_get_projects_by_registry_path(self):
-        projects = self.db.get_projects(EXAMPLE_REGISTRIES[0])
-        assert len(projects) == 1
 
     def test_get_projects_by_namespace(self):
         projects = self.db.get_projects(namespace=EXAMPLE_NAMESPACES[0])
         assert len(projects) == 2
 
     def test_get_namespaces(self):
-        namespaces = self.db.get_namespaces()
+        namespaces = self.db.get_namespaces_info()
         assert len(namespaces) > 0
 
     def test_get_namespace_list(self):
@@ -48,7 +44,7 @@ class TestDatafetching:
 
     @pytest.mark.parametrize("namespace", EXAMPLE_NAMESPACES)
     def test_get_namespace(self, namespace: str):
-        result = self.db.get_namespace(namespace)
+        result = self.db.get_namespace_info(namespace)
         assert isinstance(result, dict)
         assert "projects" in result
         assert len(result["projects"]) > 0

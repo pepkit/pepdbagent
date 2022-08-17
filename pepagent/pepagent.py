@@ -74,9 +74,9 @@ class PEPagent:
     def upload_project(
         self,
         project: peppy.Project,
-        namespace: str = None,
+        namespace: str = DEFAULT_NAMESPACE,
         name: str = None,
-        tag: str = None,
+        tag: str = DEFAULT_TAG,
         anno: dict = None,
         update: bool = False,
     ) -> None:
@@ -91,10 +91,7 @@ class PEPagent:
         """
         cursor = self.postgresConnection.cursor()
         try:
-            if namespace is None:
-                namespace = DEFAULT_NAMESPACE
-            if tag is None:
-                tag = DEFAULT_TAG
+
             proj_dict = project.to_dict(extended=True)
             if name:
                 proj_name = name
@@ -173,9 +170,9 @@ class PEPagent:
     def update_project(
         self,
         project: peppy.Project,
-        namespace: str = None,
+        namespace: str = DEFAULT_NAMESPACE,
         name: str = None,
-        tag: str = None,
+        tag: str = DEFAULT_TAG,
         anno: dict = None,
     ) -> None:
         """
@@ -188,10 +185,7 @@ class PEPagent:
         :param update: boolean value if project hase to be updated
         """
         cursor = self.postgresConnection.cursor()
-        if namespace is None:
-            namespace = DEFAULT_NAMESPACE
-        if tag is None:
-            tag = DEFAULT_TAG
+
         proj_dict = project.to_dict(extended=True)
         if name:
             proj_name = name
@@ -262,32 +256,12 @@ class PEPagent:
             tag = reg["tag"]
         return self.get_project(namespace=namespace, name=name, tag=tag)
 
-    def get_project_by_digest(self, digest: str = None):
-        """
-        Retrieving project from database by specifying project registry_path
-        :param registry_path: project registry_path [e.g. namespace/name:tag]
-        :return: peppy object with found project
-        """
-        sql_q = f"""
-                select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME}
-                """
-        if not digest:
-            _LOGGER.error(
-                "No digest was provided! Returning empty project!"
-            )
-            return peppy.Project()
-        else:
-            sql_q = f""" {sql_q} where {DIGEST_COL}=%s; """
-            found_prj = self.run_sql_fetchone(sql_q, digest)
-            project_value = found_prj[1]
-            return peppy.Project(project_dict=project_value)
-
     def get_project(
         self,
         *,
-        namespace: str = None,
+        namespace: str = DEFAULT_NAMESPACE,
         name: str = None,
-        tag: str = None,
+        tag: str = DEFAULT_TAG
     ) -> peppy.Project:
         """
         Retrieving project from database by specifying project registry_path, name, or digest
@@ -301,10 +275,6 @@ class PEPagent:
                 """
 
         if name is not None:
-            if namespace is None:
-                namespace = DEFAULT_NAMESPACE
-            if tag is None:
-                tag = DEFAULT_TAG
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
             found_prj = self.run_sql_fetchone(sql_q, name, namespace, tag)
 
@@ -327,74 +297,18 @@ class PEPagent:
 
     def get_projects(
         self,
-        *,
-        registry_paths: Union[str, List[str]] = None,
         namespace: str = None,
         tag: str = None,
     ) -> List[peppy.Project]:
         """
-        Get a list of projects as peppy.Project instances. This function can be used in 3 ways:
-        1. Get all projects in the database (call empty)
-        2. Get a list of projects using a list registry paths
-        3. Get a list of projects in a namespace
-        4. Get a list of projects with certain tag (can be used with namespace)
-
-        :param registry_paths: A list of registry paths of the form {namespace}/{name}.
+        Get a list of projects as peppy.Project instances.
+        Get a list of projects in a namespace
         :param namespace: The namespace to fetch all projects from.
         :param tag: The tag to fetch all projects from.
         :return: a list of peppy.Project instances for the requested projects.
         """
-        # Case 1. Fetch all projects in database
-        if all([registry_paths is None, namespace is None, tag is None]):
-            sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME}"
-            results = self.run_sql_fetchall(sql_q)
 
-        # Case 2. fetch list of registry paths
-        elif registry_paths:
-            # check typing
-            if all(
-                [
-                    not isinstance(registry_paths, str),
-                    not isinstance(registry_paths, list),
-                ]
-            ):
-                raise ValueError(
-                    f"Registry paths must be of the type str or List[str]. Supplied: {type(registry_paths)}"
-                )
-            else:
-                # coerce to list if necessary
-                if isinstance(registry_paths, str):
-                    registry_paths = [registry_paths]
-
-                # check for valid registry paths
-                for rpath in registry_paths:
-                    if not is_valid_resgistry_path(rpath):
-                        # should we raise an error or just warn with the logger?
-                        raise ValueError(f"Invalid registry path supplied: '{rpath}'")
-
-                # dynamically build filter for set of registry paths
-                parametrized_filter = ""
-                for i in range(len(registry_paths)):
-                    parametrized_filter += "(namespace=%s and name=%s)"
-                    if i < len(registry_paths) - 1:
-                        parametrized_filter += " or "
-
-            sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where {parametrized_filter}"
-            flattened_registries = tuple(
-                chain(
-                    *[
-                        [r["namespace"], r["item"]]
-                        for r in map(
-                            lambda rpath: ubiquerg.parse_registry_path(rpath),
-                            registry_paths,
-                        )
-                    ]
-                )
-            )
-            results = self.run_sql_fetchall(sql_q, *flattened_registries)
-
-        # Case 3. Get projects by namespace
-        elif namespace:
+        if namespace:
             if tag:
                 sql_q = (
                     f"select {NAME_COL}, {PROJ_COL} "
@@ -419,7 +333,67 @@ class PEPagent:
         # extract out the project config dictionary from the query
         return [peppy.Project(project_dict=p[1]) for p in results]
 
-    def get_namespace(self, namespace: str) -> dict:
+    def get_projects_by_list(
+        self,
+        registry_paths: list,
+    ) -> List[peppy.Project]:
+        """
+        Get a list of projects as peppy.Project instances.
+        Get a list of projects in a list of registry_paths
+        :
+        :return: a list of peppy.Project instances for the requested projects.
+        """
+        if not isinstance(registry_paths, list):
+            raise TypeError(f"incorrect variable type provided")
+        for rpath in registry_paths:
+            if not is_valid_resgistry_path(rpath):
+                # should we raise an error or just warn with the logger?
+                raise ValueError(f"Invalid registry path supplied: '{rpath}'")
+
+        # dynamically build filter for set of registry paths
+        parametrized_filter = ""
+        for i in range(len(registry_paths)):
+            parametrized_filter += "(namespace=%s and name=%s)"
+            if i < len(registry_paths) - 1:
+                parametrized_filter += " or "
+
+        sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where {parametrized_filter}"
+        flattened_registries = tuple(
+            chain(
+                *[
+                    [r["namespace"], r["item"]]
+                    for r in map(
+                        lambda rpath: ubiquerg.parse_registry_path(rpath),
+                        registry_paths,
+                    )
+                ]
+            )
+        )
+        results = self.run_sql_fetchall(sql_q, *flattened_registries)
+
+        # extract out the project config dictionary from the query
+        return [peppy.Project(project_dict=p[1]) for p in results]
+
+    def get_projects_all(
+        self,
+    ) -> List[peppy.Project]:
+        """
+        Get a list of projects as peppy.Project instances.
+        Get all projects in the database (call empty)
+        :return: a list of peppy.Project instances for the requested projects.
+        """
+        sql_q = f"select {PROJ_COL} from {DB_TABLE_NAME}"
+        result = self.run_sql_fetchall(sql_q)
+        proj_list = []
+
+        for raw_proj in result:
+            try:
+                proj_list.append(peppy.Project(project_dict=raw_proj[0]))
+            except Exception as err:
+                _LOGGER.error(f"Exception in {err}")
+        return proj_list
+
+    def get_namespace_info(self, namespace: str) -> dict:
         """
         Fetch a particular namespace from the database. This doesn't retrieve full project
         objects. For that, one should utilize the `get_projects(namespace=...)` function.
@@ -453,7 +427,7 @@ class PEPagent:
                 f"Error occurred while getting data from '{namespace}' namespace"
             )
 
-    def get_namespaces(
+    def get_namespaces_info(
         self, namespaces: List[str] = None, names_only: bool = False
     ) -> list:
         """
@@ -481,7 +455,7 @@ class PEPagent:
         namespaces_list = []
         for ns in namespaces:
             try:
-                namespaces_list.append(self.get_namespace(ns))
+                namespaces_list.append(self.get_namespace_info(ns))
             except TypeError:
                 _LOGGER.warning(
                     f"Warning: Error in collecting projects from database. {ns} wasn't collected!"
@@ -491,20 +465,16 @@ class PEPagent:
 
     def get_project_annotation(
         self,
-        registry_path: str = None,
         namespace: str = None,
         name: str = None,
         tag: str = None,
-        digest: str = None,
     ) -> dict:
         """
-        Retrieving project annotation dict by specifying project name, or digest
+        Retrieving project annotation dict by specifying project name
         Additionally you can return all namespace project annotations by specifying only namespace
-        :param registry_path: project registry_path
         :param namespace: project registry_path - will return dict of project annotations
         :param name: project name in database
         :param tag: tag of the projects
-        :param digest: project digest in database
         :return: dict of annotations
         """
         sql_q = f"""
@@ -516,11 +486,6 @@ class PEPagent:
                     {ANNO_COL}
                         from {DB_TABLE_NAME}
                 """
-        if registry_path:
-            reg = ubiquerg.parse_registry_path(registry_path)
-            namespace = reg["namespace"]
-            name = reg["item"]
-            tag = reg["tag"]
 
         if not name and not tag and namespace:
             return self._get_namespace_proj_anno(namespace)
@@ -536,10 +501,6 @@ class PEPagent:
         elif tag:
             sql_q = f""" {sql_q} where {TAG_COL}=%s; """
             found_prj = self.run_sql_fetchone(sql_q, tag)
-
-        elif digest:
-            sql_q = f""" {sql_q} where {DIGEST_COL}=%s; """
-            found_prj = self.run_sql_fetchone(sql_q, digest)
 
         else:
             _LOGGER.error(
@@ -559,6 +520,24 @@ class PEPagent:
         }
 
         return anno_dict
+
+    def get_project_annotation_by_registry(
+        self,
+        registry_path: str,
+    ) -> dict:
+        """
+        Retrieving project annotation dict by specifying registry path
+        :param registry_path: project registry_path
+
+        :return: dict of annotations
+        """
+
+        reg = ubiquerg.parse_registry_path(registry_path)
+        namespace = reg["namespace"]
+        name = reg["item"]
+        tag = reg["tag"]
+
+        return self.get_project_annotation(namespace=namespace, name=name, tag=tag)
 
     def get_namespace_annotation(self, namespace: str = None) -> dict:
         """
@@ -632,31 +611,21 @@ class PEPagent:
     def check_project_existance(
         self,
         *,
-        registry_path: str = None,
         namespace: str = DEFAULT_NAMESPACE,
         name: str = None,
         tag: str = DEFAULT_TAG,
     ) -> bool:
         """
         Checking if project exists in the database
-        :param registry_path: project registry path
         :param namespace: project namespace
         :param name: project name
         :param tag: project tag
         :return: Returning True if project exist
         """
-        if registry_path is not None:
-            reg = ubiquerg.parse_registry_path(
-                registry_path,
-                defaults=[
-                    ("namespace", DEFAULT_NAMESPACE),
-                    ("item", None),
-                    ("tag", DEFAULT_TAG),
-                ],
-            )
-            namespace = reg["namespace"]
-            name = reg["item"]
-            tag = reg["tag"]
+        if name is None:
+            _LOGGER.error(f"Name is not specified")
+            return False
+
         sql = f"""SELECT {ID_COL} from {DB_TABLE_NAME} 
                     WHERE {NAMESPACE_COL} = %s AND
                           {NAME_COL} = %s AND 
@@ -667,17 +636,42 @@ class PEPagent:
         else:
             return False
 
+    def check_project_existance_by_registry(
+        self,
+        registry_path: str,
+    ) -> bool:
+        """
+        Checking if project exists in the database
+        :param registry_path: project registry path
+        :return: Returning True if project exist
+        """
+
+        reg = ubiquerg.parse_registry_path(
+            registry_path,
+            defaults=[
+                ("namespace", DEFAULT_NAMESPACE),
+                ("item", None),
+                ("tag", DEFAULT_TAG),
+            ],
+        )
+        namespace = reg["namespace"]
+        name = reg["item"]
+        tag = reg["tag"]
+
+        if self.check_project_existance(namespace=namespace, name=name, tag=tag):
+            return True
+        else:
+            return False
+
     def check_project_status(
         self,
         *,
-        registry_path: str = None,
-        namespace: str = None,
+        namespace: str = DEFAULT_NAMESPACE,
         name: str = None,
-        tag: str = None,
+        tag: str = DEFAULT_TAG,
     ) -> str:
         """
-        Retrieve project status by providing registry path or name, namespace and tag
-        :param registry_path: project registry
+        Retrieve project status by providing name, namespace and tag
         :param namespace: project registry - will return dict of project annotations
         :param name: project name in database. [required if registry_path does not specify]
         :param tag: tag of the projects
@@ -689,17 +683,6 @@ class PEPagent:
                             WHERE {NAMESPACE_COL}=%s AND
                                 {NAME_COL}=%s AND {TAG_COL}=%s;
                 """
-        if registry_path:
-            reg = ubiquerg.parse_registry_path(registry_path)
-            namespace = reg["namespace"]
-            name = reg["item"]
-            tag = reg["tag"]
-
-        if not namespace:
-            namespace = DEFAULT_NAMESPACE
-
-        if not tag:
-            tag = DEFAULT_TAG
 
         if not name:
             _LOGGER.error(
@@ -715,6 +698,39 @@ class PEPagent:
         result = self.run_sql_fetchone(sql_q, namespace, name, tag)
 
         return result[0]
+
+
+    def check_project_status_by_registry(
+        self,
+        registry_path: str = None,
+    ) -> str:
+        """
+        Retrieve project status by providing registry path
+        :param registry_path: project registry
+
+        :return: status
+        """
+        reg = ubiquerg.parse_registry_path(registry_path)
+        namespace = reg["namespace"]
+        name = reg["item"]
+        tag = reg["tag"]
+
+        return self.check_project_status(namespace=namespace, name=name, tag=tag)
+
+    def get_registry_paths_by_digest(self, digest: str):
+        """
+        Get project registry by digest
+        :param digest: Digest of the project
+        """
+        sql_q = f"select {NAMESPACE_COL}, {NAME_COL}, {TAG_COL} from {DB_TABLE_NAME} where {DIGEST_COL} = %s"
+        results = self.run_sql_fetchall(sql_q, digest)
+
+        registry_list = []
+
+        for res in results:
+            registry_list.append(f"{res[0]}/{res[1]}:{res[2]}")
+
+        return registry_list
 
     def run_sql_fetchone(self, sql_query: str, *argv) -> list:
         """
@@ -797,7 +813,10 @@ def main():
     # )
     projectDB = PEPagent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
 
-    # prp_project2 = peppy.Project("/home/bnt4me/Virginia/pephub_db/sample_pep/amendments2/project_config.yaml")
+    # dd = projectDB.get_registry_paths_by_digest("c39e0d451741b11d3bfdcaa2b1a3c161")
+    # print(dd)
+    dd = projectDB.get_projects_all()
+    print()
     # projectDB.upload_project(prp_project2, namespace="Date", anno={"sample_anno": "Tony Stark "})
 
     # Add new projects to database
@@ -824,10 +843,9 @@ def main():
     # dfd = projectDB.get_namespace(namespace="other")
     # print(dfd)
 
-    d = projectDB.check_project_status(registry_path="other1/subtable4:primary")
+    # d = projectDB.check_project_status(registry_path="other1/subtable4:primary")
 
     # print(projectDB.get_namespace_annotation())
-
 
 if __name__ == "__main__":
     try:
