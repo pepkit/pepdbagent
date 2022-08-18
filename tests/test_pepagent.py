@@ -27,19 +27,19 @@ class TestDatafetching:
         assert isinstance(project, peppy.Project)
 
     def test_get_projects_by_list(self):
-        projects = self.db.get_projects_by_list(EXAMPLE_REGISTRIES)
+        projects = self.db.get_projects_in_list(EXAMPLE_REGISTRIES)
         assert len(projects) == 3
 
     def test_get_projects_by_namespace(self):
-        projects = self.db.get_projects(namespace=EXAMPLE_NAMESPACES[0])
+        projects = self.db.get_projects_in_namespace(namespace=EXAMPLE_NAMESPACES[0])
         assert len(projects) == 2
 
     def test_get_namespaces(self):
-        namespaces = self.db.get_namespaces_info()
+        namespaces = self.db.get_namespaces_info_by_list()
         assert len(namespaces) > 0
 
     def test_get_namespace_list(self):
-        namespaces = self.db.get_namespaces_info(names_only=True)
+        namespaces = self.db.get_namespaces_info_by_list(names_only=True)
         assert all([isinstance(n, str) for n in namespaces])
 
     @pytest.mark.parametrize("namespace", EXAMPLE_NAMESPACES)

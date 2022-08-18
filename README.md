@@ -40,8 +40,9 @@ print(list_of_namespaces)
 ```
 
 4) Get list of available namespaces:
+
 ```python
-list_of_namespaces = projectDB.get_namespaces_info()
+list_of_namespaces = projectDB.get_namespaces_info_by_list()
 print(list_of_namespaces)
 # To get list with with just names of namespaces set: names=True
 # otherwise you will get list with namespaces with information about all projects
@@ -70,21 +71,22 @@ print(pr_ob.samples)
 ```
 
 4) Get list of projects
+
 ```python
 # Get projects by tag
-pr_ob = projectDB.get_projects(tag='new_tag')
+pr_ob = projectDB.get_projects_in_namespace(tag='new_tag')
 print(pr_ob.samples)
 
 # Get projects by namespace
-pr_ob = projectDB.get_projects(namespace='King')
+pr_ob = projectDB.get_projects_in_namespace(namespace='King')
 print(pr_ob.samples)
 
 # Get projects by namespace and tag
-pr_ob = projectDB.get_projects(namespace='King', tag='taggg')
+pr_ob = projectDB.get_projects_in_namespace(namespace='King', tag='taggg')
 print(pr_ob.samples)
 
 # Get projects by list of registry paths
-pr_ob = projectDB.get_projects_by_list(registry_paths=['Test/subtable3:default', 'Test/subtable3:bbb'])
+pr_ob = projectDB.get_projects_in_list(registry_paths=['Test/subtable3:default', 'Test/subtable3:bbb'])
 print(pr_ob.samples)
 
 # Get all the projects

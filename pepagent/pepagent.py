@@ -163,7 +163,7 @@ class PEPagent:
 
         except psycopg2.Error as e:
             _LOGGER.error(
-                f"Error while uploading project. Project hasn't ben uploaded!"
+                f"Error while uploading project. Project hasn't been uploaded!"
             )
             cursor.close()
 
@@ -298,7 +298,7 @@ class PEPagent:
             )
             return None
 
-    def get_projects(
+    def get_projects_in_namespace(
         self,
         namespace: str = None,
         tag: str = None,
@@ -336,7 +336,7 @@ class PEPagent:
         # extract out the project config dictionary from the query
         return [peppy.Project().from_dict(p[1]) for p in results]
 
-    def get_projects_by_list(
+    def get_projects_in_list(
         self,
         registry_paths: list,
     ) -> List[peppy.Project]:
@@ -377,7 +377,7 @@ class PEPagent:
         # extract out the project config dictionary from the query
         return [peppy.Project(project_dict=p[1]) for p in results]
 
-    def get_projects_all(
+    def get_all_projects(
         self,
     ) -> List[peppy.Project]:
         """
@@ -430,7 +430,7 @@ class PEPagent:
                 f"Error occurred while getting data from '{namespace}' namespace"
             )
 
-    def get_namespaces_info(
+    def get_namespaces_info_by_list(
         self, namespaces: List[str] = None, names_only: bool = False
     ) -> list:
         """
