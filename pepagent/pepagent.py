@@ -704,7 +704,7 @@ class PEPagent:
         try:
             result = self.run_sql_fetchone(sql_q, namespace, name, tag)[0]
         except IndexError:
-            return None
+            return "Unknown"
         return result
 
     def project_status_by_registry(
