@@ -353,7 +353,6 @@ class PEPagent:
                 # should we raise an error or just warn with the logger?
                 raise ValueError(f"Invalid registry path supplied: '{rpath}'")
 
-        # dynamically build filter for set of registry paths
         parametrized_filter = ""
         for i in range(len(registry_paths)):
             parametrized_filter += "(namespace=%s and name=%s)"
@@ -549,7 +548,8 @@ class PEPagent:
 
     def get_namespace_annotation(self, namespace: str = None) -> dict:
         """
-        Retrieving namespace annotation dict with number of tags, projects and samples.
+        Retrieving namespace annotation dict.
+        Data that will be retrieved: number of tags, projects and samples
         If namespace is None it will retrieve dict with all namespace annotations.
         :param namespace: project namespace
         """
@@ -675,7 +675,7 @@ class PEPagent:
         namespace: str = DEFAULT_NAMESPACE,
         name: str = None,
         tag: str = DEFAULT_TAG,
-    ) -> str:
+    ) -> Union[str, None]:
         """
         Retrieve project status by providing name, namespace and tag
         :param namespace: project registry - will return dict of project annotations
@@ -701,9 +701,11 @@ class PEPagent:
             _LOGGER.error("Project does not exist, returning None")
             return "None"
 
-        result = self.run_sql_fetchone(sql_q, namespace, name, tag)
-
-        return result[0]
+        try:
+            result = self.run_sql_fetchone(sql_q, namespace, name, tag)[0]
+        except IndexError:
+            return None
+        return result
 
     def project_status_by_registry(
         self,
