@@ -8,7 +8,11 @@ load_dotenv()
 
 EXAMPLE_NAMESPACES = ["nfcore", "geo", "demo"]
 
-EXAMPLE_REGISTRIES = ["geo/GSE102804:default", "demo/basic:default", "nfcore/demo_rna_pep:default"]
+EXAMPLE_REGISTRIES = [
+    "geo/GSE102804:default",
+    "demo/basic:default",
+    "nfcore/demo_rna_pep:default",
+]
 
 
 class TestDatafetching:
