@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import List, Union
 import psycopg2
 from psycopg2.errors import UniqueViolation, NotNullViolation
@@ -254,15 +252,20 @@ class PEPagent:
             namespace = reg["namespace"]
             name = reg["item"]
             tag = reg["tag"]
+
+        if namespace is None:
+            namespace = DEFAULT_NAMESPACE
+        if tag is None:
+            tag = DEFAULT_TAG
+
         return self.get_project(namespace=namespace, name=name, tag=tag)
 
     def get_project(
         self,
-        *,
         namespace: str = DEFAULT_NAMESPACE,
         name: str = None,
         tag: str = DEFAULT_TAG,
-    ) -> Union[peppy.Project | None]:
+    ) -> Union[peppy.Project, None]:
         """
         Retrieving project from database by specifying project registry_path, name, or digest
         :param namespace: project registry_path
@@ -288,7 +291,7 @@ class PEPagent:
         if found_prj:
             _LOGGER.info(f"Project has been found: {found_prj[0]}")
             project_value = found_prj[1]
-            return peppy.Project(project_dict=project_value)
+            return peppy.Project().from_dict(project_value)
         else:
             _LOGGER.warning(
                 f"No project found for supplied input. Did you supply a valid namespace and project? {sql_q}"
@@ -331,7 +334,7 @@ class PEPagent:
             results = []
 
         # extract out the project config dictionary from the query
-        return [peppy.Project(project_dict=p[1]) for p in results]
+        return [peppy.Project().from_dict(p[1]) for p in results]
 
     def get_projects_by_list(
         self,
@@ -388,7 +391,7 @@ class PEPagent:
 
         for raw_proj in result:
             try:
-                proj_list.append(peppy.Project(project_dict=raw_proj[0]))
+                proj_list.append(peppy.Project().from_dict(raw_proj[0]))
             except Exception as err:
                 _LOGGER.error(f"Exception in {err}")
         return proj_list
@@ -537,6 +540,11 @@ class PEPagent:
         name = reg["item"]
         tag = reg["tag"]
 
+        if namespace is None:
+            namespace = DEFAULT_NAMESPACE
+        if tag is None:
+            tag = DEFAULT_TAG
+
         return self.get_project_annotation(namespace=namespace, name=name, tag=tag)
 
     def get_namespace_annotation(self, namespace: str = None) -> dict:
@@ -610,7 +618,6 @@ class PEPagent:
 
     def project_exists(
         self,
-        *,
         namespace: str = DEFAULT_NAMESPACE,
         name: str = None,
         tag: str = DEFAULT_TAG,
@@ -665,7 +672,6 @@ class PEPagent:
 
     def project_status(
         self,
-        *,
         namespace: str = DEFAULT_NAMESPACE,
         name: str = None,
         tag: str = DEFAULT_TAG,
@@ -713,6 +719,11 @@ class PEPagent:
         namespace = reg["namespace"]
         name = reg["item"]
         tag = reg["tag"]
+
+        if namespace is None:
+            namespace = DEFAULT_NAMESPACE
+        if tag is None:
+            tag = DEFAULT_TAG
 
         return self.project_status(namespace=namespace, name=name, tag=tag)
 
