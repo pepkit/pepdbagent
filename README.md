@@ -9,12 +9,15 @@ Complete instruction can be found here: [pep_db](pep_db)
 
 ---
 ## How to use pepagent
+```python
+from pepdbagent import Connection
+```
 1) Create connection with DB:
 ```python
 # 1) By providing credentials and connection information:
-projectDB = PEPagent(user="postgres", password="docker",)
+projectDB = Connection(user="postgres", password="docker",)
 # 2) or By providing connection string:
-projectDB = PEPagent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
+projectDB = Connection("postgresql://postgres:docker@localhost:5432/pep-base-sql")
 ```
 
 2) Add new project to the DB

@@ -2,3 +2,4 @@ psycopg2-binary
 logmuse
 peppy>=0.34.0
 ubiquerg>=0.6.2
+coloredlogs>=15.0.1

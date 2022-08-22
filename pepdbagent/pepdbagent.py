@@ -26,7 +26,7 @@ coloredlogs.install(
 )
 
 
-class PEPagent:
+class Connection:
     """
     A class to connect to pep-db and upload, download, read and process pep projects.
     """
