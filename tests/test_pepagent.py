@@ -1,7 +1,7 @@
 import os
 import pytest
 import peppy
-from pepagent import PEPagent
+from pepdbagent import Connection
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,13 +17,13 @@ EXAMPLE_REGISTRIES = [
 
 class TestDatafetching:
 
-    db = PEPagent(
+    db = Connection(
         user=os.environ.get("POSTGRES_USER") or "postgres",
         password=os.environ.get("POSTGRES_PASSWORD") or "docker",
     )
 
     def test_connection(self):
-        assert isinstance(self.db, PEPagent)
+        assert isinstance(self.db, Connection)
 
     @pytest.mark.parametrize("registry", EXAMPLE_REGISTRIES)
     def test_get_project_by_registry(self, registry):

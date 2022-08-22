@@ -1,3 +1,3 @@
 """ Package-level data """
-from .pepagent import *
+from .pepdbagent import *
 from ._version import __version__
