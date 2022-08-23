@@ -36,7 +36,7 @@ class Connection:
         dsn=None,
         host="localhost",
         port=5432,
-        database="pep-base-sql",
+        database="pep-db",
         user=None,
         password=None,
     ):
