@@ -12,4 +12,4 @@ projects, annotations, sets and other information from pep-db.
 Here you can find more information with tutorials:
 
 - [pep-db installation](./docs/db_tutorial.md)
-- [pedbagent](./docs.tutorial.md)
+- [pedbagent](./docs/tutorial.md)

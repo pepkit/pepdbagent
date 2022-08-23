@@ -7,8 +7,6 @@ import peppy
 from hashlib import md5
 from itertools import chain
 import ubiquerg
-import sys
-import os
 import datetime
 
 from .utils import all_elements_are_strings, is_valid_resgistry_path
@@ -17,6 +15,8 @@ from .exceptions import SchemaError
 import coloredlogs
 
 # from pprint import pprint
+# import sys
+# import os
 
 _LOGGER = logmuse.init_logger("pepDB_connector")
 coloredlogs.install(
@@ -99,6 +99,9 @@ class Connection:
                 proj_name = proj_dict["name"]
 
             proj_digest = self._create_digest(proj_dict)
+
+            if anno is None:
+                anno = {}
 
             # adding project status to db:
             if STATUS_KEY in anno:
@@ -793,7 +796,7 @@ class Connection:
         """
         _LOGGER.info(f"Creating digest for: {project_dict['name']}")
         sample_digest = md5(
-            json.dumps(project_dict["_samples"], sort_keys=True).encode("utf-8")
+            json.dumps(project_dict["_sample_df"], sort_keys=True).encode("utf-8")
         ).hexdigest()
 
         return sample_digest
