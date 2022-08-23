@@ -2,7 +2,7 @@ import sys
 import os
 from setuptools import find_packages, setup
 
-PACKAGE_NAME = "pepagent"
+PACKAGE_NAME = "pepdbagent"
 
 # Ordinary dependencies
 DEPENDENCIES = []
@@ -52,7 +52,7 @@ setup(
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
     keywords="project, metadata, bioinformatics, database",
-    url="https://github.com/pepkit/peppy/",
+    url="https://github.com/pepkit/pepdbagent/",
     author="Oleksandr Khoroshevskyi",
     # license="",
     include_package_data=True,
