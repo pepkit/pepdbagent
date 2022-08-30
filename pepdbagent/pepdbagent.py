@@ -288,12 +288,17 @@ class Connection:
                 "You haven't provided name! Execution is unsuccessful"
                 "Files haven't been downloaded, returning empty project"
             )
-            return peppy.Project()
+            return None
 
         if found_prj:
             _LOGGER.info(f"Project has been found: {found_prj[0]}")
             project_value = found_prj[1]
-            return peppy.Project().from_dict(project_value)
+            try:
+                project_obj = peppy.Project().from_dict(project_value)
+                return project_obj
+            except Exception:
+                _LOGGER.error(f"Error in init project. Error occurred in peppy. Project id={found_prj[0]}")
+                return None
         else:
             _LOGGER.warning(
                 f"No project found for supplied input. Did you supply a valid namespace and project? {sql_q}"
@@ -304,7 +309,7 @@ class Connection:
         self,
         namespace: str = None,
         tag: str = None,
-    ) -> List[peppy.Project]:
+    ) -> list:
         """
         Get a list of projects as peppy.Project instances.
         Get a list of projects in a namespace
@@ -316,18 +321,18 @@ class Connection:
         if namespace:
             if tag:
                 sql_q = (
-                    f"select {NAME_COL}, {PROJ_COL} "
+                    f"select {ID_COL}, {PROJ_COL} "
                     f"from {DB_TABLE_NAME} "
                     f"where namespace = %s and tag = %s"
                 )
                 results = self.run_sql_fetchall(sql_q, namespace, tag)
             else:
-                sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace = %s"
+                sql_q = f"select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace = %s"
                 results = self.run_sql_fetchall(sql_q, namespace)
 
         # Case 4. Get projects by namespace
         elif tag:
-            sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where tag = %s"
+            sql_q = f"select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME} where tag = %s"
             results = self.run_sql_fetchall(sql_q, tag)
             print(results)
 
@@ -336,7 +341,14 @@ class Connection:
             results = []
 
         # extract out the project config dictionary from the query
-        return [peppy.Project().from_dict(p[1]) for p in results]
+        result_list = []
+        for p in results:
+            try:
+                result_list.append(peppy.Project().from_dict(p[1]))
+            except Exception:
+                _LOGGER.error(f"Error in init project. Error occurred in peppy. Project id={p[0]}")
+
+        return result_list
 
     def get_projects_in_list(
         self,
