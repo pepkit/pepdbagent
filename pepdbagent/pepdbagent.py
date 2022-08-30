@@ -12,6 +12,8 @@ import datetime
 from .utils import all_elements_are_strings, is_valid_resgistry_path
 from .const import *
 from .exceptions import SchemaError
+from .pepannot import Annotation
+
 import coloredlogs
 from urllib.parse import urlparse
 
@@ -80,6 +82,8 @@ class Connection:
         namespace: str = DEFAULT_NAMESPACE,
         name: str = None,
         tag: str = DEFAULT_TAG,
+        status: str = None,
+        description: str = None,
         anno: dict = None,
         update: bool = False,
     ) -> None:
@@ -89,6 +93,8 @@ class Connection:
         :param namespace: namespace of the project (Default: 'other')
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project
+        :param status: status of the project
+        :param description: description of the project
         :param anno: dict with annotations about current project
         :param update: boolean value if existed project has to be updated automatically
         """
@@ -103,25 +109,15 @@ class Connection:
 
             proj_digest = self._create_digest(proj_dict)
 
-            if anno is None:
-                anno = {}
+            # creating annotation:
+            proj_annot = Annotation().create_new_annotation(
+                status=status,
+                description=description,
+                last_update=str(datetime.datetime.now()),
+                n_samples=len(project.samples),
+                anno_dict=anno,
+            )
 
-            # adding project status to db:
-            if STATUS_KEY in anno:
-                proj_status = anno[STATUS_KEY]
-                del anno[STATUS_KEY]
-            else:
-                proj_status = DEFAULT_STATUS
-
-            anno_info = {
-                "proj_description": proj_dict["description"],
-                "n_samples": len(project.samples),
-                "last_update": str(datetime.datetime.now()),
-                "status": proj_status,
-            }
-            if anno:
-                anno_info.update(anno)
-            anno_info = json.dumps(anno_info)
             proj_dict = json.dumps(proj_dict)
 
             try:
@@ -136,7 +132,7 @@ class Connection:
                         tag,
                         proj_digest,
                         proj_dict,
-                        anno_info,
+                        proj_annot.get_json(),
                     ),
                 )
                 proj_id = cursor.fetchone()[0]
@@ -154,7 +150,7 @@ class Connection:
                         name=proj_name,
                         tag=tag,
                         project=project,
-                        anno=anno,
+                        anno=proj_annot,
                     )
                 else:
                     _LOGGER.warning(
@@ -476,10 +472,9 @@ class Connection:
         namespace: str = None,
         name: str = None,
         tag: str = None,
-    ) -> dict:
+    ) -> Annotation:
         """
         Retrieving project annotation dict by specifying project name
-        Additionally you can return all namespace project annotations by specifying only namespace
         :param namespace: project registry_path - will return dict of project annotations
         :param name: project name in database
         :param tag: tag of the projects
@@ -487,52 +482,41 @@ class Connection:
         """
         sql_q = f"""
                 select 
-                    {ID_COL}, 
                     {NAMESPACE_COL},
                     {NAME_COL},
                     {TAG_COL},
                     {ANNO_COL}
                         from {DB_TABLE_NAME}
                 """
+        if namespace is None:
+            namespace = DEFAULT_NAMESPACE
+        if tag is None:
+            tag = DEFAULT_TAG
 
-        if not name and not tag and namespace:
-            return self._get_namespace_proj_anno(namespace)
-
-        if name and namespace and tag:
+        if name:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
             found_prj = self.run_sql_fetchone(sql_q, name, namespace, tag)
 
-        elif name and namespace:
-            sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s;"""
-            found_prj = self.run_sql_fetchone(sql_q, name, namespace)
-
-        elif tag:
-            sql_q = f""" {sql_q} where {TAG_COL}=%s; """
-            found_prj = self.run_sql_fetchone(sql_q, tag)
-
         else:
             _LOGGER.error(
-                "You haven't provided neither namespace/name, digest nor id! Execution is unsuccessful"
+                "You haven't provided name, digest nor id! Execution is unsuccessful"
             )
             _LOGGER.info("Files haven't been downloaded, returning empty dict")
-            return {}
+            return Annotation()
 
-        _LOGGER.info(f"Project has been found: {found_prj[0]}")
+        _LOGGER.info(f"Project has been found!")
 
-        anno_dict = {
-            ID_COL: found_prj[0],
-            NAMESPACE_COL: found_prj[1],
-            NAME_COL: found_prj[2],
-            TAG_COL: found_prj[3],
-            ANNO_COL: found_prj[4],
-        }
+        annot = Annotation(
+            registry=f"{found_prj[0]}/{found_prj[1]}:{found_prj[2]}",
+            annotation_dict=found_prj[3],
+        )
 
-        return anno_dict
+        return annot
 
     def get_project_annotation_by_registry(
         self,
         registry_path: str,
-    ) -> dict:
+    ) -> Annotation:
         """
         Retrieving project annotation dict by specifying registry path
         :param registry_path: project registry_path
@@ -551,6 +535,65 @@ class Connection:
             tag = DEFAULT_TAG
 
         return self.get_project_annotation(namespace=namespace, name=name, tag=tag)
+
+    def get_projects_annotation_by_namespace(self, namespace: str) -> dict:
+        """
+        Get list of all project annotations in namespace
+        :param namespace: namespace
+        return: dict of dicts with all projects in namespace
+        """
+
+        if not namespace:
+            _LOGGER.info(f"No namespace provided... returning empty list")
+            return {}
+
+        sql_q = f"""select 
+                    {NAME_COL},
+                    {NAMESPACE_COL},
+                    {TAG_COL},
+                    {ANNO_COL}
+                        from {DB_TABLE_NAME} where {NAMESPACE_COL}=%s;"""
+
+        results = self.run_sql_fetchall(sql_q, namespace)
+        res_dict = {}
+        for result in results:
+            dict_key = f"{result[1]}/{result[0]}:{result[2]}"
+            res_dict[dict_key] = Annotation(
+                registry=dict_key, annotation_dict=result[3]
+            )
+
+        return res_dict
+
+    def get_projects_annotation_by_namespace_tag(
+        self, namespace: str, tag: str
+    ) -> dict:
+        """
+        Get list of all project annotations in namespace
+        :param tag: tag of the project
+        :param namespace: namespace
+        return: dict of dicts with all projects in namespace
+        """
+
+        if not namespace:
+            _LOGGER.info(f"No namespace provided... returning empty list")
+            return {}
+
+        sql_q = f"""select 
+                    {NAME_COL},
+                    {NAMESPACE_COL},
+                    {TAG_COL},
+                    {ANNO_COL}
+                        from {DB_TABLE_NAME} where namespace=%s and tag=%s;"""
+
+        results = self.run_sql_fetchall(sql_q, namespace, tag)
+        res_dict = {}
+        for result in results:
+            dict_key = f"{result[1]}/{result[0]}:{result[2]}"
+            res_dict[dict_key] = Annotation(
+                registry=dict_key, annotation_dict=result[3]
+            )
+
+        return res_dict
 
     def get_namespace_annotation(self, namespace: str = None) -> dict:
         """
@@ -591,36 +634,6 @@ class Connection:
                 }
 
         return anno_dict
-
-    def _get_namespace_proj_anno(self, namespace: str = None) -> dict:
-        """
-        Get list of all project annotations in namespace
-        :param namespace: namespace
-        return: dict of dicts with all projects in namespace
-        """
-
-        if not namespace:
-            _LOGGER.info(f"No namespace provided... returning empty list")
-            return {}
-
-        sql_q = f"""select 
-                    {ID_COL}, 
-                    {NAMESPACE_COL},
-                    {NAME_COL},
-                    {ANNO_COL} 
-                        from {DB_TABLE_NAME} where namespace='{namespace}';"""
-
-        results = self.run_sql_fetchall(sql_q)
-        res_dict = {}
-        for result in results:
-            res_dict[result[2]] = {
-                ID_COL: result[0],
-                NAMESPACE_COL: result[1],
-                TAG_COL: result[3],
-                ANNO_COL: result[4],
-            }
-
-        return res_dict
 
     def project_exists(
         self,
@@ -799,7 +812,9 @@ class Connection:
         """
         _LOGGER.info(f"Creating digest for: {project_dict['name']}")
         sample_digest = md5(
-            json.dumps(project_dict[SAMPLE_RAW_DICT_KEY], sort_keys=True).encode("utf-8")
+            json.dumps(project_dict[SAMPLE_RAW_DICT_KEY], sort_keys=True).encode(
+                "utf-8"
+            )
         ).hexdigest()
 
         return sample_digest
@@ -827,5 +842,3 @@ class Connection:
 
     def __str__(self):
         return f"Connection to the database: '{self.db_name}' is set!"
-
-

@@ -13,6 +13,16 @@ DEFAULT_NAMESPACE = "_"
 DEFAULT_TAG = "default"
 
 STATUS_KEY = "status"
-DEFAULT_STATUS = "1"
+DESCRIPTION_KEY = "description"
+N_SAMPLES_KEY = "n_samples"
+UPDATE_DATE_KEY = "last_update"
+DEFAULT_STATUS = "Unknown"
+
+BASE_ANNOTATION_DICT = {
+    STATUS_KEY: DEFAULT_STATUS,
+    DESCRIPTION_KEY: None,
+    N_SAMPLES_KEY: None,
+    UPDATE_DATE_KEY: None,
+}
 
 from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_DICT_KEY
