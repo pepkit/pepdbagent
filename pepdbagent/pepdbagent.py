@@ -13,6 +13,7 @@ from .utils import all_elements_are_strings, is_valid_resgistry_path
 from .const import *
 from .exceptions import SchemaError
 import coloredlogs
+from urllib.parse import urlparse
 
 # from pprint import pprint
 # import sys
@@ -44,6 +45,7 @@ class Connection:
 
         if dsn is not None:
             self.postgresConnection = psycopg2.connect(dsn)
+            self.db_name = urlparse(dsn).path[1:]
         else:
             self.postgresConnection = psycopg2.connect(
                 host=host,
@@ -52,6 +54,7 @@ class Connection:
                 user=user,
                 password=password,
             )
+            self.db_name = database
 
         # Ensure data is added to the database immediately after write commands
         self.postgresConnection.autocommit = True
@@ -818,3 +821,11 @@ class Connection:
         cols_name.sort()
         if DB_COLUMNS != cols_name:
             raise SchemaError
+
+    def __exit__(self):
+        self.close_connection()
+
+    def __str__(self):
+        return f"Connection to the database: '{self.db_name}' is set!"
+
+
