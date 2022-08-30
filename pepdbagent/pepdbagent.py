@@ -796,7 +796,7 @@ class Connection:
         """
         _LOGGER.info(f"Creating digest for: {project_dict['name']}")
         sample_digest = md5(
-            json.dumps(project_dict["_sample_df"], sort_keys=True).encode("utf-8")
+            json.dumps(project_dict[SAMPLE_RAW_DICT_KEY], sort_keys=True).encode("utf-8")
         ).hexdigest()
 
         return sample_digest

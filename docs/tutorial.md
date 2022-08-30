@@ -19,7 +19,7 @@ from pepdbagent import Connection
 # 1) By providing credentials and connection information:
 projectDB = Connection(user="postgres", password="docker",)
 # 2) or By providing connection string:
-projectDB = Connection("postgresql://postgres:docker@localhost:5432/pep-base-sql")
+projectDB = Connection("postgresql://postgres:docker@localhost:5432/pep-db")
 ```
 
 2) Add new project to the DB

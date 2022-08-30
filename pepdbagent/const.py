@@ -14,3 +14,5 @@ DEFAULT_TAG = "default"
 
 STATUS_KEY = "status"
 DEFAULT_STATUS = "1"
+
+from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_DICT_KEY
