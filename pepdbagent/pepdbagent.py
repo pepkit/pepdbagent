@@ -79,9 +79,9 @@ class Connection:
     def upload_project(
         self,
         project: peppy.Project,
-        namespace: str = DEFAULT_NAMESPACE,
+        namespace: str = None,
         name: str = None,
-        tag: str = DEFAULT_TAG,
+        tag: str = None,
         status: str = None,
         description: str = None,
         anno: dict = None,
@@ -100,14 +100,19 @@ class Connection:
         """
         cursor = self.postgresConnection.cursor()
         try:
+            if namespace is None:
+                namespace = DEFAULT_NAMESPACE
+            if tag is None:
+                tag = DEFAULT_TAG
 
             proj_dict = project.to_dict(extended=True)
+
+            proj_digest = self._create_digest(proj_dict)
+
             if name:
                 proj_name = name
             else:
                 proj_name = proj_dict["name"]
-
-            proj_digest = self._create_digest(proj_dict)
 
             # creating annotation:
             proj_annot = Annotation().create_new_annotation(
@@ -172,9 +177,9 @@ class Connection:
     def update_project(
         self,
         project: peppy.Project,
-        namespace: str = DEFAULT_NAMESPACE,
+        namespace: str = None,
         name: str = None,
-        tag: str = DEFAULT_TAG,
+        tag: str = None,
         anno: dict = None,
     ) -> None:
         """
@@ -189,6 +194,12 @@ class Connection:
         cursor = self.postgresConnection.cursor()
 
         proj_dict = project.to_dict(extended=True)
+
+        if namespace is None:
+            namespace = DEFAULT_NAMESPACE
+        if tag is None:
+            tag = DEFAULT_TAG
+
         if name:
             proj_name = name
         else:
@@ -255,18 +266,13 @@ class Connection:
             name = reg["item"]
             tag = reg["tag"]
 
-        if namespace is None:
-            namespace = DEFAULT_NAMESPACE
-        if tag is None:
-            tag = DEFAULT_TAG
-
         return self.get_project(namespace=namespace, name=name, tag=tag)
 
     def get_project(
         self,
-        namespace: str = DEFAULT_NAMESPACE,
+        namespace: str = None,
         name: str = None,
-        tag: str = DEFAULT_TAG,
+        tag: str = None,
     ) -> Union[peppy.Project, None]:
         """
         Retrieving project from database by specifying project registry_path, name, or digest
@@ -275,6 +281,11 @@ class Connection:
         :param tag: tag of the project
         :return: peppy object with found project
         """
+        if namespace is None:
+            namespace = DEFAULT_NAMESPACE
+        if tag is None:
+            tag = DEFAULT_TAG
+
         sql_q = f"""
                 select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME}
                 """
@@ -649,9 +660,9 @@ class Connection:
 
     def project_exists(
         self,
-        namespace: str = DEFAULT_NAMESPACE,
+        namespace: str = None,
         name: str = None,
-        tag: str = DEFAULT_TAG,
+        tag: str = None,
     ) -> bool:
         """
         Checking if project exists in the database
@@ -660,6 +671,12 @@ class Connection:
         :param tag: project tag
         :return: Returning True if project exist
         """
+        if namespace is None:
+            namespace = DEFAULT_NAMESPACE
+
+        if tag is None:
+            tag = DEFAULT_TAG
+
         if name is None:
             _LOGGER.error(f"Name is not specified")
             return False
@@ -703,9 +720,9 @@ class Connection:
 
     def project_status(
         self,
-        namespace: str = DEFAULT_NAMESPACE,
+        namespace: str = None,
         name: str = None,
-        tag: str = DEFAULT_TAG,
+        tag: str = None,
     ) -> Union[str, None]:
         """
         Retrieve project status by providing name, namespace and tag
@@ -715,11 +732,15 @@ class Connection:
         :return: status
         """
         sql_q = f"""
-                select ({ANNO_COL}->>'status') as status
+                select ({ANNO_COL}->>'{STATUS_KEY}') as status
                         from {DB_TABLE_NAME}
                             WHERE {NAMESPACE_COL}=%s AND
                                 {NAME_COL}=%s AND {TAG_COL}=%s;
                 """
+        if namespace is None:
+            namespace = DEFAULT_NAMESPACE
+        if tag is None:
+            tag = DEFAULT_TAG
 
         if not name:
             _LOGGER.error(
