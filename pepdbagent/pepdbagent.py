@@ -155,7 +155,7 @@ class Connection:
                         name=proj_name,
                         tag=tag,
                         project=project,
-                        anno=proj_annot,
+                        anno=proj_annot.get_json(),
                     )
                 else:
                     _LOGGER.warning(
@@ -175,12 +175,14 @@ class Connection:
             cursor.close()
 
     def update_project(
-        self,
-        project: peppy.Project,
-        namespace: str = None,
-        name: str = None,
-        tag: str = None,
-        anno: dict = None,
+            self,
+            project: peppy.Project,
+            namespace: str = None,
+            name: str = None,
+            tag: str = None,
+            status: str = None,
+            description: str = None,
+            anno: dict = None,
     ) -> None:
         """
         Upload project to the database
@@ -188,42 +190,36 @@ class Connection:
         :param namespace: namespace of the project (Default: 'other')
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project
+        :param status: status of the project
+        :param description: description of the project
         :param anno: dict with annotations about current project
-        :param update: boolean value if project hase to be updated
         """
-        cursor = self.postgresConnection.cursor()
 
-        proj_dict = project.to_dict(extended=True)
+        cursor = self.postgresConnection.cursor()
 
         if namespace is None:
             namespace = DEFAULT_NAMESPACE
         if tag is None:
             tag = DEFAULT_TAG
 
+        proj_dict = project.to_dict(extended=True)
+
+        proj_digest = self._create_digest(proj_dict)
+
         if name:
             proj_name = name
         else:
             proj_name = proj_dict["name"]
 
-        proj_digest = self._create_digest(proj_dict)
+        # creating annotation:
+        proj_annot = Annotation().create_new_annotation(
+            status=status,
+            description=description,
+            last_update=str(datetime.datetime.now()),
+            n_samples=len(project.samples),
+            anno_dict=anno,
+        )
 
-        # adding project status to db:
-        if STATUS_KEY in anno:
-            proj_status = anno[STATUS_KEY]
-            del anno[STATUS_KEY]
-        else:
-            proj_status = DEFAULT_STATUS
-
-        anno_info = {
-            "proj_description": proj_dict["description"],
-            "n_samples": len(project.samples),
-            "last_update": str(datetime.datetime.now()),
-            "status": proj_status,
-        }
-
-        if anno:
-            anno_info.update(anno)
-        anno_info = json.dumps(anno_info)
         proj_dict = json.dumps(proj_dict)
 
         if self.project_exists(namespace=namespace, name=proj_name, tag=tag):
@@ -237,7 +233,7 @@ class Connection:
                     (
                         proj_digest,
                         proj_dict,
-                        anno_info,
+                        proj_annot,
                         namespace,
                         proj_name,
                         tag,

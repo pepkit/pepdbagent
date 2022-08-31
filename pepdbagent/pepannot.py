@@ -1,4 +1,4 @@
-from const import (
+from .const import (
     STATUS_KEY,
     DESCRIPTION_KEY,
     N_SAMPLES_KEY,
@@ -14,7 +14,7 @@ class Annotation(dict):
     A class to model an annotations used in pep-db
     """
 
-    def __init__(self, registry: str = None, annotation_dict: dict = None):
+    def __init__(self, annotation_dict: dict = None, registry: str = None):
 
         super(Annotation, self).__init__()
         if annotation_dict is None:
@@ -158,7 +158,3 @@ class Annotation(dict):
     def __dict__(self):
         return dict(self)
 
-
-bbb = Annotation(registry="asdfasdf", annotation_dict={})
-print(bbb.get_json())
-print(bbb)
