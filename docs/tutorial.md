@@ -1,11 +1,6 @@
 # pepagent + pep_db
 
-Database and PEPagent for storing and processing pep projects
-
----
-## How to create pep_db:
-
-Complete instruction can be found here: [pep_db](pep_db)
+pepdbagent package for processing and uploading retrieving pep projects using python
 
 ---
 ##  Brief pephubdb tutorial:
@@ -14,6 +9,7 @@ Complete instruction can be found here: [pep_db](pep_db)
 ```python
 from pepdbagent import Connection
 ```
+
 1) Create connection with DB:
 ```python
 # 1) By providing credentials and connection information:
@@ -27,15 +23,16 @@ projectDB = Connection("postgresql://postgres:docker@localhost:5432/pep-db")
 # initiate peppy Project
 pep_project = peppy.Project("/sample_pep/subtable3/project_config.yaml")
 # use upload_project function to add this project to the DB
-projectDB.upload_project(pep_project, namespace = "Test", anno={"project": "annotation_dict"})  
+projectDB.upload_project(pep_project, namespace = "Test", status = "approved", description = "ocean dream", anno={"additional": "annotation"})  
 # additionally you can specify name and tag of the project
 
-# update project
+# update project*
 
 projectDB.update_project(pep_project, namespace = "Test", anno={"enot": "annotation_dict"})  
 # additionally you can specify name and tag of the project
 
 ```
+* If you want to update project you should specify all annotation fields, otherwise they will be empty
 
 3) Get list of projects in namespace:
 ```python
@@ -100,14 +97,25 @@ print(pr_ob.samples)
 
 ```
 
-5) Get annotation about single project or projects:
+5) Get annotation about single project:
 
 ```python
 
 # Get dictionary of annotation for 1 project by registry
-projects_anno_list = projectDB.get_project_annotation(digest='Test/subtable3:this_is_tag')
+projects_anno_list = projectDB.get_project_annotation_by_registry(registry='Test/subtable3:this_is_tag')
 # if tag is not set default tag will be set
 projects_anno_list = projectDB.get_project_annotation(namespace='Test/subtable3')
+
+# As a return value user will get `Annotation` class object. There is two options to retrieve data:
+#1) Using object as simple dict:
+projects_anno_list["status"]
+#2) Using .key ; Available keys:
+projects_anno_list.registry  # to know what project annotation is it 
+projects_anno_list.status
+projects_anno_list.description
+projects_anno_list.last_update
+projects_anno_list.n_samples
+
 ```
 
 6) Get annotations namespace or all namespaces:
@@ -148,7 +156,6 @@ projectDB.project_status_by_registry(registry_path='nn/buu/dog')
 ```
 
 9) Get registry paths of all the projects by digest:
-
 ```python
 projectDB.get_registry_paths_by_digest(digest='sdafsgwerg243rt2gregw3qr24')
 ```
