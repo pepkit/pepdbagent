@@ -175,14 +175,14 @@ class Connection:
             cursor.close()
 
     def update_project(
-            self,
-            project: peppy.Project,
-            namespace: str = None,
-            name: str = None,
-            tag: str = None,
-            status: str = None,
-            description: str = None,
-            anno: dict = None,
+        self,
+        project: peppy.Project,
+        namespace: str = None,
+        name: str = None,
+        tag: str = None,
+        status: str = None,
+        description: str = None,
+        anno: dict = None,
     ) -> None:
         """
         Upload project to the database
@@ -304,7 +304,9 @@ class Connection:
                 project_obj = peppy.Project().from_dict(project_value)
                 return project_obj
             except Exception:
-                _LOGGER.error(f"Error in init project. Error occurred in peppy. Project id={found_prj[0]}")
+                _LOGGER.error(
+                    f"Error in init project. Error occurred in peppy. Project id={found_prj[0]}"
+                )
                 return None
         else:
             _LOGGER.warning(
@@ -353,7 +355,9 @@ class Connection:
             try:
                 result_list.append(peppy.Project().from_dict(p[1]))
             except Exception:
-                _LOGGER.error(f"Error in init project. Error occurred in peppy. Project id={p[0]}")
+                _LOGGER.error(
+                    f"Error in init project. Error occurred in peppy. Project id={p[0]}"
+                )
 
         return result_list
 

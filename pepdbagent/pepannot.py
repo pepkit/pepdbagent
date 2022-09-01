@@ -157,4 +157,3 @@ class Annotation(dict):
 
     def __dict__(self):
         return dict(self)
-
