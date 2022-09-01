@@ -425,7 +425,7 @@ class Connection:
         :return: A dictionary representation of the namespace in the database
         """
         try:
-            sql_q = f"select {ID_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {ANNO_COL} from {DB_TABLE_NAME} where namespace = %s"
+            sql_q = f"select {ID_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {ANNO_COL} from {DB_TABLE_NAME} where {NAMESPACE_COL} = %s"
             results = self.run_sql_fetchall(sql_q, namespace)
             projects = [
                 {
@@ -433,8 +433,8 @@ class Connection:
                     "name": p[1],
                     "tag": p[2],
                     "digest": p[3],
-                    "description": p[4]["proj_description"],
-                    "n_samples": p[4]["n_samples"],
+                    "description": Annotation(p[4]).description,
+                    "n_samples": Annotation(p[4]).n_samples,
                 }
                 for p in results
             ]
