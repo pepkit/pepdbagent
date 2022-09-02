@@ -90,8 +90,10 @@ class Annotation(dict):
                 for dict_key in anno_dict.keys():
                     new_dict[dict_key] = anno_dict[dict_key]
             except TypeError:
-                _LOGGER.error("You have provided incorrect annotation dictionary type. "
-                              "It's not a dict")
+                _LOGGER.error(
+                    "You have provided incorrect annotation dictionary type. "
+                    "It's not a dict"
+                )
             except AttributeError:
                 _LOGGER.error("Incorrect annotation dictionary type. Continuing..")
         return Annotation(annotation_dict=new_dict)
