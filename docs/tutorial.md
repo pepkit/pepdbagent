@@ -21,6 +21,7 @@ projectDB = Connection("postgresql://postgres:docker@localhost:5432/pep-db")
 2) Add new project to the DB
 ```python
 # initiate peppy Project
+import peppy
 pep_project = peppy.Project("/sample_pep/subtable3/project_config.yaml")
 # use upload_project function to add this project to the DB
 projectDB.upload_project(pep_project, namespace = "Test", status = "approved", description = "ocean dream", anno={"additional": "annotation"})  

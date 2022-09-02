@@ -7,6 +7,15 @@ from .const import (
     DEFAULT_STATUS,
 )
 import json
+import logmuse
+import coloredlogs
+
+_LOGGER = logmuse.init_logger("pepannot")
+coloredlogs.install(
+    logger=_LOGGER,
+    datefmt="%H:%M:%S",
+    fmt="[%(levelname)s] [%(asctime)s] %(message)s",
+)
 
 
 class Annotation(dict):
@@ -75,9 +84,16 @@ class Annotation(dict):
         if description:
             new_dict[DESCRIPTION_KEY] = description
         if anno_dict:
-            for dict_key in anno_dict.keys():
-                new_dict[dict_key] = anno_dict[dict_key]
-
+            try:
+                if not isinstance(anno_dict, dict):
+                    assert TypeError
+                for dict_key in anno_dict.keys():
+                    new_dict[dict_key] = anno_dict[dict_key]
+            except TypeError:
+                _LOGGER.error("You have provided incorrect annotation dictionary type. "
+                              "It's not a dict")
+            except AttributeError:
+                _LOGGER.error("Incorrect annotation dictionary type. Continuing..")
         return Annotation(annotation_dict=new_dict)
 
     def _property_setter(self, annot_dict: dict):

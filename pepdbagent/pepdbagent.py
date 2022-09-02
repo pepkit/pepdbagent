@@ -155,7 +155,7 @@ class Connection:
                         name=proj_name,
                         tag=tag,
                         project=project,
-                        anno=proj_annot.get_json(),
+                        anno=dict(proj_annot),
                     )
                 else:
                     _LOGGER.warning(
@@ -233,7 +233,7 @@ class Connection:
                     (
                         proj_digest,
                         proj_dict,
-                        proj_annot,
+                        proj_annot.get_json(),
                         namespace,
                         proj_name,
                         tag,
