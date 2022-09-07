@@ -2,9 +2,10 @@ import os
 import pytest
 import peppy
 from pepdbagent import Connection
-#from dotenv import load_dotenv
 
-#load_dotenv()
+# from dotenv import load_dotenv
+
+# load_dotenv()
 
 EXAMPLE_NAMESPACES = ["nfcore", "geo", "demo"]
 
@@ -13,6 +14,7 @@ EXAMPLE_REGISTRIES = [
     "demo/basic:default",
     "nfcore/demo_rna_pep:default",
 ]
+
 
 @pytest.mark.skip(reason="no way of currently testing this")
 class TestDatafetching:
