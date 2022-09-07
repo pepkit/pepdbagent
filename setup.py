@@ -17,17 +17,17 @@ with open("requirements/requirements-all.txt", "r") as reqs_file:
 extra = {"install_requires": DEPENDENCIES}
 
 # Additional files to include with package
-# def get_static(name, condition=None):
-#     static = [
-#         os.path.join(name, f)
-#         for f in os.listdir(
-#             os.path.join(os.path.dirname(os.path.realpath(__file__)), name)
-#         )
-#     ]
-#     if condition is None:
-#         return static
-#     else:
-#         return [i for i in filter(lambda x: eval(condition), static)]
+def get_static(name, condition=None):
+    static = [
+        os.path.join(name, f)
+        for f in os.listdir(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)), name)
+        )
+    ]
+    if condition is None:
+        return static
+    else:
+        return [i for i in filter(lambda x: eval(condition), static)]
 
 
 with open(f"{PACKAGE_NAME}/_version.py", "r") as versionfile:
@@ -54,7 +54,7 @@ setup(
     keywords="project, metadata, bioinformatics, database",
     url="https://github.com/pepkit/pepdbagent/",
     author="Oleksandr Khoroshevskyi",
-    # license="",
+    license="BSD2",
     include_package_data=True,
     # tests_require=(["pytest"]),
     setup_requires=(
