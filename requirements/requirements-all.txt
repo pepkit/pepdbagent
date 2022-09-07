@@ -1,4 +1,5 @@
-psycopg2
+psycopg2-binary
 logmuse
-peppy @ git+https://github.com/pepkit/peppy.git@dev#egg=peppy
+peppy>=0.35.0
 ubiquerg>=0.6.2
+coloredlogs>=15.0.1

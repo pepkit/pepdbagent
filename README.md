@@ -1,74 +1,15 @@
-# pepagent + pep_db
+# pepdbagent
 
-Database and pep_db_agent for storing and processing pep projects
+pepdbagent is a python library and toolkit that gives a user user-friendly 
+interface to connect and retrieve information from pep-db.
 
----
-## How to create pep_db:
+It provides a various comprehensive functions that enables user to retrieve 
+projects, annotations, sets and other information from pep-db.
 
-Complete instruction can be found here: [pep_db](pep_db)
+**pep-db** is and postgres database created for storing [PEPs](http://pep.databio.org/en/latest/). 
+**pep-db** is a backend database for PEPhub. It enables storing huge projects and provides fast speed.
 
----
-## How to use pepagent
-1) Create connection with DB:
-```python
-# 1) By providing credentials and connection information:
-projectDB = PepAgent(user="postgres", password="docker",)
-# 2) or By providing connection string:
-projectDB = PepAgent("postgresql://postgres:docker@localhost:5432/pep-base-sql")
-```
+Here you can find more information with tutorials:
 
-2) Add new project to the DB
-```python
-# initiate peppy Project
-pep_project = peppy.Project("/sample_pep/subtable3/project_config.yaml")
-# use upload_project function to add this project to the DB
-projectDB.upload_project(pep_project, namespace = "Test", anno={"project": "annotation_dict"})  
-# additionally you can specify name of the project
-
-```
-
-3) Get list of available namespaces:
-```python
-list_of_namespaces = projectDB.get_namespaces()
-print(list_of_namespaces)
-```
-
-4) Get project
-```python
-# Get project by id:
-pr_ob = projectDB.get_project(id=3)
-print(pr_ob.samples)
-
-# Get project by registry
-pr_ob = projectDB.get_project(registry='Test/subtable3')
-print(pr_ob.samples)
-
-# Get project by namespace and name
-pr_ob = projectDB.get_project(namespace='Test', name='subtable3')
-print(pr_ob.samples)
-
-# Get project by digest
-pr_ob = projectDB.get_project(digest='1495b8d5b586ab71c9f3a30dd265b3c3')
-print(pr_ob.samples)
-```
-
-5) Get list of all available projects in the namespace
-```python
-# Get project by id:
-projects_list = projectDB.get_project_list('Test')
-print(projects_list)
-```
-
-6) Get annotation about single project or projects:
-```python
-# Get dictionary of annotation for multiple projects by namespace
-projects_anno_list = projectDB.get_anno(namespace='Test')
-# Get dictionary of annotation for 1 project by id 
-projects_anno_list = projectDB.get_anno(id='5')
-# Get dictionary of annotation for 1 project by digest
-projects_anno_list = projectDB.get_anno(digest='1495b8d5b586ab71c9f3a30dd265b3c3')
-# Get dictionary of annotation for 1 project by registry
-projects_anno_list = projectDB.get_anno(digest='Test/subtable3')
-
-```
-
+- [pep-db installation](./docs/db_tutorial.md)
+- [pedbagent](./docs/tutorial.md)
