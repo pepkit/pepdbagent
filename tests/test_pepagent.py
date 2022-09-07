@@ -19,10 +19,10 @@ EXAMPLE_REGISTRIES = [
 @pytest.mark.skipif(True, reason="no way of currently testing this")
 class TestDatafetching:
 
-    db = Connection(
-        user=os.environ.get("POSTGRES_USER") or "postgres",
-        password=os.environ.get("POSTGRES_PASSWORD") or "docker",
-    )
+    # db = Connection(
+    #     user=os.environ.get("POSTGRES_USER") or "postgres",
+    #     password=os.environ.get("POSTGRES_PASSWORD") or "docker",
+    # )
 
     def test_connection(self):
         assert isinstance(self.db, Connection)
