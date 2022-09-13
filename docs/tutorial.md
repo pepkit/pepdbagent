@@ -85,7 +85,7 @@ pr_ob = projectDB.get_projects_in_namespace(namespace='King')
 print(pr_ob.samples)
 
 # Get projects by namespace and tag
-pr_ob = projectDB.get_projects_in_namespace(namespace='King', tag='taggg')
+pr_ob = projectDB.get_projects_in_namespace(namespace='King', tag='taggg', limit=100)
 print(pr_ob.samples)
 
 # Get projects by list of registry paths
@@ -93,7 +93,7 @@ pr_ob = projectDB.get_projects_in_list(registry_paths=['Test/subtable3:default',
 print(pr_ob.samples)
 
 # Get all the projects
-pr_ob = projectDB.get_project_all()
+pr_ob = projectDB.get_all_projects(limit=20, offset=0)
 print(pr_ob.samples)
 
 ```
