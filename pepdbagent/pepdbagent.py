@@ -319,30 +319,43 @@ class Connection:
         self,
         namespace: str = None,
         tag: str = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> list:
         """
         Get a list of projects as peppy.Project instances.
         Get a list of projects in a namespace
+        Default limit is 100, to change it use limit and offset parameter
         :param namespace: The namespace to fetch all projects from.
         :param tag: The tag to fetch all projects from.
+        :param limit: The maximum number of items to return.
+        :param offset: The index of the first item to return. Default: 0 (the first item).
+            Use with limit to get the next set of items.
         :return: a list of peppy.Project instances for the requested projects.
         """
-
+        offset_number = limit * offset
         if namespace:
             if tag:
                 sql_q = (
                     f"select {ID_COL}, {PROJ_COL} "
                     f"from {DB_TABLE_NAME} "
-                    f"where namespace = %s and tag = %s"
+                    f"where namespace = %s and tag = %s "
+                    f"limit {limit} offset {offset_number}"
                 )
                 results = self.run_sql_fetchall(sql_q, namespace, tag)
             else:
-                sql_q = f"select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace = %s"
+                sql_q = (
+                    f"select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace = %s"
+                    f" limit {limit} offset {offset_number}"
+                )
                 results = self.run_sql_fetchall(sql_q, namespace)
 
-        # Case 4. Get projects by namespace
+        # if only tag is provided
         elif tag:
-            sql_q = f"select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME} where tag = %s"
+            sql_q = (
+                f"select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME} where tag = %s"
+                f" limit {limit} offset {offset_number}"
+            )
             results = self.run_sql_fetchall(sql_q, tag)
             print(results)
 
@@ -369,7 +382,7 @@ class Connection:
         """
         Get a list of projects as peppy.Project instances.
         Get a list of projects in a list of registry_paths
-        :
+        :registry_paths: list with registry paths of the projects
         :return: a list of peppy.Project instances for the requested projects.
         """
         if not isinstance(registry_paths, list):
@@ -404,13 +417,19 @@ class Connection:
 
     def get_all_projects(
         self,
+        limit: int = 100,
+        offset: int = 0,
     ) -> List[peppy.Project]:
         """
         Get a list of projects as peppy.Project instances.
         Get all projects in the database (call empty)
+        :param limit: The maximum number of items to return.
+        :param offset: The index of the first item to return. Default: 0 (the first item).
+            Use with limit to get the next set of items.
         :return: a list of peppy.Project instances for the requested projects.
         """
-        sql_q = f"select {PROJ_COL} from {DB_TABLE_NAME}"
+        offset_number = limit * offset
+        sql_q = f"select {PROJ_COL} from {DB_TABLE_NAME} limit {limit} offset {offset_number}"
         result = self.run_sql_fetchall(sql_q)
         proj_list = []
 
