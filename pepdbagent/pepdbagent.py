@@ -17,10 +17,6 @@ from .pepannot import Annotation
 import coloredlogs
 from urllib.parse import urlparse
 
-# from pprint import pprint
-# import sys
-# import os
-
 _LOGGER = logmuse.init_logger("pepDB_connector")
 coloredlogs.install(
     logger=_LOGGER,
@@ -86,6 +82,7 @@ class Connection:
         description: str = None,
         anno: dict = None,
         update: bool = False,
+        is_private: bool = False,
     ) -> None:
         """
         Upload project to the database
@@ -97,6 +94,7 @@ class Connection:
         :param description: description of the project
         :param anno: dict with annotations about current project
         :param update: boolean value if existed project has to be updated automatically
+        :param is_private: boolean value if the project should be visible just for user that creates it
         """
         cursor = self.postgresConnection.cursor()
         try:
@@ -121,6 +119,7 @@ class Connection:
                 last_update=str(datetime.datetime.now()),
                 n_samples=len(project.samples),
                 anno_dict=anno,
+                is_private=is_private,
             )
 
             proj_dict = json.dumps(proj_dict)
