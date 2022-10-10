@@ -16,6 +16,7 @@ STATUS_KEY = "status"
 DESCRIPTION_KEY = "description"
 N_SAMPLES_KEY = "n_samples"
 UPDATE_DATE_KEY = "last_update"
+IS_PRIVATE_KEY = "is_private"
 DEFAULT_STATUS = "Unknown"
 
 BASE_ANNOTATION_DICT = {

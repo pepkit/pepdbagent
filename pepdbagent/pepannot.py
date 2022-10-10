@@ -5,6 +5,7 @@ from .const import (
     UPDATE_DATE_KEY,
     BASE_ANNOTATION_DICT,
     DEFAULT_STATUS,
+    IS_PRIVATE_KEY,
 )
 import json
 import logmuse
@@ -62,6 +63,7 @@ class Annotation(dict):
         n_samples: int = None,
         description: str = None,
         anno_dict: dict = None,
+        is_private: bool = False,
     ):
         """
         Create a new annotation for pep-db
@@ -70,9 +72,11 @@ class Annotation(dict):
         :param n_samples: number of samples in pep
         :param description: description of PEP
         :param anno_dict: other
+        :param is_private: whether the project should be visible just for user that created it
         :return: Annotation class
         """
         new_dict = BASE_ANNOTATION_DICT
+        new_dict[IS_PRIVATE_KEY] = is_private
         if status:
             new_dict[STATUS_KEY] = status
         else:
