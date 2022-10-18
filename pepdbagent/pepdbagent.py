@@ -282,7 +282,7 @@ class Connection:
             tag = DEFAULT_TAG
 
         sql_q = f"""
-                select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME}
+                select {ID_COL}, {PROJ_COL}, {ANNO_COL} from {DB_TABLE_NAME}
                 """
 
         if name is not None:
@@ -299,8 +299,10 @@ class Connection:
         if found_prj:
             _LOGGER.info(f"Project has been found: {found_prj[0]}")
             project_value = found_prj[1]
+            is_private = found_prj[2].get("is_private") or False
             try:
                 project_obj = peppy.Project().from_dict(project_value)
+                project_obj.is_private = is_private
                 return project_obj
             except Exception:
                 _LOGGER.error(
