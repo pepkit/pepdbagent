@@ -17,10 +17,6 @@ from .pepannot import Annotation
 import coloredlogs
 from urllib.parse import urlparse
 
-# from pprint import pprint
-# import sys
-# import os
-
 _LOGGER = logmuse.init_logger("pepDB_connector")
 coloredlogs.install(
     logger=_LOGGER,
@@ -86,6 +82,7 @@ class Connection:
         description: str = None,
         anno: dict = None,
         update: bool = False,
+        is_private: bool = False,
     ) -> None:
         """
         Upload project to the database
@@ -97,6 +94,7 @@ class Connection:
         :param description: description of the project
         :param anno: dict with annotations about current project
         :param update: boolean value if existed project has to be updated automatically
+        :param is_private: boolean value if the project should be visible just for user that creates it
         """
         cursor = self.postgresConnection.cursor()
         try:
@@ -121,6 +119,7 @@ class Connection:
                 last_update=str(datetime.datetime.now()),
                 n_samples=len(project.samples),
                 anno_dict=anno,
+                is_private=is_private,
             )
 
             proj_dict = json.dumps(proj_dict)
@@ -283,7 +282,7 @@ class Connection:
             tag = DEFAULT_TAG
 
         sql_q = f"""
-                select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME}
+                select {ID_COL}, {PROJ_COL}, {ANNO_COL} from {DB_TABLE_NAME}
                 """
 
         if name is not None:
@@ -300,8 +299,10 @@ class Connection:
         if found_prj:
             _LOGGER.info(f"Project has been found: {found_prj[0]}")
             project_value = found_prj[1]
+            is_private = found_prj[2].get("is_private") or False
             try:
                 project_obj = peppy.Project().from_dict(project_value)
+                project_obj.is_private = is_private
                 return project_obj
             except Exception:
                 _LOGGER.error(
