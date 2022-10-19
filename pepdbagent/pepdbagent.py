@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, NoReturn
 import psycopg2
 from psycopg2.errors import UniqueViolation, NotNullViolation
 import json
@@ -32,20 +32,32 @@ class Connection:
 
     def __init__(
         self,
-        dsn=None,
         host="localhost",
         port=5432,
         database="pep-db",
         user=None,
         password=None,
+        dsn=None,
     ):
+        """
+        Initialize connection to the pep_db database. You can use The basic connection parameters
+        or libpq connection string.
+        :param host: database server address e.g., localhost or an IP address.
+        :param port: the port number that defaults to 5432 if it is not provided.
+        :param database: the name of the database that you want to connect.
+        :param user: the username used to authenticate.
+        :param password: password used to authenticate.
+        :param dsn: libpq connection string using the dsn parameter
+        (e.g. "localhost://username:password@pdp_db:5432")
+        """
+
         _LOGGER.info(f"Initializing connection to {database}...")
 
         if dsn is not None:
-            self.postgresConnection = psycopg2.connect(dsn)
+            self.pg_connection = psycopg2.connect(dsn)
             self.db_name = urlparse(dsn).path[1:]
         else:
-            self.postgresConnection = psycopg2.connect(
+            self.pg_connection = psycopg2.connect(
                 host=host,
                 port=port,
                 database=database,
@@ -55,7 +67,7 @@ class Connection:
             self.db_name = database
 
         # Ensure data is added to the database immediately after write commands
-        self.postgresConnection.autocommit = True
+        self.pg_connection.autocommit = True
 
         self._check_conn_db()
         _LOGGER.info(f"Connected successfully!")
@@ -64,13 +76,13 @@ class Connection:
         """
         Commit connection
         """
-        self.postgresConnection.commit()
+        self.pg_connection.commit()
 
     def close_connection(self) -> None:
         """
         Close connection with database
         """
-        self.postgresConnection.close()
+        self.pg_connection.close()
 
     def upload_project(
         self,
@@ -83,9 +95,11 @@ class Connection:
         anno: dict = None,
         update: bool = False,
         is_private: bool = False,
-    ) -> None:
+    ) -> NoReturn:
         """
-        Upload project to the database
+        Upload project to the database.
+        Project with the key, that already exists won't be uploaded(but case, when argument
+        update is set True)
         :param peppy.Project project: Project object that has to be uploaded to the DB
         :param namespace: namespace of the project (Default: 'other')
         :param name: name of the project (Default: name is taken from the project object)
@@ -93,10 +107,11 @@ class Connection:
         :param status: status of the project
         :param description: description of the project
         :param anno: dict with annotations about current project
-        :param update: boolean value if existed project has to be updated automatically
+        :param update: boolean value if existed project has to be updated (if project with the same
+        registry path already exists)
         :param is_private: boolean value if the project should be visible just for user that creates it
         """
-        cursor = self.postgresConnection.cursor()
+        cursor = self.pg_connection.cursor()
         try:
             if namespace is None:
                 namespace = DEFAULT_NAMESPACE
@@ -194,7 +209,7 @@ class Connection:
         :param anno: dict with annotations about current project
         """
 
-        cursor = self.postgresConnection.cursor()
+        cursor = self.pg_connection.cursor()
 
         if namespace is None:
             namespace = DEFAULT_NAMESPACE
@@ -246,7 +261,7 @@ class Connection:
         else:
             _LOGGER.error("Project does not exist! No project will be updated!")
 
-    def get_project_by_registry(self, registry_path: str = None):
+    def get_project_by_registry(self, registry_path: str = None) -> Union[peppy.Project, None]:
         """
         Retrieving project from database by specifying project registry_path
         :param registry_path: project registry_path [e.g. namespace/name:tag]
@@ -321,10 +336,9 @@ class Connection:
         tag: str = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> list:
+    ) -> List[peppy.Project]:
         """
-        Get a list of projects as peppy.Project instances.
-        Get a list of projects in a namespace
+        Get a list of projects in provided namespace.
         Default limit is 100, to change it use limit and offset parameter
         :param namespace: The namespace to fetch all projects from.
         :param tag: The tag to fetch all projects from.
@@ -621,7 +635,7 @@ class Connection:
         :param argv: arguments that has to be added to sql query
         :return: set of query result
         """
-        cursor = self.postgresConnection.cursor()
+        cursor = self.pg_connection.cursor()
         try:
             cursor.execute(sql_query, argv)
             output_result = cursor.fetchone()
@@ -643,7 +657,7 @@ class Connection:
         :param argv: arguments that has to be added to sql query
         :return: set of query result
         """
-        cursor = self.postgresConnection.cursor()
+        cursor = self.pg_connection.cursor()
         try:
             cursor.execute(sql_query, argv)
             output_result = cursor.fetchall()
