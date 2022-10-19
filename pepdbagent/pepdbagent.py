@@ -261,7 +261,9 @@ class Connection:
         else:
             _LOGGER.error("Project does not exist! No project will be updated!")
 
-    def get_project_by_registry(self, registry_path: str = None) -> Union[peppy.Project, None]:
+    def get_project_by_registry(
+        self, registry_path: str = None
+    ) -> Union[peppy.Project, None]:
         """
         Retrieving project from database by specifying project registry_path
         :param registry_path: project registry_path [e.g. namespace/name:tag]
