@@ -513,46 +513,6 @@ class Connection:
 
         return self.get_project_annotation(namespace=namespace, name=name, tag=tag)
 
-    def get_namespace_annotation(self, namespace: str = None) -> dict:
-        """
-        Retrieving namespace annotation dict.
-        Data that will be retrieved: number of tags, projects and samples
-        If namespace is None it will retrieve dict with all namespace annotations.
-        :param namespace: project namespace
-        """
-        sql_q = f"""
-        select {NAMESPACE_COL}, count(DISTINCT {TAG_COL}) as n_tags , 
-        count({NAME_COL}) as 
-        n_namespace, SUM(({ANNO_COL} ->> 'n_samples')::int) 
-        as n_samples 
-            from {DB_TABLE_NAME}
-                group by {NAMESPACE_COL};
-        """
-        result = self._run_sql_fetchall(sql_q)
-        anno_dict = {}
-
-        for name_sp_result in result:
-            anno_dict[name_sp_result[0]] = {
-                "namespace": name_sp_result[0],
-                "n_tags": name_sp_result[1],
-                "n_projects": name_sp_result[2],
-                "n_samples": name_sp_result[3],
-            }
-
-        if namespace:
-            try:
-                return anno_dict[namespace]
-            except KeyError:
-                _LOGGER.warning(f"Namespace '{namespace}' was not found.")
-                return {
-                    "namespace": namespace,
-                    "n_tags": 0,
-                    "n_projects": 0,
-                    "n_samples": 0,
-                }
-
-        return anno_dict
-
     def project_exists(
         self,
         namespace: str = None,
