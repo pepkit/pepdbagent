@@ -21,10 +21,18 @@ coloredlogs.install(
 
 class Annotation(dict):
     """
-    A class to model an annotations used in pep-db
+    A class to model an annotations used in pep-db.
+    Annotation is additional information about each project that is stored in annotation column.
+    This class will create standard annotation dictionary,
+    that can be easy retrievable, and handles lack of annotation and other errors
     """
 
     def __init__(self, annotation_dict: dict = None, registry: str = None):
+        """
+        Initialization of the annotation class
+        :param annotation_dict: Annotation dictionary, that was already created
+        :param registry: Registry path of the project
+        """
 
         super(Annotation, self).__init__()
         if annotation_dict is None:
