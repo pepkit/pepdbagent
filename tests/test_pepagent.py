@@ -29,7 +29,7 @@ class TestDatafetching:
 
     @pytest.mark.parametrize("registry", EXAMPLE_REGISTRIES)
     def test_get_project_by_registry(self, registry):
-        project = self.db.get_project_by_registry(registry)
+        project = self.db.get_project_by_registry_path(registry)
         assert isinstance(project, peppy.Project)
 
     def test_get_projects_by_list(self):
@@ -58,5 +58,5 @@ class TestDatafetching:
     def test_nonexistent_project(self):
         this_registry_doesnt_exist = "blueberry/pancakes"
         with pytest.warns():
-            proj = self.db.get_project_by_registry(this_registry_doesnt_exist)
+            proj = self.db.get_project_by_registry_path(this_registry_doesnt_exist)
             assert proj is None

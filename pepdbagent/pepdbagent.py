@@ -72,9 +72,9 @@ class Connection:
         self._check_conn_db()
         _LOGGER.info(f"Connected successfully!")
 
-    def _commit_connection(self) -> None:
+    def _commit_to_database(self) -> None:
         """
-        Commit connection
+        Commit to database
         """
         self.pg_connection.commit()
 
@@ -159,7 +159,7 @@ class Connection:
                     f"Project: '{namespace}/{proj_name}:{tag}' was successfully uploaded."
                 )
 
-                self._commit_connection()
+                self._commit_to_database()
                 cursor.close()
 
             except UniqueViolation:
@@ -199,7 +199,7 @@ class Connection:
         anno: dict = None,
     ) -> None:
         """
-        Upload project to the database
+        Update existing project by providing all necessary information.
         :param peppy.Project project: Project object that has to be uploaded to the DB
         :param namespace: namespace of the project (Default: 'other')
         :param name: name of the project (Default: name is taken from the project object)
@@ -261,7 +261,7 @@ class Connection:
         else:
             _LOGGER.error("Project does not exist! No project will be updated!")
 
-    def get_project_by_registry(
+    def get_project_by_registry_path(
         self, registry_path: str = None
     ) -> Union[peppy.Project, None]:
         """
@@ -393,11 +393,16 @@ class Connection:
 
     def get_namespace_info(self, namespace: str) -> dict:
         """
-        Fetch a particular namespace from the database. This doesn't retrieve full project
-        objects. For that, one should utilize the `get_projects(namespace=...)` function.
+        Fetch projects information from a particular namespace. This doesn't retrieve full project
+        objects.
 
         :param namespace: the namespace to fetch
-        :return: A dictionary representation of the namespace in the database
+        :return: A dictionary representation of the namespace in the database.
+        Return dictionary schema:
+            namespace,
+            n_samples,
+            n_projects,
+            projects:(id, name, tag, digest, description, n_samples)
         """
         try:
             sql_q = f"select {ID_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {ANNO_COL} from {DB_TABLE_NAME} where {NAMESPACE_COL} = %s"
@@ -507,7 +512,7 @@ class Connection:
 
         return annot
 
-    def get_project_annotation_by_registry(
+    def get_project_annotation_by_registry_path(
         self,
         registry_path: str,
     ) -> Annotation:
@@ -603,7 +608,7 @@ class Connection:
         else:
             return False
 
-    def project_exists_by_registry(
+    def project_exists_by_registry_path(
         self,
         registry_path: str,
     ) -> bool:
@@ -621,11 +626,10 @@ class Connection:
                 ("tag", DEFAULT_TAG),
             ],
         )
-        namespace = reg["namespace"]
-        name = reg["item"]
-        tag = reg["tag"]
 
-        if self.project_exists(namespace=namespace, name=name, tag=tag):
+        if self.project_exists(
+            namespace=reg["namespace"], name=reg["item"], tag=reg["tag"]
+        ):
             return True
         else:
             return False
@@ -679,11 +683,14 @@ class Connection:
         """
         _LOGGER.info(f"Creating digest for: {project_dict['name']}")
         sample_digest = md5(
-            json.dumps(project_dict[SAMPLE_RAW_DICT_KEY], sort_keys=True).encode(
-                "utf-8"
-            )
+            json.dumps(
+                project_dict[SAMPLE_RAW_DICT_KEY],
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+                sort_keys=True,
+            ).encode("utf-8")
         ).hexdigest()
-
         return sample_digest
 
     def _check_conn_db(self) -> None:
