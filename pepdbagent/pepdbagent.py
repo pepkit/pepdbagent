@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, NoReturn
 import psycopg2
 from psycopg2.errors import UniqueViolation, NotNullViolation
 import json
@@ -17,10 +17,6 @@ from .pepannot import Annotation
 import coloredlogs
 from urllib.parse import urlparse
 
-# from pprint import pprint
-# import sys
-# import os
-
 _LOGGER = logmuse.init_logger("pepDB_connector")
 coloredlogs.install(
     logger=_LOGGER,
@@ -36,20 +32,32 @@ class Connection:
 
     def __init__(
         self,
-        dsn=None,
         host="localhost",
         port=5432,
         database="pep-db",
         user=None,
         password=None,
+        dsn=None,
     ):
+        """
+        Initialize connection to the pep_db database. You can use The basic connection parameters
+        or libpq connection string.
+        :param host: database server address e.g., localhost or an IP address.
+        :param port: the port number that defaults to 5432 if it is not provided.
+        :param database: the name of the database that you want to connect.
+        :param user: the username used to authenticate.
+        :param password: password used to authenticate.
+        :param dsn: libpq connection string using the dsn parameter
+        (e.g. "localhost://username:password@pdp_db:5432")
+        """
+
         _LOGGER.info(f"Initializing connection to {database}...")
 
         if dsn is not None:
-            self.postgresConnection = psycopg2.connect(dsn)
+            self.pg_connection = psycopg2.connect(dsn)
             self.db_name = urlparse(dsn).path[1:]
         else:
-            self.postgresConnection = psycopg2.connect(
+            self.pg_connection = psycopg2.connect(
                 host=host,
                 port=port,
                 database=database,
@@ -59,22 +67,22 @@ class Connection:
             self.db_name = database
 
         # Ensure data is added to the database immediately after write commands
-        self.postgresConnection.autocommit = True
+        self.pg_connection.autocommit = True
 
         self._check_conn_db()
         _LOGGER.info(f"Connected successfully!")
 
-    def _commit_connection(self) -> None:
+    def _commit_to_database(self) -> None:
         """
-        Commit connection
+        Commit to database
         """
-        self.postgresConnection.commit()
+        self.pg_connection.commit()
 
     def close_connection(self) -> None:
         """
         Close connection with database
         """
-        self.postgresConnection.close()
+        self.pg_connection.close()
 
     def upload_project(
         self,
@@ -86,9 +94,12 @@ class Connection:
         description: str = None,
         anno: dict = None,
         update: bool = False,
-    ) -> None:
+        is_private: bool = False,
+    ) -> NoReturn:
         """
-        Upload project to the database
+        Upload project to the database.
+        Project with the key, that already exists won't be uploaded(but case, when argument
+        update is set True)
         :param peppy.Project project: Project object that has to be uploaded to the DB
         :param namespace: namespace of the project (Default: 'other')
         :param name: name of the project (Default: name is taken from the project object)
@@ -96,9 +107,11 @@ class Connection:
         :param status: status of the project
         :param description: description of the project
         :param anno: dict with annotations about current project
-        :param update: boolean value if existed project has to be updated automatically
+        :param update: boolean value if existed project has to be updated (if project with the same
+        registry path already exists)
+        :param is_private: boolean value if the project should be visible just for user that creates it
         """
-        cursor = self.postgresConnection.cursor()
+        cursor = self.pg_connection.cursor()
         try:
             if namespace is None:
                 namespace = DEFAULT_NAMESPACE
@@ -121,6 +134,7 @@ class Connection:
                 last_update=str(datetime.datetime.now()),
                 n_samples=len(project.samples),
                 anno_dict=anno,
+                is_private=is_private,
             )
 
             proj_dict = json.dumps(proj_dict)
@@ -145,7 +159,7 @@ class Connection:
                     f"Project: '{namespace}/{proj_name}:{tag}' was successfully uploaded."
                 )
 
-                self._commit_connection()
+                self._commit_to_database()
                 cursor.close()
 
             except UniqueViolation:
@@ -185,7 +199,7 @@ class Connection:
         anno: dict = None,
     ) -> None:
         """
-        Upload project to the database
+        Update existing project by providing all necessary information.
         :param peppy.Project project: Project object that has to be uploaded to the DB
         :param namespace: namespace of the project (Default: 'other')
         :param name: name of the project (Default: name is taken from the project object)
@@ -195,7 +209,7 @@ class Connection:
         :param anno: dict with annotations about current project
         """
 
-        cursor = self.postgresConnection.cursor()
+        cursor = self.pg_connection.cursor()
 
         if namespace is None:
             namespace = DEFAULT_NAMESPACE
@@ -247,7 +261,9 @@ class Connection:
         else:
             _LOGGER.error("Project does not exist! No project will be updated!")
 
-    def get_project_by_registry(self, registry_path: str = None):
+    def get_project_by_registry_path(
+        self, registry_path: str = None
+    ) -> Union[peppy.Project, None]:
         """
         Retrieving project from database by specifying project registry_path
         :param registry_path: project registry_path [e.g. namespace/name:tag]
@@ -283,12 +299,12 @@ class Connection:
             tag = DEFAULT_TAG
 
         sql_q = f"""
-                select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME}
+                select {ID_COL}, {PROJ_COL}, {ANNO_COL} from {DB_TABLE_NAME}
                 """
 
         if name is not None:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
-            found_prj = self.run_sql_fetchone(sql_q, name, namespace, tag)
+            found_prj = self._run_sql_fetchone(sql_q, name, namespace, tag)
 
         else:
             _LOGGER.error(
@@ -300,8 +316,10 @@ class Connection:
         if found_prj:
             _LOGGER.info(f"Project has been found: {found_prj[0]}")
             project_value = found_prj[1]
+            is_private = found_prj[2].get("is_private") or False
             try:
                 project_obj = peppy.Project().from_dict(project_value)
+                project_obj.is_private = is_private
                 return project_obj
             except Exception:
                 _LOGGER.error(
@@ -320,10 +338,9 @@ class Connection:
         tag: str = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> list:
+    ) -> List[peppy.Project]:
         """
-        Get a list of projects as peppy.Project instances.
-        Get a list of projects in a namespace
+        Get a list of projects in provided namespace.
         Default limit is 100, to change it use limit and offset parameter
         :param namespace: The namespace to fetch all projects from.
         :param tag: The tag to fetch all projects from.
@@ -341,13 +358,13 @@ class Connection:
                     f"where namespace = %s and tag = %s "
                     f"limit {limit} offset {offset_number}"
                 )
-                results = self.run_sql_fetchall(sql_q, namespace, tag)
+                results = self._run_sql_fetchall(sql_q, namespace, tag)
             else:
                 sql_q = (
                     f"select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace = %s"
                     f" limit {limit} offset {offset_number}"
                 )
-                results = self.run_sql_fetchall(sql_q, namespace)
+                results = self._run_sql_fetchall(sql_q, namespace)
 
         # if only tag is provided
         elif tag:
@@ -355,7 +372,7 @@ class Connection:
                 f"select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME} where tag = %s"
                 f" limit {limit} offset {offset_number}"
             )
-            results = self.run_sql_fetchall(sql_q, tag)
+            results = self._run_sql_fetchall(sql_q, tag)
             print(results)
 
         else:
@@ -374,82 +391,22 @@ class Connection:
 
         return result_list
 
-    def get_projects_in_list(
-        self,
-        registry_paths: list,
-    ) -> List[peppy.Project]:
-        """
-        Get a list of projects as peppy.Project instances.
-        Get a list of projects in a list of registry_paths
-        :registry_paths: list with registry paths of the projects
-        :return: a list of peppy.Project instances for the requested projects.
-        """
-        if not isinstance(registry_paths, list):
-            raise TypeError(f"incorrect variable type provided")
-        for rpath in registry_paths:
-            if not is_valid_resgistry_path(rpath):
-                # should we raise an error or just warn with the logger?
-                raise ValueError(f"Invalid registry path supplied: '{rpath}'")
-
-        parametrized_filter = ""
-        for i in range(len(registry_paths)):
-            parametrized_filter += "(namespace=%s and name=%s)"
-            if i < len(registry_paths) - 1:
-                parametrized_filter += " or "
-
-        sql_q = f"select {NAME_COL}, {PROJ_COL} from {DB_TABLE_NAME} where {parametrized_filter}"
-        flattened_registries = tuple(
-            chain(
-                *[
-                    [r["namespace"], r["item"]]
-                    for r in map(
-                        lambda rpath: ubiquerg.parse_registry_path(rpath),
-                        registry_paths,
-                    )
-                ]
-            )
-        )
-        results = self.run_sql_fetchall(sql_q, *flattened_registries)
-
-        # extract out the project config dictionary from the query
-        return [peppy.Project(project_dict=p[1]) for p in results]
-
-    def get_all_projects(
-        self,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> List[peppy.Project]:
-        """
-        Get a list of projects as peppy.Project instances.
-        Get all projects in the database (call empty)
-        :param limit: The maximum number of items to return.
-        :param offset: The index of the first item to return. Default: 0 (the first item).
-            Use with limit to get the next set of items.
-        :return: a list of peppy.Project instances for the requested projects.
-        """
-        offset_number = limit * offset
-        sql_q = f"select {PROJ_COL} from {DB_TABLE_NAME} limit {limit} offset {offset_number}"
-        result = self.run_sql_fetchall(sql_q)
-        proj_list = []
-
-        for raw_proj in result:
-            try:
-                proj_list.append(peppy.Project().from_dict(raw_proj[0]))
-            except Exception as err:
-                _LOGGER.error(f"Exception in {err}")
-        return proj_list
-
     def get_namespace_info(self, namespace: str) -> dict:
         """
-        Fetch a particular namespace from the database. This doesn't retrieve full project
-        objects. For that, one should utilize the `get_projects(namespace=...)` function.
+        Fetch projects information from a particular namespace. This doesn't retrieve full project
+        objects.
 
         :param namespace: the namespace to fetch
-        :return: A dictionary representation of the namespace in the database
+        :return: A dictionary representation of the namespace in the database.
+        Return dictionary schema:
+            namespace,
+            n_samples,
+            n_projects,
+            projects:(id, name, tag, digest, description, n_samples)
         """
         try:
             sql_q = f"select {ID_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {ANNO_COL} from {DB_TABLE_NAME} where {NAMESPACE_COL} = %s"
-            results = self.run_sql_fetchall(sql_q, namespace)
+            results = self._run_sql_fetchall(sql_q, namespace)
             projects = [
                 {
                     "id": p[0],
@@ -494,7 +451,7 @@ class Connection:
                 )
         else:
             sql_q = f"""SELECT DISTINCT {NAMESPACE_COL} FROM {DB_TABLE_NAME};"""
-            namespaces = [n[0] for n in self.run_sql_fetchall(sql_q)]
+            namespaces = [n[0] for n in self._run_sql_fetchall(sql_q)]
             if names_only:
                 return [n for n in namespaces]
 
@@ -537,7 +494,7 @@ class Connection:
 
         if name:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
-            found_prj = self.run_sql_fetchone(sql_q, name, namespace, tag)
+            found_prj = self._run_sql_fetchone(sql_q, name, namespace, tag)
 
         else:
             _LOGGER.error(
@@ -555,7 +512,7 @@ class Connection:
 
         return annot
 
-    def get_project_annotation_by_registry(
+    def get_project_annotation_by_registry_path(
         self,
         registry_path: str,
     ) -> Annotation:
@@ -578,65 +535,6 @@ class Connection:
 
         return self.get_project_annotation(namespace=namespace, name=name, tag=tag)
 
-    def get_projects_annotation_by_namespace(self, namespace: str) -> dict:
-        """
-        Get list of all project annotations in namespace
-        :param namespace: namespace
-        return: dict of dicts with all projects in namespace
-        """
-
-        if not namespace:
-            _LOGGER.info(f"No namespace provided... returning empty list")
-            return {}
-
-        sql_q = f"""select 
-                    {NAME_COL},
-                    {NAMESPACE_COL},
-                    {TAG_COL},
-                    {ANNO_COL}
-                        from {DB_TABLE_NAME} where {NAMESPACE_COL}=%s;"""
-
-        results = self.run_sql_fetchall(sql_q, namespace)
-        res_dict = {}
-        for result in results:
-            dict_key = f"{result[1]}/{result[0]}:{result[2]}"
-            res_dict[dict_key] = Annotation(
-                registry=dict_key, annotation_dict=result[3]
-            )
-
-        return res_dict
-
-    def get_projects_annotation_by_namespace_tag(
-        self, namespace: str, tag: str
-    ) -> dict:
-        """
-        Get list of all project annotations in namespace
-        :param tag: tag of the project
-        :param namespace: namespace
-        return: dict of dicts with all projects in namespace
-        """
-
-        if not namespace:
-            _LOGGER.info(f"No namespace provided... returning empty list")
-            return {}
-
-        sql_q = f"""select 
-                    {NAME_COL},
-                    {NAMESPACE_COL},
-                    {TAG_COL},
-                    {ANNO_COL}
-                        from {DB_TABLE_NAME} where namespace=%s and tag=%s;"""
-
-        results = self.run_sql_fetchall(sql_q, namespace, tag)
-        res_dict = {}
-        for result in results:
-            dict_key = f"{result[1]}/{result[0]}:{result[2]}"
-            res_dict[dict_key] = Annotation(
-                registry=dict_key, annotation_dict=result[3]
-            )
-
-        return res_dict
-
     def get_namespace_annotation(self, namespace: str = None) -> dict:
         """
         Retrieving namespace annotation dict.
@@ -652,7 +550,7 @@ class Connection:
             from {DB_TABLE_NAME}
                 group by {NAMESPACE_COL};
         """
-        result = self.run_sql_fetchall(sql_q)
+        result = self._run_sql_fetchall(sql_q)
         anno_dict = {}
 
         for name_sp_result in result:
@@ -705,12 +603,12 @@ class Connection:
                           {NAME_COL} = %s AND 
                           {TAG_COL} = %s;"""
 
-        if self.run_sql_fetchone(sql, namespace, name, tag):
+        if self._run_sql_fetchone(sql, namespace, name, tag):
             return True
         else:
             return False
 
-    def project_exists_by_registry(
+    def project_exists_by_registry_path(
         self,
         registry_path: str,
     ) -> bool:
@@ -728,101 +626,22 @@ class Connection:
                 ("tag", DEFAULT_TAG),
             ],
         )
-        namespace = reg["namespace"]
-        name = reg["item"]
-        tag = reg["tag"]
 
-        if self.project_exists(namespace=namespace, name=name, tag=tag):
+        if self.project_exists(
+            namespace=reg["namespace"], name=reg["item"], tag=reg["tag"]
+        ):
             return True
         else:
             return False
 
-    def project_status(
-        self,
-        namespace: str = None,
-        name: str = None,
-        tag: str = None,
-    ) -> Union[str, None]:
-        """
-        Retrieve project status by providing name, namespace and tag
-        :param namespace: project registry - will return dict of project annotations
-        :param name: project name in database. [required if registry_path does not specify]
-        :param tag: tag of the projects
-        :return: status
-        """
-        sql_q = f"""
-                select ({ANNO_COL}->>'{STATUS_KEY}') as status
-                        from {DB_TABLE_NAME}
-                            WHERE {NAMESPACE_COL}=%s AND
-                                {NAME_COL}=%s AND {TAG_COL}=%s;
-                """
-        if namespace is None:
-            namespace = DEFAULT_NAMESPACE
-        if tag is None:
-            tag = DEFAULT_TAG
-
-        if not name:
-            _LOGGER.error(
-                "You haven't provided neither registry_path or name! Execution is unsuccessful. "
-                "Files haven't been downloaded, returning empty dict"
-            )
-            return "None"
-
-        if not self.project_exists(namespace=namespace, name=name, tag=tag):
-            _LOGGER.error("Project does not exist, returning None")
-            return "None"
-
-        try:
-            result = self.run_sql_fetchone(sql_q, namespace, name, tag)[0]
-        except IndexError:
-            return "Unknown"
-        return result
-
-    def project_status_by_registry(
-        self,
-        registry_path: str = None,
-    ) -> str:
-        """
-        Retrieve project status by providing registry path
-        :param registry_path: project registry
-
-        :return: status
-        """
-        reg = ubiquerg.parse_registry_path(registry_path)
-        namespace = reg["namespace"]
-        name = reg["item"]
-        tag = reg["tag"]
-
-        if namespace is None:
-            namespace = DEFAULT_NAMESPACE
-        if tag is None:
-            tag = DEFAULT_TAG
-
-        return self.project_status(namespace=namespace, name=name, tag=tag)
-
-    def get_registry_paths_by_digest(self, digest: str):
-        """
-        Get project registry by digest
-        :param digest: Digest of the project
-        """
-        sql_q = f"select {NAMESPACE_COL}, {NAME_COL}, {TAG_COL} from {DB_TABLE_NAME} where {DIGEST_COL} = %s"
-        results = self.run_sql_fetchall(sql_q, digest)
-
-        registry_list = []
-
-        for res in results:
-            registry_list.append(f"{res[0]}/{res[1]}:{res[2]}")
-
-        return registry_list
-
-    def run_sql_fetchone(self, sql_query: str, *argv) -> list:
+    def _run_sql_fetchone(self, sql_query: str, *argv) -> list:
         """
         Fetching one result by providing sql query and arguments
         :param sql_query: sql string that has to run
         :param argv: arguments that has to be added to sql query
         :return: set of query result
         """
-        cursor = self.postgresConnection.cursor()
+        cursor = self.pg_connection.cursor()
         try:
             cursor.execute(sql_query, argv)
             output_result = cursor.fetchone()
@@ -837,14 +656,14 @@ class Connection:
         finally:
             cursor.close()
 
-    def run_sql_fetchall(self, sql_query: str, *argv) -> list:
+    def _run_sql_fetchall(self, sql_query: str, *argv) -> list:
         """
         Fetching all result by providing sql query and arguments
         :param str sql_query: sql string that has to run
         :param argv: arguments that has to be added to sql query
         :return: set of query result
         """
-        cursor = self.postgresConnection.cursor()
+        cursor = self.pg_connection.cursor()
         try:
             cursor.execute(sql_query, argv)
             output_result = cursor.fetchall()
@@ -864,11 +683,14 @@ class Connection:
         """
         _LOGGER.info(f"Creating digest for: {project_dict['name']}")
         sample_digest = md5(
-            json.dumps(project_dict[SAMPLE_RAW_DICT_KEY], sort_keys=True).encode(
-                "utf-8"
-            )
+            json.dumps(
+                project_dict[SAMPLE_RAW_DICT_KEY],
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+                sort_keys=True,
+            ).encode("utf-8")
         ).hexdigest()
-
         return sample_digest
 
     def _check_conn_db(self) -> None:
@@ -880,7 +702,7 @@ class Connection:
             FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_NAME = N'{DB_TABLE_NAME}'
             """
-        result = self.run_sql_fetchall(a)
+        result = self._run_sql_fetchall(a)
         cols_name = []
         for col in result:
             cols_name.append(col[3])
