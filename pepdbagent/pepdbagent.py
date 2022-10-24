@@ -12,8 +12,7 @@ import ubiquerg
 from psycopg2.errors import NotNullViolation, UniqueViolation
 from pydantic import ValidationError
 
-from pepdbagent.models import (NamespaceModel, NamespacesResponseModel,
-                               ProjectModel)
+from pepdbagent.models import NamespaceModel, NamespacesResponseModel, ProjectModel
 
 from .const import *
 from .exceptions import SchemaError
@@ -249,6 +248,7 @@ class Connection:
                         tag,
                     ),
                 )
+                self._commit_to_database()
                 _LOGGER.info(
                     f"Project '{namespace}/{proj_name}:{tag}' has been updated!"
                 )
