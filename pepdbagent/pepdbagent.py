@@ -1,21 +1,22 @@
-from typing import List, Union, NoReturn
-import psycopg2
-from psycopg2.errors import UniqueViolation, NotNullViolation
+import datetime
 import json
+from hashlib import md5
+from typing import List, NoReturn, Union
+from urllib.parse import urlparse
+
+import coloredlogs
 import logmuse
 import peppy
-from hashlib import md5
-from itertools import chain
+import psycopg2
 import ubiquerg
-import datetime
+from psycopg2.errors import NotNullViolation, UniqueViolation
+from pydantic import ValidationError
 
-from .utils import all_elements_are_strings, is_valid_resgistry_path
+from pepdbagent.models import NamespaceModel, NamespacesResponseModel, ProjectModel
+
 from .const import *
 from .exceptions import SchemaError
 from .pepannot import Annotation
-
-import coloredlogs
-from urllib.parse import urlparse
 
 _LOGGER = logmuse.init_logger("pepDB_connector")
 coloredlogs.install(
@@ -92,7 +93,6 @@ class Connection:
         tag: str = None,
         status: str = None,
         description: str = None,
-        anno: dict = None,
         update: bool = False,
         is_private: bool = False,
     ) -> NoReturn:
@@ -106,7 +106,6 @@ class Connection:
         :param tag: tag (or version) of the project
         :param status: status of the project
         :param description: description of the project
-        :param anno: dict with annotations about current project
         :param update: boolean value if existed project has to be updated (if project with the same
         registry path already exists)
         :param is_private: boolean value if the project should be visible just for user that creates it
@@ -128,12 +127,11 @@ class Connection:
                 proj_name = proj_dict["name"]
 
             # creating annotation:
-            proj_annot = Annotation().create_new_annotation(
+            proj_annot = Annotation(
                 status=status,
                 description=description,
                 last_update=str(datetime.datetime.now()),
                 n_samples=len(project.samples),
-                anno_dict=anno,
                 is_private=is_private,
             )
 
@@ -151,7 +149,7 @@ class Connection:
                         tag,
                         proj_digest,
                         proj_dict,
-                        proj_annot.get_json(),
+                        proj_annot.json(),
                     ),
                 )
                 proj_id = cursor.fetchone()[0]
@@ -169,7 +167,7 @@ class Connection:
                         name=proj_name,
                         tag=tag,
                         project=project,
-                        anno=dict(proj_annot),
+                        anno=proj_annot.dict(),
                     )
                 else:
                     _LOGGER.warning(
@@ -196,7 +194,6 @@ class Connection:
         tag: str = None,
         status: str = None,
         description: str = None,
-        anno: dict = None,
     ) -> None:
         """
         Update existing project by providing all necessary information.
@@ -206,7 +203,6 @@ class Connection:
         :param tag: tag (or version) of the project
         :param status: status of the project
         :param description: description of the project
-        :param anno: dict with annotations about current project
         """
 
         cursor = self.pg_connection.cursor()
@@ -226,12 +222,11 @@ class Connection:
             proj_name = proj_dict["name"]
 
         # creating annotation:
-        proj_annot = Annotation().create_new_annotation(
+        proj_annot = Annotation(
             status=status,
             description=description,
             last_update=str(datetime.datetime.now()),
             n_samples=len(project.samples),
-            anno_dict=anno,
         )
 
         proj_dict = json.dumps(proj_dict)
@@ -247,12 +242,13 @@ class Connection:
                     (
                         proj_digest,
                         proj_dict,
-                        proj_annot.get_json(),
+                        proj_annot.json(),
                         namespace,
                         proj_name,
                         tag,
                     ),
                 )
+                self._commit_to_database()
                 _LOGGER.info(
                     f"Project '{namespace}/{proj_name}:{tag}' has been updated!"
                 )
@@ -334,6 +330,7 @@ class Connection:
 
     def get_projects_in_namespace(
         self,
+        user: str,
         namespace: str = None,
         tag: str = None,
         limit: int = 100,
@@ -353,7 +350,7 @@ class Connection:
         if namespace:
             if tag:
                 sql_q = (
-                    f"select {ID_COL}, {PROJ_COL} "
+                    f"select {ID_COL}, {PROJ_COL}, {ANNO_COL} "
                     f"from {DB_TABLE_NAME} "
                     f"where namespace = %s and tag = %s "
                     f"limit {limit} offset {offset_number}"
@@ -361,7 +358,7 @@ class Connection:
                 results = self._run_sql_fetchall(sql_q, namespace, tag)
             else:
                 sql_q = (
-                    f"select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME} where namespace = %s"
+                    f"select {ID_COL}, {PROJ_COL}, {ANNO_COL} from {DB_TABLE_NAME} where namespace = %s"
                     f" limit {limit} offset {offset_number}"
                 )
                 results = self._run_sql_fetchall(sql_q, namespace)
@@ -369,11 +366,10 @@ class Connection:
         # if only tag is provided
         elif tag:
             sql_q = (
-                f"select {ID_COL}, {PROJ_COL} from {DB_TABLE_NAME} where tag = %s"
+                f"select {ID_COL}, {PROJ_COL}, {ANNO_COL} from {DB_TABLE_NAME} where tag = %s"
                 f" limit {limit} offset {offset_number}"
             )
             results = self._run_sql_fetchall(sql_q, tag)
-            print(results)
 
         else:
             _LOGGER.warning(f"Incorrect input!")
@@ -381,17 +377,22 @@ class Connection:
 
         # extract out the project config dictionary from the query
         result_list = []
-        for p in results:
+        for project in results:
             try:
-                result_list.append(peppy.Project().from_dict(p[1]))
+                project_object = peppy.Project().from_dict(project[1])
+                project_object.is_private = project[2].get("is_private")
+                if not project_object.is_private or (
+                    project_object.is_private and namespace == user
+                ):
+                    result_list.append(project_object)
             except Exception:
                 _LOGGER.error(
-                    f"Error in init project. Error occurred in peppy. Project id={p[0]}"
+                    f"Error in init project. Error occurred in peppy. Project id={project[0]}"
                 )
 
         return result_list
 
-    def get_namespace_info(self, namespace: str) -> dict:
+    def get_namespace_info(self, namespace: str, user: str):
         """
         Fetch projects information from a particular namespace. This doesn't retrieve full project
         objects.
@@ -407,64 +408,102 @@ class Connection:
         try:
             sql_q = f"select {ID_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {ANNO_COL} from {DB_TABLE_NAME} where {NAMESPACE_COL} = %s"
             results = self._run_sql_fetchall(sql_q, namespace)
-            projects = [
-                {
-                    "id": p[0],
-                    "name": p[1],
-                    "tag": p[2],
-                    "digest": p[3],
-                    "description": Annotation(p[4]).description,
-                    "n_samples": Annotation(p[4]).n_samples,
-                }
-                for p in results
-            ]
-            result = {
-                "namespace": namespace,
-                "projects": projects,
-                "n_samples": sum(map(lambda p: p["n_samples"], projects)),
-                "n_projects": len(projects),
-            }
-            return result
-        except TypeError:
+
+            projects = []
+            for project_data in results:
+                annotation = Annotation(**project_data[4])
+                projects.append(
+                    ProjectModel(
+                        id=project_data[0],
+                        name=project_data[1],
+                        tag=project_data[2],
+                        digest=project_data[3],
+                        description=annotation.description,
+                        number_of_samples=annotation.number_of_samples,
+                        is_private=annotation.is_private,
+                    )
+                )
+            namespace = NamespaceModel(
+                namespace=namespace,
+                projects=projects,
+                number_of_samples=sum(map(lambda p: p.number_of_samples, projects)),
+                number_of_projects=len(projects),
+            )
+            return self._get_projects_from_namespace_that_user_is_authorized_for(
+                namespace, user
+            )
+
+        except (TypeError, ValidationError):
             _LOGGER.warning(
                 f"Error occurred while getting data from '{namespace}' namespace"
             )
 
-    def get_namespaces_info_by_list(
-        self, namespaces: List[str] = None, names_only: bool = False
-    ) -> list:
+    @staticmethod
+    def _get_projects_from_namespace_that_user_is_authorized_for(
+        namespace: NamespaceModel, user: str
+    ):
+        """
+        Iterate over projects within namespace and return the ones, that given user is authorized to view.
+        Usually the projects are public projects + projects within user namespace.
+        """
+        if namespace.namespace == user:
+            return namespace
+        else:
+            projects_that_user_is_authorized_for = []
+            for project in namespace.projects:
+                if not project.is_private:
+                    projects_that_user_is_authorized_for.append(project)
+
+            namespace.projects = projects_that_user_is_authorized_for
+            return namespace
+
+    def get_namespaces_info_by_list(self, user: str = None) -> list:
         """
         Get list of all available namespaces.
-
-        :param List[str] namespaces: An optional list of namespaces to fetch.
-        :param bool names_only: Flag to indicate you only want unique namespace names
-        :return: list of available namespaces
         """
-        if namespaces is not None:
-            # coerce to list if not
-            if isinstance(namespaces, str):
-                namespaces = [namespaces]
-            # verify all strings
-            elif not all_elements_are_strings(namespaces):
-                raise ValueError(
-                    f"Namespace list must only contain str. Supplied: {namespaces}"
-                )
-        else:
-            sql_q = f"""SELECT DISTINCT {NAMESPACE_COL} FROM {DB_TABLE_NAME};"""
-            namespaces = [n[0] for n in self._run_sql_fetchall(sql_q)]
-            if names_only:
-                return [n for n in namespaces]
 
+        sql_q = f"""SELECT DISTINCT {NAMESPACE_COL} FROM {DB_TABLE_NAME};"""
+        if query_result := self._run_sql_fetchall(sql_q):
+            namespaces = [namespace[0] for namespace in query_result]
+        else:
+            namespaces = []
+
+        namespaces_with_info = NamespacesResponseModel(
+            **{"namespaces": self.get_namespace_info_from_list(namespaces, user)}
+        )
+        return self._filter_namespaces_for_privacy(namespaces_with_info)
+
+    def get_namespace_info_from_list(self, namespaces: List, user: str) -> List:
+        """
+        Wrapper that transforms list of namespaces to list of namespaces info.
+        """
         namespaces_list = []
-        for ns in namespaces:
+        for namespace in namespaces:
             try:
-                namespaces_list.append(self.get_namespace_info(ns))
+                namespaces_list.append(self.get_namespace_info(namespace, user))
             except TypeError:
                 _LOGGER.warning(
-                    f"Warning: Error in collecting projects from database. {ns} wasn't collected!"
+                    f"Warning: Error in collecting projects from database. {namespace} wasn't collected!"
                 )
-
         return namespaces_list
+
+    @staticmethod
+    def _filter_namespaces_for_privacy(
+        namespaces_with_info: NamespacesResponseModel,
+    ) -> List[NamespaceModel]:
+        """
+        Filters the namespaces and returns only the ones matching user namespace + namespaces where at least one
+        project is public.
+        """
+        namespaces_to_return = []
+
+        for namespace in namespaces_with_info.namespaces:
+            for project in namespace.projects:
+                if not project.is_private:
+                    namespaces_to_return.append(namespace)
+                    break
+
+        return namespaces_to_return
 
     def get_project_annotation(
         self,

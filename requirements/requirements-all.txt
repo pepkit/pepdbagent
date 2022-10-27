@@ -3,3 +3,4 @@ logmuse
 peppy>=0.35.1
 ubiquerg>=0.6.2
 coloredlogs>=15.0.1
+pytest-mock
