@@ -1,164 +1,62 @@
-import peppy
+import os
 import pytest
-from pepdbagent.pepdbagent import Connection
+import peppy
+from pepdbagent import Connection
+
+# from dotenv import load_dotenv
+
+# load_dotenv()
+
+EXAMPLE_NAMESPACES = ["nfcore", "geo", "demo"]
+
+EXAMPLE_REGISTRIES = [
+    "geo/GSE102804:default",
+    "demo/basic:default",
+    "nfcore/demo_rna_pep:default",
+]
 
 
-def test_connection_initializes_correctly_from_dsn(
-    mocker, sql_output_for_check_conn_db, test_dsn
-):
-    mocker.patch("pepdbagent.pepdbagent.psycopg2.connect")
-    mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
-        return_value=sql_output_for_check_conn_db,
-    )
+@pytest.mark.skipif(True, reason="no way of currently testing this")
+class TestDatafetching:
 
-    c = Connection(dsn=test_dsn)
+    # db = Connection(
+    #     user=os.environ.get("POSTGRES_USER") or "postgres",
+    #     password=os.environ.get("POSTGRES_PASSWORD") or "docker",
+    # )
 
-    assert c.db_name == "pep-base-sql"
-    assert c.pg_connection.autocommit
+    def test_connection(self):
+        assert isinstance(self.db, Connection)
 
+    @pytest.mark.parametrize("registry", EXAMPLE_REGISTRIES)
+    def test_get_project_by_registry(self, registry):
+        project = self.db.get_project_by_registry_path(registry)
+        assert isinstance(project, peppy.Project)
 
-def test_connection_initializes_correctly_without_dsn(
-    mocker, sql_output_for_check_conn_db
-):
-    mocker.patch("pepdbagent.pepdbagent.psycopg2.connect")
-    mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
-        return_value=sql_output_for_check_conn_db,
-    )
+    def test_get_projects_by_list(self):
+        projects = self.db.get_projects_in_list(EXAMPLE_REGISTRIES)
+        assert len(projects) == 3
 
-    c = Connection(
-        host="localhost",
-        port="5432",
-        database="pep-base-sql",
-        user="postgres",
-        password="docker",
-    )
+    def test_get_projects_by_namespace(self):
+        projects = self.db.get_projects_in_namespace(namespace=EXAMPLE_NAMESPACES[0])
+        assert len(projects) == 2
 
-    assert c.db_name == "pep-base-sql"
-    assert c.pg_connection.autocommit
+    def test_get_namespaces(self):
+        namespaces = self.db.get_namespaces_info_by_list()
+        assert len(namespaces) > 0
 
+    def test_get_namespace_list(self):
+        namespaces = self.db.get_namespaces_info_by_list(names_only=True)
+        assert all([isinstance(n, str) for n in namespaces])
 
-def test_upload_project_success(
-    mocker, sql_output_for_check_conn_db, test_dsn, test_peppy_project
-):
-    database_commit_mock = mocker.patch(
-        "pepdbagent.pepdbagent.Connection._commit_to_database"
-    )
-    mocker.patch("psycopg2.connect")
-    mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
-        return_value=sql_output_for_check_conn_db,
-    )
-    c = Connection(dsn=test_dsn)
+    @pytest.mark.parametrize("namespace", EXAMPLE_NAMESPACES)
+    def test_get_namespace(self, namespace: str):
+        result = self.db.get_namespace_info(namespace)
+        assert isinstance(result, dict)
+        assert "projects" in result
+        assert len(result["projects"]) > 0
 
-    c.upload_project(test_peppy_project)
-
-    assert database_commit_mock.called
-
-
-def test_upload_project_updates_after_raising_unique_violation_error(
-    mocker, sql_output_for_check_conn_db, test_dsn, test_peppy_project
-):
-    update_project_mock = mocker.patch(
-        "pepdbagent.pepdbagent.Connection.update_project"
-    )
-    c = Connection(dsn=test_dsn)
-
-    c.upload_project(test_peppy_project, update=True)
-
-    assert update_project_mock.called
-
-
-def test_update_project(
-    mocker, test_dsn, test_peppy_project, sql_output_for_check_conn_db
-):
-    mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
-        return_value=sql_output_for_check_conn_db,
-    )
-    mocker.patch(
-        "pepdbagent.pepdbagent.Connection.project_exists",
-        return_value=True,
-    )
-    database_commit_mock = mocker.patch(
-        "pepdbagent.pepdbagent.Connection._commit_to_database"
-    )
-
-    c = Connection(dsn=test_dsn)
-    c.update_project(test_peppy_project)
-
-    assert database_commit_mock.called
-
-
-def test_get_project_by_registry_path(mocker, test_dsn, sql_output_for_check_conn_db):
-    mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
-        return_value=sql_output_for_check_conn_db,
-    )
-    get_project_mock = mocker.patch(
-        "pepdbagent.pepdbagent.Connection.get_project",
-        return_value=sql_output_for_check_conn_db,
-    )
-
-    c = Connection(dsn=test_dsn)
-
-    c.get_project_by_registry_path("some/project:tag")
-
-    get_project_mock.assert_called_with(namespace="some", name="project", tag="tag")
-
-
-def test_get_project(
-    mocker, test_dsn, sql_output_for_check_conn_db, test_database_project_return
-):
-    mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
-        return_value=sql_output_for_check_conn_db,
-    )
-    mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchone",
-        return_value=test_database_project_return,
-    )
-
-    c = Connection(dsn=test_dsn)
-
-    project = c.get_project(
-        namespace="test_namespace",
-        name="test_name",
-        tag="test_tag",
-    )
-
-    assert project.name == "public_project"
-    assert not project.description
-
-
-def test_get_projects_in_namespace():
-    pass
-
-
-def test_get_namespace_info():
-    pass
-
-
-def test_get_namespaces_info_by_list():
-    pass
-
-
-def test_get_project_annotation():
-    pass
-
-
-def test_get_project_annotation_by_registry_path():
-    pass
-
-
-def test_get_namespace_annotation():
-    pass
-
-
-def test_project_exists():
-    pass
-
-
-def test_project_exists_by_registry_path():
-    pass
+    def test_nonexistent_project(self):
+        this_registry_doesnt_exist = "blueberry/pancakes"
+        with pytest.warns():
+            proj = self.db.get_project_by_registry_path(this_registry_doesnt_exist)
+            assert proj is None
