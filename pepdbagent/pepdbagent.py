@@ -392,7 +392,7 @@ class Connection:
 
         return result_list
 
-    def get_namespace_info(self, namespace: str, user: str):
+    def get_namespace_info(self, namespace: str, user: str, user_organizations: List[str]):
         """
         Fetch projects information from a particular namespace. This doesn't retrieve full project
         objects.
@@ -430,7 +430,7 @@ class Connection:
                 number_of_projects=len(projects),
             )
             return self._get_projects_from_namespace_that_user_is_authorized_for(
-                namespace, user
+                namespace, user, user_organizations
             )
 
         except (TypeError, ValidationError):
@@ -440,13 +440,13 @@ class Connection:
 
     @staticmethod
     def _get_projects_from_namespace_that_user_is_authorized_for(
-        namespace: NamespaceModel, user: str
+        namespace: NamespaceModel, user: str, user_organizations: List[str],
     ):
         """
         Iterate over projects within namespace and return the ones, that given user is authorized to view.
         Usually the projects are public projects + projects within user namespace.
         """
-        if namespace.namespace == user:
+        if namespace.namespace == user or namespace.namespace in user_organizations:
             return namespace
         else:
             projects_that_user_is_authorized_for = []
@@ -457,7 +457,7 @@ class Connection:
             namespace.projects = projects_that_user_is_authorized_for
             return namespace
 
-    def get_namespaces_info_by_list(self, user: str = None) -> list:
+    def get_namespaces_info_by_list(self, user: str, user_organizations: List[str]) -> list:
         """
         Get list of all available namespaces.
         """
@@ -469,18 +469,18 @@ class Connection:
             namespaces = []
 
         namespaces_with_info = NamespacesResponseModel(
-            **{"namespaces": self.get_namespace_info_from_list(namespaces, user)}
+            **{"namespaces": self.get_namespace_info_from_list(namespaces, user, user_organizations)}
         )
         return self._filter_namespaces_for_privacy(namespaces_with_info)
 
-    def get_namespace_info_from_list(self, namespaces: List, user: str) -> List:
+    def get_namespace_info_from_list(self, namespaces: List, user: str, organizations: List[str]) -> List:
         """
         Wrapper that transforms list of namespaces to list of namespaces info.
         """
         namespaces_list = []
         for namespace in namespaces:
             try:
-                namespaces_list.append(self.get_namespace_info(namespace, user))
+                namespaces_list.append(self.get_namespace_info(namespace, user, organizations))
             except TypeError:
                 _LOGGER.warning(
                     f"Warning: Error in collecting projects from database. {namespace} wasn't collected!"
