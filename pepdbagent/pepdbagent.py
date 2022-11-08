@@ -93,9 +93,9 @@ class Connection:
         tag: str = None,
         status: str = None,
         description: str = None,
-        update: bool = False,
         is_private: bool = False,
-    ) -> NoReturn:
+        overwrite: bool = False,
+    ) -> Union[NoReturn, str]:
         """
         Upload project to the database.
         Project with the key, that already exists won't be uploaded(but case, when argument
@@ -106,9 +106,9 @@ class Connection:
         :param tag: tag (or version) of the project
         :param status: status of the project
         :param description: description of the project
-        :param update: boolean value if existed project has to be updated (if project with the same
-        registry path already exists)
         :param is_private: boolean value if the project should be visible just for user that creates it
+        :param overwrite: if project exists overwrite the project, otherwise upload it.
+            [Default: False - project won't be overwritten if it exists in db]
         """
         cursor = self.pg_connection.cursor()
         try:
@@ -139,10 +139,13 @@ class Connection:
 
             try:
                 _LOGGER.info(f"Uploading {proj_name} project...")
-                sql = f"""INSERT INTO {DB_TABLE_NAME}({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {ANNO_COL})
-                VALUES (%s, %s, %s, %s, %s, %s) RETURNING {ID_COL};"""
+
+                sql_base = f"""INSERT INTO {DB_TABLE_NAME}({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {ANNO_COL})
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING {ID_COL};"""
+
                 cursor.execute(
-                    sql,
+                    sql_base,
                     (
                         namespace,
                         proj_name,
@@ -161,75 +164,57 @@ class Connection:
                 cursor.close()
 
             except UniqueViolation:
-                if update:
-                    self.update_project(
+                if overwrite:
+
+                    self._update_project(
+                        project_dict=proj_dict,
                         namespace=namespace,
-                        name=proj_name,
+                        proj_name=proj_name,
                         tag=tag,
-                        project=project,
-                        anno=proj_annot.dict(),
+                        project_digest=proj_digest,
+                        proj_annot=proj_annot,
                     )
                 else:
                     _LOGGER.warning(
                         f"Namespace, name and tag already exists. Project won't be uploaded. "
-                        f"Solution: Set update value as True (project will be overwritten),"
+                        f"Solution: Set overwrite value as True (project will be overwritten),"
                         f" or change tag!"
                     )
+
             except NotNullViolation:
                 _LOGGER.error(
                     f"Name of the project wasn't provided. Project will not be uploaded"
                 )
+                return f"Error_name: {namespace}/{proj_name}:{tag}"
 
         except psycopg2.Error as e:
             _LOGGER.error(
                 f"Error while uploading project. Project hasn't been uploaded!"
             )
             cursor.close()
+            return f"Error_psycopg2: {namespace}/{name}:{tag}"
 
-    def update_project(
+    def _update_project(
         self,
-        project: peppy.Project,
-        namespace: str = None,
-        name: str = None,
-        tag: str = None,
-        status: str = None,
-        description: str = None,
-    ) -> None:
+        project_dict: json,
+        namespace: str,
+        proj_name: str,
+        tag: str,
+        project_digest: str,
+        proj_annot,
+    ) -> NoReturn:
         """
         Update existing project by providing all necessary information.
-        :param peppy.Project project: Project object that has to be uploaded to the DB
-        :param namespace: namespace of the project (Default: 'other')
-        :param name: name of the project (Default: name is taken from the project object)
-        :param tag: tag (or version) of the project
-        :param status: status of the project
-        :param description: description of the project
+        :param project_dict: project dictionary in json format
+        :param namespace: project namespace
+        :param proj_name: project name
+        :param tag: project tag
+        :param project_digest: project digest
+        :param proj_annot: project annotation in Annotation object
+        :return: NoReturn
         """
 
         cursor = self.pg_connection.cursor()
-
-        if namespace is None:
-            namespace = DEFAULT_NAMESPACE
-        if tag is None:
-            tag = DEFAULT_TAG
-
-        proj_dict = project.to_dict(extended=True)
-
-        proj_digest = self._create_digest(proj_dict)
-
-        if name:
-            proj_name = name
-        else:
-            proj_name = proj_dict["name"]
-
-        # creating annotation:
-        proj_annot = Annotation(
-            status=status,
-            description=description,
-            last_update=str(datetime.datetime.now()),
-            n_samples=len(project.samples),
-        )
-
-        proj_dict = json.dumps(proj_dict)
 
         if self.project_exists(namespace=namespace, name=proj_name, tag=tag):
             try:
@@ -240,8 +225,8 @@ class Connection:
                 cursor.execute(
                     sql,
                     (
-                        proj_digest,
-                        proj_dict,
+                        project_digest,
+                        project_dict,
                         proj_annot.json(),
                         namespace,
                         proj_name,
@@ -254,6 +239,7 @@ class Connection:
                 )
             except psycopg2.Error:
                 _LOGGER.error("Error occurred while updating the project!")
+
         else:
             _LOGGER.error("Project does not exist! No project will be updated!")
 
