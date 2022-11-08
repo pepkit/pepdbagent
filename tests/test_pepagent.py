@@ -1,5 +1,7 @@
 from psycopg2.errors import UniqueViolation
 from pepdbagent.pepdbagent import Connection
+import json
+from pepdbagent.pepannot import Annotation
 
 
 def test_connection_initializes_correctly_from_dsn(
@@ -60,7 +62,7 @@ def test_upload_project_updates_after_raising_unique_violation_error(
     mocker, sql_output_for_check_conn_db, test_dsn, test_peppy_project
 ):
     update_project_mock = mocker.patch(
-        "pepdbagent.pepdbagent.Connection.update_project"
+        "pepdbagent.pepdbagent.Connection._update_project"
     )
     mocker.patch(
         "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
@@ -75,7 +77,7 @@ def test_upload_project_updates_after_raising_unique_violation_error(
 
     c = Connection(dsn=test_dsn)
 
-    c.upload_project(test_peppy_project, update=True)
+    c.upload_project(test_peppy_project, overwrite=True)
 
     assert update_project_mock.called
 
@@ -97,7 +99,20 @@ def test_update_project(
     mocker.patch("psycopg2.connect")
 
     c = Connection(dsn=test_dsn)
-    c.update_project(test_peppy_project)
+
+    test_proj_dict = test_peppy_project.to_dict(extended=True)
+    test_proj_dict = json.dumps(test_proj_dict)
+
+    test_proj_annot = Annotation()
+
+    c._update_project(
+        test_proj_dict,
+        namespace="test",
+        proj_name="test",
+        tag="test",
+        project_digest="aaa",
+        proj_annot=test_proj_annot,
+    )
 
     assert database_commit_mock.called
 
