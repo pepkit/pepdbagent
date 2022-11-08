@@ -56,11 +56,11 @@ print(list_of_namespaces)
 ```python
 
 # Get project by registry
-pr_ob = projectDB.get_project_by_registry(registry_path='Test/subtable3')
+pr_ob = projectDB.get_project_by_registry_path(registry_path='Test/subtable3')
 print(pr_ob.samples)
 
 # Get project by registry
-pr_ob = projectDB.get_project_by_registry(registry_path='Test/subtable3:this_is_tag')
+pr_ob = projectDB.get_project_by_registry_path(registry_path='Test/subtable3:this_is_tag')
 print(pr_ob.samples)
 
 # Get project by namespace and name
@@ -85,7 +85,7 @@ pr_ob = projectDB.get_projects_in_namespace(namespace='King')
 print(pr_ob.samples)
 
 # Get projects by namespace and tag
-pr_ob = projectDB.get_projects_in_namespace(namespace='King', tag='taggg')
+pr_ob = projectDB.get_projects_in_namespace(namespace='King', tag='taggg', limit=100)
 print(pr_ob.samples)
 
 # Get projects by list of registry paths
@@ -93,7 +93,7 @@ pr_ob = projectDB.get_projects_in_list(registry_paths=['Test/subtable3:default',
 print(pr_ob.samples)
 
 # Get all the projects
-pr_ob = projectDB.get_project_all()
+pr_ob = projectDB.get_all_projects(limit=20, offset=0)
 print(pr_ob.samples)
 
 ```
@@ -103,14 +103,14 @@ print(pr_ob.samples)
 ```python
 
 # Get dictionary of annotation for 1 project by registry
-projects_anno_list = projectDB.get_project_annotation_by_registry(registry='Test/subtable3:this_is_tag')
+projects_anno_list = projectDB.get_project_annotation_by_registry_path()
 # if tag is not set default tag will be set
 projects_anno_list = projectDB.get_project_annotation(namespace='Test/subtable3')
 
 # As a return value user will get `Annotation` class object. There is two options to retrieve data:
-#1) Using object as simple dict:
+# 1) Using object as simple dict:
 projects_anno_list["status"]
-#2) Using .key ; Available keys:
+# 2) Using .key ; Available keys:
 projects_anno_list.registry  # to know what project annotation is it 
 projects_anno_list.status
 projects_anno_list.description
@@ -140,7 +140,7 @@ projectDB.project_exists(namespace="nn", name="buu")
 projectDB.project_exists(namespace="nn", name="buu", tag='dog')
 
 # by registry path:
-projectDB.project_exists_by_registry(registry_path='nn/buu/dog')
+projectDB.project_exists_by_registry_path(registry_path='nn/buu/dog')
 
 ```
 

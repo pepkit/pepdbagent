@@ -2,7 +2,24 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.2.0] -- 2022-11-08
+
+- Added limits and offset to function: `get_projects_in_namespace()`
+- Annotation changed to BaseModel from pydantic
+- Added privacy information in annotations
+- Added update feature to `upload_project` method with `overwrite` argument
+- Added mock tests
+- Deleted unused functions:
+  - `get_projects_in_list`
+  - `get_projects_annotation_by_namespace`
+  - `project_status`
+  - `project_status_by_registry`
+  - `get_registry_paths_by_digest`
+
+- Changed method names:
+  - `get_project_by_registry` --> `get_project_by_registry_path`
+  - `get_project_annotation_by_registry` --> `get_project_annotation_by_registry_path`
 
 ## [0.1.0] -- 2022-08-18
 
-- 🎉 first release! 
+- 🎉 first release!
