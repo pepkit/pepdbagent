@@ -378,11 +378,12 @@ class Connection:
 
         return result_list
 
-    def get_namespace_info(self, namespace: str, user: str):
+    def get_namespace_info(self, namespace: str, user: str = None):
         """
         Fetch projects information from a particular namespace. This doesn't retrieve full project
         objects.
 
+        :param user: User or organization namespace
         :param namespace: the namespace to fetch
         :return: A dictionary representation of the namespace in the database.
         Return dictionary schema:
@@ -459,7 +460,7 @@ class Connection:
         )
         return self._filter_namespaces_for_privacy(namespaces_with_info)
 
-    def get_namespace_info_from_list(self, namespaces: List, user: str) -> List:
+    def get_namespace_info_from_list(self, namespaces: List, user: str = None) -> List:
         """
         Wrapper that transforms list of namespaces to list of namespaces info.
         """
