@@ -427,7 +427,7 @@ class Connection:
 
     @staticmethod
     def _get_projects_from_namespace_that_user_is_authorized_for(
-            namespace: NamespaceModel, user: str
+        namespace: NamespaceModel, user: str
     ):
         """
         Iterate over projects within namespace and return the ones, that given user is authorized to view.
