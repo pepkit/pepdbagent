@@ -157,74 +157,74 @@ class Connection:
                     proj_annot=proj_annot,
                 )
                 return response
+            else:
+                try:
+                    _LOGGER.info(f"Uploading {proj_name} project...")
 
-            try:
-                _LOGGER.info(f"Uploading {proj_name} project...")
+                    sql_base = f"""INSERT INTO {DB_TABLE_NAME}({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {ANNO_COL})
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING {ID_COL};"""
 
-                sql_base = f"""INSERT INTO {DB_TABLE_NAME}({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {ANNO_COL})
-                VALUES (%s, %s, %s, %s, %s, %s)
-                RETURNING {ID_COL};"""
-
-                cursor.execute(
-                    sql_base,
-                    (
-                        namespace,
-                        proj_name,
-                        tag,
-                        proj_digest,
-                        proj_dict,
-                        proj_annot.json(),
-                    ),
-                )
-                proj_id = cursor.fetchone()[0]
-
-                self._commit_to_database()
-                cursor.close()
-                _LOGGER.info(
-                    f"Project: '{namespace}/{proj_name}:{tag}' was successfully uploaded."
-                )
-                return UploadResponse(
-                    registry_path=f"{namespace}/{proj_name}:{tag}",
-                    log_stage="upload_project",
-                    status="success",
-                    info=f"",
-                )
-
-            except UniqueViolation:
-                if overwrite:
-
-                    response = self._update_project(
-                        project_dict=proj_dict,
-                        namespace=namespace,
-                        proj_name=proj_name,
-                        tag=tag,
-                        project_digest=proj_digest,
-                        proj_annot=proj_annot,
+                    cursor.execute(
+                        sql_base,
+                        (
+                            namespace,
+                            proj_name,
+                            tag,
+                            proj_digest,
+                            proj_dict,
+                            proj_annot.json(),
+                        ),
                     )
-                    return response
-                else:
-                    _LOGGER.warning(
-                        f"Namespace, name and tag already exists. Project won't be uploaded. "
-                        f"Solution: Set overwrite value as True (project will be overwritten),"
-                        f" or change tag!"
+                    proj_id = cursor.fetchone()[0]
+
+                    self._commit_to_database()
+                    cursor.close()
+                    _LOGGER.info(
+                        f"Project: '{namespace}/{proj_name}:{tag}' was successfully uploaded."
                     )
                     return UploadResponse(
                         registry_path=f"{namespace}/{proj_name}:{tag}",
                         log_stage="upload_project",
-                        status="warning",
-                        info=f"project already exists! Overwrite argument is False",
+                        status="success",
+                        info=f"",
                     )
 
-            except NotNullViolation as err:
-                _LOGGER.error(
-                    f"Name of the project wasn't provided. Project will not be uploaded. Error: {err}"
-                )
-                return UploadResponse(
-                    registry_path=f"{namespace}/{proj_name}:{tag}",
-                    log_stage="upload_project",
-                    status="failure",
-                    info=f"NotNullViolation. Error message: {err}",
-                )
+                except UniqueViolation:
+                    if overwrite:
+
+                        response = self._update_project(
+                            project_dict=proj_dict,
+                            namespace=namespace,
+                            proj_name=proj_name,
+                            tag=tag,
+                            project_digest=proj_digest,
+                            proj_annot=proj_annot,
+                        )
+                        return response
+                    else:
+                        _LOGGER.warning(
+                            f"Namespace, name and tag already exists. Project won't be uploaded. "
+                            f"Solution: Set overwrite value as True (project will be overwritten),"
+                            f" or change tag!"
+                        )
+                        return UploadResponse(
+                            registry_path=f"{namespace}/{proj_name}:{tag}",
+                            log_stage="upload_project",
+                            status="warning",
+                            info=f"project already exists! Overwrite argument is False",
+                        )
+
+                except NotNullViolation as err:
+                    _LOGGER.error(
+                        f"Name of the project wasn't provided. Project will not be uploaded. Error: {err}"
+                    )
+                    return UploadResponse(
+                        registry_path=f"{namespace}/{proj_name}:{tag}",
+                        log_stage="upload_project",
+                        status="failure",
+                        info=f"NotNullViolation. Error message: {err}",
+                    )
 
         except psycopg2.Error as e:
             _LOGGER.error(
