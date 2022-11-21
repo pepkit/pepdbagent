@@ -27,3 +27,10 @@ class NamespaceModel(Model):
 
 class NamespacesResponseModel(Model):
     namespaces: Optional[List[NamespaceModel]]
+
+
+class UploadResponse(Model):
+    registry_path: str
+    log_stage: str
+    status: str
+    info: str

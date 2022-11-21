@@ -1,6 +1,6 @@
 psycopg2-binary
 logmuse
-peppy>=0.35.2
+peppy>=0.35.3
 ubiquerg>=0.6.2
 coloredlogs>=15.0.1
 pytest-mock
