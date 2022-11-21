@@ -1,7 +1,7 @@
 import datetime
 import json
 from hashlib import md5
-from typing import List, NoReturn, Union
+from typing import List, NoReturn, Union, Dict
 from urllib.parse import urlparse
 
 import coloredlogs
@@ -12,7 +12,12 @@ import ubiquerg
 from psycopg2.errors import NotNullViolation, UniqueViolation
 from pydantic import ValidationError
 
-from pepdbagent.models import NamespaceModel, NamespacesResponseModel, ProjectModel
+from pepdbagent.models import (
+    NamespaceModel,
+    NamespacesResponseModel,
+    ProjectModel,
+    UploadResponse,
+)
 
 from .const import *
 from .exceptions import SchemaError
@@ -95,7 +100,8 @@ class Connection:
         description: str = None,
         is_private: bool = False,
         overwrite: bool = False,
-    ) -> Union[NoReturn, str]:
+        update_only: bool = False,
+    ) -> UploadResponse:
         """
         Upload project to the database.
         Project with the key, that already exists won't be uploaded(but case, when argument
@@ -109,6 +115,7 @@ class Connection:
         :param is_private: boolean value if the project should be visible just for user that creates it
         :param overwrite: if project exists overwrite the project, otherwise upload it.
             [Default: False - project won't be overwritten if it exists in db]
+        :param update_only: if project exists overwrite it, otherwise do nothing.  [Default: False]
         """
         cursor = self.pg_connection.cursor()
         try:
@@ -137,6 +144,20 @@ class Connection:
 
             proj_dict = json.dumps(proj_dict)
 
+            if update_only:
+                _LOGGER.info(
+                    f"Update_only argument is set True. Updating project {proj_name} ..."
+                )
+                response = self._update_project(
+                    project_dict=proj_dict,
+                    namespace=namespace,
+                    proj_name=proj_name,
+                    tag=tag,
+                    project_digest=proj_digest,
+                    proj_annot=proj_annot,
+                )
+                return response
+
             try:
                 _LOGGER.info(f"Uploading {proj_name} project...")
 
@@ -156,17 +177,23 @@ class Connection:
                     ),
                 )
                 proj_id = cursor.fetchone()[0]
-                _LOGGER.info(
-                    f"Project: '{namespace}/{proj_name}:{tag}' was successfully uploaded."
-                )
 
                 self._commit_to_database()
                 cursor.close()
+                _LOGGER.info(
+                    f"Project: '{namespace}/{proj_name}:{tag}' was successfully uploaded."
+                )
+                return UploadResponse(
+                    registry_path=f"{namespace}/{proj_name}:{tag}",
+                    log_stage="upload_project",
+                    status="success",
+                    info=f"",
+                )
 
             except UniqueViolation:
                 if overwrite:
 
-                    self._update_project(
+                    response = self._update_project(
                         project_dict=proj_dict,
                         namespace=namespace,
                         proj_name=proj_name,
@@ -174,25 +201,42 @@ class Connection:
                         project_digest=proj_digest,
                         proj_annot=proj_annot,
                     )
+                    return response
                 else:
                     _LOGGER.warning(
                         f"Namespace, name and tag already exists. Project won't be uploaded. "
                         f"Solution: Set overwrite value as True (project will be overwritten),"
                         f" or change tag!"
                     )
+                    return UploadResponse(
+                        registry_path=f"{namespace}/{proj_name}:{tag}",
+                        log_stage="upload_project",
+                        status="warning",
+                        info=f"project already exists! Overwrite argument is False",
+                    )
 
-            except NotNullViolation:
+            except NotNullViolation as err:
                 _LOGGER.error(
-                    f"Name of the project wasn't provided. Project will not be uploaded"
+                    f"Name of the project wasn't provided. Project will not be uploaded. Error: {err}"
                 )
-                return f"Error_name: {namespace}/{proj_name}:{tag}"
+                return UploadResponse(
+                    registry_path=f"{namespace}/{proj_name}:{tag}",
+                    log_stage="upload_project",
+                    status="failure",
+                    info=f"NotNullViolation. Error message: {err}",
+                )
 
         except psycopg2.Error as e:
             _LOGGER.error(
-                f"Error while uploading project. Project hasn't been uploaded!"
+                f"Error while uploading project. Project hasn't been uploaded! Error: {e}"
             )
             cursor.close()
-            return f"Error_psycopg2: {namespace}/{name}:{tag}"
+            return UploadResponse(
+                registry_path=f"None",
+                log_stage="upload_project",
+                status="failure",
+                info=f"psycopg2.Error. Error message: {e}",
+            )
 
     def _update_project(
         self,
@@ -202,7 +246,7 @@ class Connection:
         tag: str,
         project_digest: str,
         proj_annot,
-    ) -> NoReturn:
+    ) -> UploadResponse:
         """
         Update existing project by providing all necessary information.
         :param project_dict: project dictionary in json format
@@ -237,11 +281,32 @@ class Connection:
                 _LOGGER.info(
                     f"Project '{namespace}/{proj_name}:{tag}' has been updated!"
                 )
-            except psycopg2.Error:
-                _LOGGER.error("Error occurred while updating the project!")
+                return UploadResponse(
+                    registry_path=f"{namespace}/{proj_name}:{tag}",
+                    log_stage="update_project",
+                    status="success",
+                    info=f"Project was updated",
+                )
+
+            except psycopg2.Error as err:
+                _LOGGER.error(
+                    f"Error occurred while updating the project! Error: {err}"
+                )
+                return UploadResponse(
+                    registry_path=f"{namespace}/{proj_name}:{tag}",
+                    log_stage="update_project",
+                    status="failure",
+                    info=f"Error in executing sql! Error message: {err}",
+                )
 
         else:
             _LOGGER.error("Project does not exist! No project will be updated!")
+            return UploadResponse(
+                registry_path=f"{namespace}/{proj_name}:{tag}",
+                log_stage="update_project",
+                status="failure",
+                info="project does not exist!",
+            )
 
     def get_project_by_registry_path(
         self, registry_path: str = None
@@ -710,7 +775,7 @@ class Connection:
         _LOGGER.info(f"Creating digest for: {project_dict['name']}")
         sample_digest = md5(
             json.dumps(
-                project_dict[SAMPLE_RAW_DICT_KEY],
+                project_dict["_sample_dict"],
                 separators=(",", ":"),
                 ensure_ascii=False,
                 allow_nan=False,
