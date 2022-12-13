@@ -308,6 +308,37 @@ class Connection:
                 info="project does not exist!",
             )
 
+    def delete_project(
+        self,
+        namespace: str = None,
+        name: str = None,
+        tag: str = None,
+    ) -> NoReturn:
+        cursor = self.pg_connection.cursor()
+        sql_delete = f"""DELETE FROM {DB_TABLE_NAME} 
+        WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
+
+        try:
+            cursor.execute(sql_delete, (namespace, name, tag))
+            _LOGGER.info(f"Project '{namespace}/{name}:{tag} was successfully deleted'")
+        except Exception as err:
+            _LOGGER.error(f"Error while deleting project. Message: {err}")
+        finally:
+            cursor.close()
+
+    def delete_project_by_registry_path(
+        self,
+        registry_path: str = None,
+    ) -> NoReturn:
+        if not registry_path:
+            _LOGGER.error("No registry path provided! Returning empty project!")
+        reg = ubiquerg.parse_registry_path(registry_path)
+        namespace = reg["namespace"]
+        name = reg["item"]
+        tag = reg["tag"]
+
+        return self.delete_project(namespace=namespace, name=name, tag=tag)
+
     def get_project_by_registry_path(
         self, registry_path: str = None
     ) -> Union[peppy.Project, None]:
