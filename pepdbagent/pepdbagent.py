@@ -12,16 +12,16 @@ import ubiquerg
 from psycopg2.errors import NotNullViolation, UniqueViolation
 from pydantic import ValidationError
 
-from pepdbagent.models import (
+from models import (
     NamespaceModel,
     NamespacesResponseModel,
     ProjectModel,
     UploadResponse,
 )
 
-from .const import *
-from .exceptions import SchemaError
-from .pepannot import Annotation
+from const import *
+from exceptions import SchemaError
+from pepannot import Annotation
 
 _LOGGER = logmuse.init_logger("pepDB_connector")
 coloredlogs.install(
@@ -838,3 +838,27 @@ class Connection:
 
     def __str__(self):
         return f"Connection to the database: '{self.db_name}' is set!"
+
+    def __search(self):
+        from search import Search
+        return Search(self.pg_connection)
+
+    @property
+    def search(self):
+        return self.__search()
+
+
+con = Connection(user='postgres', password='docker',)
+#
+# dff = peppy.Project('/home/bnt4me/virginia/repos/pepdbagent/sample_pep/amendments1/project_config.yaml')
+
+# con.upload_project(dff, namespace='ii', name='delete_test', tag='ii')
+# con.upload_project(dff, namespace='i1', name='delete_this', tag='i1')
+# con.upload_project(dff, namespace='i2', name='delete_hh', tag='i2')
+# con.upload_project(dff, namespace='i3', name='delete_ff', tag='i3')
+
+# con.delete_project(namespace='ii', name='delete_test', tag='ii')
+# con.delete_project_by_registry_path(f"ii/delete_test:ii")
+
+dd = con.search.project_search(namespace="fdf")
+print(dd)
