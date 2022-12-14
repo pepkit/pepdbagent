@@ -18,7 +18,7 @@ from .models import (
     ProjectModel,
     UploadResponse,
 )
-
+from .search import Search
 from .const import *
 from .exceptions import SchemaError
 from .pepannot import Annotation
@@ -875,8 +875,6 @@ class Connection:
         return f"Connection to the database: '{self.db_name}' is set!"
 
     def __search(self):
-        from search import Search
-
         return Search(self.pg_connection)
 
     @property
