@@ -365,7 +365,7 @@ class Connection:
         tag: str = None,
     ) -> Union[peppy.Project, None]:
         """
-        Retrieving project from database by specifying project registry_path, name, or digest
+        Retrieving project from database by specifying project name, namespace and tag
         :param namespace: project registry_path
         :param name: project name in database
         :param tag: tag of the project
@@ -408,6 +408,41 @@ class Connection:
             _LOGGER.warning(
                 f"No project found for supplied input. Did you supply a valid namespace and project? {sql_q}"
             )
+            return None
+
+    def get_raw_project(
+        self,
+        namespace: str = None,
+        name: str = None,
+        tag: str = None,
+    ) -> Union[dict, None]:
+        """
+        Retrieving raw project from database by specifying project namespace, name and tag
+        :param namespace: project registry_path
+        :param name: project name in database
+        :param tag: tag of the project
+        :return: dict with raw files that are stored in dict
+            return contains: {name, _config, description, _sample_dict, _subsample_dict }
+            *type of _subsample_dict is null or list
+        """
+        if namespace is None:
+            namespace = DEFAULT_NAMESPACE
+        if tag is None:
+            tag = DEFAULT_TAG
+
+        if name is not None:
+            sql_q = f"""
+                        select {PROJ_COL} from {DB_TABLE_NAME}
+                            where {NAMESPACE_COL} = %s AND {NAME_COL} = %s AND {TAG_COL}= %s;
+            """
+            try:
+                found_prj = self._run_sql_fetchone(sql_q, namespace, name, tag)[0]
+            except IndexError:
+                found_prj = {}
+            return found_prj
+
+        else:
+            _LOGGER.error("get_raw_project: name was not provided")
             return None
 
     def get_projects_in_namespace(
