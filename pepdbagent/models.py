@@ -29,6 +29,21 @@ class NamespacesResponseModel(Model):
     namespaces: Optional[List[NamespaceModel]]
 
 
+class NamespaceSearchModel(Model):
+    number_of_results: int
+    limit: int
+    offset: int
+    results: list
+
+
+class ProjectSearchModel(Model):
+    namespace: str
+    number_of_results: int
+    limit: int
+    offset: int
+    results: list
+
+
 class UploadResponse(Model):
     registry_path: str
     log_stage: str
