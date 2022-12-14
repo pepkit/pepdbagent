@@ -105,7 +105,7 @@ class Search:
         :return: number of found project in specified namespace
         """
         if not admin:
-            admin_str = f"""and {ANNO_COL}->>'{IS_PRIVATE_KEY}' = 'false'"""
+            admin_str = f"""and ({ANNO_COL}->>'{IS_PRIVATE_KEY}' = 'false' or {ANNO_COL}->>'{IS_PRIVATE_KEY}' IS NULL)"""
         else:
             admin_str = ""
         count_sql = f"""
@@ -117,7 +117,7 @@ class Search:
         result = self.__run_sql_fetchall(count_sql)
         try:
             number_of_prj = result[0][0]
-        except KeyError:
+        except IndexError:
             number_of_prj = 0
         return number_of_prj
 
@@ -130,7 +130,7 @@ class Search:
         offset: int = DEFAULT_OFFSET,
     ):
         if not admin:
-            admin_str = f"""and {ANNO_COL}->>'{IS_PRIVATE_KEY}' = 'false'"""
+            admin_str = f"""and ({ANNO_COL}->>'{IS_PRIVATE_KEY}' = 'false' or {ANNO_COL}->>'{IS_PRIVATE_KEY}' IS NULL)"""
         else:
             admin_str = ""
         count_sql = f"""
