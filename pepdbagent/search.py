@@ -149,7 +149,8 @@ class Search:
         results_list = []
         try:
             for res in results:
-                results_list.append(ProjectSearchResultModel(
+                results_list.append(
+                    ProjectSearchResultModel(
                         namespace=res[0],
                         name=res[1],
                         tag=res[2],
@@ -217,10 +218,11 @@ class Search:
         results_list = []
         try:
             for res in results:
-                results_list.append(NamespaceSearchResultModel(
-                    namespace=res[0],
-                    number_of_projects=res[1],
-                    number_of_samples=res[2],
+                results_list.append(
+                    NamespaceSearchResultModel(
+                        namespace=res[0],
+                        number_of_projects=res[1],
+                        number_of_samples=res[2],
                     )
                 )
         except KeyError:

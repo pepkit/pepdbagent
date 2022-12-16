@@ -43,7 +43,7 @@ class ProjectSearchResultModel(Model):
     digest: Union[str, None]
     is_private: Union[bool, None]
 
-    @validator('is_private')
+    @validator("is_private")
     def is_private_should_be_bool(cls, v):
         if not isinstance(v, bool):
             return False
