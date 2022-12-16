@@ -1,7 +1,12 @@
 import psycopg2
 import logmuse
 import coloredlogs
-from .models import ProjectSearchModel, NamespaceSearchModel
+from .models import (
+    ProjectSearchModel,
+    NamespaceSearchModel,
+    ProjectSearchResultModel,
+    NamespaceSearchResultModel,
+)
 
 from .const import *
 
@@ -20,7 +25,7 @@ class Search:
         """
         self.db_conn = db_conn
 
-    def namespace_search(
+    def namespace(
         self,
         search_str: str = None,
         admin_nsp: tuple = ("",),
@@ -52,7 +57,7 @@ class Search:
             ),
         )
 
-    def project_search(
+    def project(
         self,
         namespace: str,
         admin: bool = False,
@@ -134,7 +139,7 @@ class Search:
         else:
             admin_str = ""
         count_sql = f"""
-        select {NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, ({ANNO_COL}->>'number_of_samples')::int, ({ANNO_COL}->>'description')
+        select {NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, ({ANNO_COL}->>'number_of_samples')::int, ({ANNO_COL}->>'description'), {DIGEST_COL}, ({ANNO_COL}->>'is_private')::bool
             from {DB_TABLE_NAME} 
                 where ({NAME_COL} LIKE '%%{search_str}%%' or ({ANNO_COL}->>'description') like '%%{search_str}%%') 
                     and {NAMESPACE_COL} = '{namespace}' {admin_str} 
@@ -144,14 +149,15 @@ class Search:
         results_list = []
         try:
             for res in results:
-                results_list.append(
-                    {
-                        "namespace": res[0],
-                        "name": res[1],
-                        "tag": res[2],
-                        "number_of_samples": res[3],
-                        "description": res[4],
-                    }
+                results_list.append(ProjectSearchResultModel(
+                        namespace=res[0],
+                        name=res[1],
+                        tag=res[2],
+                        number_of_samples=res[3],
+                        description=res[4],
+                        digest=res[5],
+                        is_private=res[6],
+                    )
                 )
         except KeyError:
             results_list = []
@@ -211,12 +217,11 @@ class Search:
         results_list = []
         try:
             for res in results:
-                results_list.append(
-                    {
-                        "namespace": res[0],
-                        "number_of_projects": res[1],
-                        "number_of_samples": res[2],
-                    }
+                results_list.append(NamespaceSearchResultModel(
+                    namespace=res[0],
+                    number_of_projects=res[1],
+                    number_of_samples=res[2],
+                    )
                 )
         except KeyError:
             results_list = []
