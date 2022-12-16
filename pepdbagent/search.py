@@ -116,7 +116,7 @@ class Search:
         count_sql = f"""
         select count(*)
             from {DB_TABLE_NAME} 
-                where ({NAME_COL} LIKE '%%{search_str}%%' or ({ANNO_COL}->>'description') like '%%{search_str}%%') 
+                where ({NAME_COL} ILIKE '%%{search_str}%%' or ({ANNO_COL}->>'description') ILIKE '%%{search_str}%%') 
                     and {NAMESPACE_COL} = '{namespace}' {admin_str};
         """
         result = self.__run_sql_fetchall(count_sql)
@@ -141,7 +141,7 @@ class Search:
         count_sql = f"""
         select {NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, ({ANNO_COL}->>'number_of_samples')::int, ({ANNO_COL}->>'description'), {DIGEST_COL}, ({ANNO_COL}->>'is_private')::bool
             from {DB_TABLE_NAME} 
-                where ({NAME_COL} LIKE '%%{search_str}%%' or ({ANNO_COL}->>'description') like '%%{search_str}%%') 
+                where ({NAME_COL} ILIKE '%%{search_str}%%' or ({ANNO_COL}->>'description') ILIKE '%%{search_str}%%') 
                     and {NAMESPACE_COL} = '{namespace}' {admin_str} 
                         LIMIT {limit} OFFSET {offset};
         """
@@ -177,8 +177,8 @@ class Search:
         """
         count_sql = f"""
         select COUNT(DISTINCT ({NAMESPACE_COL}))
-            from {DB_TABLE_NAME} where (({NAMESPACE_COL} LIKE '%%{search_str}%%' and ({ANNO_COL}->>'{IS_PRIVATE_KEY}' = 'false' or {ANNO_COL}->>'{IS_PRIVATE_KEY}'  IS NULL) )
-                or ({NAMESPACE_COL} LIKE '%%{search_str}%%' and {NAMESPACE_COL} in %s )) 
+            from {DB_TABLE_NAME} where (({NAMESPACE_COL} ILIKE '%%{search_str}%%' and ({ANNO_COL}->>'{IS_PRIVATE_KEY}' = 'false' or {ANNO_COL}->>'{IS_PRIVATE_KEY}'  IS NULL) )
+                or ({NAMESPACE_COL} ILIKE '%%{search_str}%%' and {NAMESPACE_COL} in %s )) 
         """
         result = self.__run_sql_fetchall(count_sql, admin_nsp)
         try:
@@ -209,8 +209,8 @@ class Search:
         """
         count_sql = f"""
         select {NAMESPACE_COL}, COUNT({NAME_COL}), SUM( ({ANNO_COL}->>'number_of_samples')::int)
-            from {DB_TABLE_NAME} where (({NAMESPACE_COL} LIKE '%%{search_str}%%' and ({ANNO_COL}->>'{IS_PRIVATE_KEY}' = 'false' or {ANNO_COL}->>'{IS_PRIVATE_KEY}'  IS NULL) )
-                or ({NAMESPACE_COL} LIKE '%%{search_str}%%' and {NAMESPACE_COL} in %s )) 
+            from {DB_TABLE_NAME} where (({NAMESPACE_COL} ILIKE '%%{search_str}%%' and ({ANNO_COL}->>'{IS_PRIVATE_KEY}' = 'false' or {ANNO_COL}->>'{IS_PRIVATE_KEY}'  IS NULL) )
+                or ({NAMESPACE_COL} ILIKE '%%{search_str}%%' and {NAMESPACE_COL} in %s )) 
                     GROUP BY {NAMESPACE_COL}
                         LIMIT {limit} OFFSET {offset};
         """
