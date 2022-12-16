@@ -160,3 +160,20 @@ projectDB.project_status_by_registry(registry_path='nn/buu/dog')
 ```python
 projectDB.get_registry_paths_by_digest(digest='sdafsgwerg243rt2gregw3qr24')
 ```
+
+
+----
+## pepbdagent 0.3.0
+#### How does search work:
+
+```
+# search for namespaces
+d2 = con.search.namespace_search("dat", ('Khoroshevskyi', 'databio',))
+# search for projects in namespace
+k2 = con.search.project_search(namespace="Khoroshevskyi", search_str='hem', admin=True)
+
+print(d2)
+print(k2)
+
+```
+If the search will be empty, algorithm will return all the projects

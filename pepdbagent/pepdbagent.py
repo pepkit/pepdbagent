@@ -12,13 +12,13 @@ import ubiquerg
 from psycopg2.errors import NotNullViolation, UniqueViolation
 from pydantic import ValidationError
 
-from pepdbagent.models import (
+from .models import (
     NamespaceModel,
     NamespacesResponseModel,
     ProjectModel,
     UploadResponse,
 )
-
+from .search import Search
 from .const import *
 from .exceptions import SchemaError
 from .pepannot import Annotation
@@ -308,6 +308,37 @@ class Connection:
                 info="project does not exist!",
             )
 
+    def delete_project(
+        self,
+        namespace: str = None,
+        name: str = None,
+        tag: str = None,
+    ) -> NoReturn:
+        cursor = self.pg_connection.cursor()
+        sql_delete = f"""DELETE FROM {DB_TABLE_NAME} 
+        WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
+
+        try:
+            cursor.execute(sql_delete, (namespace, name, tag))
+            _LOGGER.info(f"Project '{namespace}/{name}:{tag} was successfully deleted'")
+        except Exception as err:
+            _LOGGER.error(f"Error while deleting project. Message: {err}")
+        finally:
+            cursor.close()
+
+    def delete_project_by_registry_path(
+        self,
+        registry_path: str = None,
+    ) -> NoReturn:
+        if not registry_path:
+            _LOGGER.error("No registry path provided! Returning empty project!")
+        reg = ubiquerg.parse_registry_path(registry_path)
+        namespace = reg["namespace"]
+        name = reg["item"]
+        tag = reg["tag"]
+
+        return self.delete_project(namespace=namespace, name=name, tag=tag)
+
     def get_project_by_registry_path(
         self, registry_path: str = None
     ) -> Union[peppy.Project, None]:
@@ -334,7 +365,7 @@ class Connection:
         tag: str = None,
     ) -> Union[peppy.Project, None]:
         """
-        Retrieving project from database by specifying project registry_path, name, or digest
+        Retrieving project from database by specifying project name, namespace and tag
         :param namespace: project registry_path
         :param name: project name in database
         :param tag: tag of the project
@@ -377,6 +408,41 @@ class Connection:
             _LOGGER.warning(
                 f"No project found for supplied input. Did you supply a valid namespace and project? {sql_q}"
             )
+            return None
+
+    def get_raw_project(
+        self,
+        namespace: str = None,
+        name: str = None,
+        tag: str = None,
+    ) -> Union[dict, None]:
+        """
+        Retrieving raw project from database by specifying project namespace, name and tag
+        :param namespace: project registry_path
+        :param name: project name in database
+        :param tag: tag of the project
+        :return: dict with raw files that are stored in dict
+            return contains: {name, _config, description, _sample_dict, _subsample_dict }
+            *type of _subsample_dict is null or list
+        """
+        if namespace is None:
+            namespace = DEFAULT_NAMESPACE
+        if tag is None:
+            tag = DEFAULT_TAG
+
+        if name is not None:
+            sql_q = f"""
+                        select {PROJ_COL} from {DB_TABLE_NAME}
+                            where {NAMESPACE_COL} = %s AND {NAME_COL} = %s AND {TAG_COL}= %s;
+            """
+            try:
+                found_prj = self._run_sql_fetchone(sql_q, namespace, name, tag)[0]
+            except IndexError:
+                found_prj = {}
+            return found_prj
+
+        else:
+            _LOGGER.error("get_raw_project: name was not provided")
             return None
 
     def get_projects_in_namespace(
@@ -807,3 +873,10 @@ class Connection:
 
     def __str__(self):
         return f"Connection to the database: '{self.db_name}' is set!"
+
+    def __search(self):
+        return Search(self.pg_connection)
+
+    @property
+    def search(self):
+        return self.__search()
