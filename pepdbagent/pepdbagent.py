@@ -96,7 +96,6 @@ class Connection:
         namespace: str = None,
         name: str = None,
         tag: str = None,
-        status: str = None,
         description: str = None,
         is_private: bool = False,
         overwrite: bool = False,
@@ -110,7 +109,6 @@ class Connection:
         :param namespace: namespace of the project (Default: 'other')
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project
-        :param status: status of the project
         :param description: description of the project
         :param is_private: boolean value if the project should be visible just for user that creates it
         :param overwrite: if project exists overwrite the project, otherwise upload it.
@@ -135,11 +133,9 @@ class Connection:
 
             # creating annotation:
             proj_annot = Annotation(
-                status=status,
                 description=description,
                 last_update=str(datetime.datetime.now()),
                 n_samples=len(project.samples),
-                is_private=is_private,
             )
 
             proj_dict = json.dumps(proj_dict)
@@ -161,8 +157,8 @@ class Connection:
                 try:
                     _LOGGER.info(f"Uploading {proj_name} project...")
 
-                    sql_base = f"""INSERT INTO {DB_TABLE_NAME}({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {ANNO_COL})
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    sql_base = f"""INSERT INTO {DB_TABLE_NAME}({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {ANNO_COL}, {PRIVATE_COL})
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     RETURNING {ID_COL};"""
 
                     cursor.execute(
@@ -174,6 +170,7 @@ class Connection:
                             proj_digest,
                             proj_dict,
                             proj_annot.json(),
+                            is_private,
                         ),
                     )
                     proj_id = cursor.fetchone()[0]
@@ -308,12 +305,62 @@ class Connection:
                 info="project does not exist!",
             )
 
+
+    def update_item(
+            self,
+            update_dict: dict,
+            namespace: str,
+            name: str,
+            tag: str,
+            ) -> UploadResponse:
+        """
+
+        :param update_dict:
+        :param namespace:
+        :param name:
+        :param tag:
+        :return:
+        """
+        """
+        {digest: ...,
+        project: {
+        """
+        pass
+        # cursor = self.pg_connection.cursor()
+        #
+        # if self.project_exists(namespace=namespace, name=name, tag=tag):
+        #     try:
+        #
+        #         # TODO: create here function that creates set ...
+        #         set_sql = "SET {DIGEST_COL} = %s, {PROJ_COL}= %s, {ANNO_COL}= %s"
+        #         set_sql_values = ["value1", "value2"]
+        #         sql = f"""UPDATE {DB_TABLE_NAME}
+        #             {set_sql}
+        #             WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
+        #         cursor.execute(
+        #             sql,
+        #             (
+        #
+        #             ),
+        #         )
+        #         self._commit_to_database()
+        #
+        #         _LOGGER.error("Project does not exist! No project will be updated!")
+        #     except Exception:
+        #         pass
+        # return UploadResponse(
+        #     registry_path=f"{namespace}/{name}:{tag}",
+        #     log_stage="update_project",
+        #     status="failure",
+        #     info="project does not exist!",
+        # )
+
     def delete_project(
         self,
         namespace: str = None,
         name: str = None,
         tag: str = None,
-    ) -> NoReturn:
+    ) -> None:
         cursor = self.pg_connection.cursor()
         sql_delete = f"""DELETE FROM {DB_TABLE_NAME} 
         WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
@@ -325,6 +372,7 @@ class Connection:
             _LOGGER.error(f"Error while deleting project. Message: {err}")
         finally:
             cursor.close()
+            return None
 
     def delete_project_by_registry_path(
         self,
@@ -377,7 +425,7 @@ class Connection:
             tag = DEFAULT_TAG
 
         sql_q = f"""
-                select {ID_COL}, {PROJ_COL}, {ANNO_COL} from {DB_TABLE_NAME}
+                select {ID_COL}, {PROJ_COL}, {PRIVATE_COL} from {DB_TABLE_NAME}
                 """
 
         if name is not None:
@@ -394,7 +442,7 @@ class Connection:
         if found_prj:
             _LOGGER.info(f"Project has been found: {found_prj[0]}")
             project_value = found_prj[1]
-            is_private = found_prj[2].get("is_private") or False
+            is_private = found_prj[2] or False
             try:
                 project_obj = peppy.Project().from_dict(project_value)
                 project_obj.is_private = is_private
@@ -445,69 +493,69 @@ class Connection:
             _LOGGER.error("get_raw_project: name was not provided")
             return None
 
-    def get_projects_in_namespace(
-        self,
-        user: str,
-        namespace: str = None,
-        tag: str = None,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> List[peppy.Project]:
-        """
-        Get a list of projects in provided namespace.
-        Default limit is 100, to change it use limit and offset parameter
-        :param namespace: The namespace to fetch all projects from.
-        :param tag: The tag to fetch all projects from.
-        :param limit: The maximum number of items to return.
-        :param offset: The index of the first item to return. Default: 0 (the first item).
-            Use with limit to get the next set of items.
-        :return: a list of peppy.Project instances for the requested projects.
-        """
-        offset_number = limit * offset
-        if namespace:
-            if tag:
-                sql_q = (
-                    f"select {ID_COL}, {PROJ_COL}, {ANNO_COL} "
-                    f"from {DB_TABLE_NAME} "
-                    f"where namespace = %s and tag = %s "
-                    f"limit {limit} offset {offset_number}"
-                )
-                results = self._run_sql_fetchall(sql_q, namespace, tag)
-            else:
-                sql_q = (
-                    f"select {ID_COL}, {PROJ_COL}, {ANNO_COL} from {DB_TABLE_NAME} where namespace = %s"
-                    f" limit {limit} offset {offset_number}"
-                )
-                results = self._run_sql_fetchall(sql_q, namespace)
-
-        # if only tag is provided
-        elif tag:
-            sql_q = (
-                f"select {ID_COL}, {PROJ_COL}, {ANNO_COL} from {DB_TABLE_NAME} where tag = %s"
-                f" limit {limit} offset {offset_number}"
-            )
-            results = self._run_sql_fetchall(sql_q, tag)
-
-        else:
-            _LOGGER.warning(f"Incorrect input!")
-            results = []
-
-        # extract out the project config dictionary from the query
-        result_list = []
-        for project in results:
-            try:
-                project_object = peppy.Project().from_dict(project[1])
-                project_object.is_private = project[2].get("is_private")
-                if not project_object.is_private or (
-                    project_object.is_private and namespace == user
-                ):
-                    result_list.append(project_object)
-            except Exception:
-                _LOGGER.error(
-                    f"Error in init project. Error occurred in peppy. Project id={project[0]}"
-                )
-
-        return result_list
+    # def get_projects_in_namespace(
+    #     self,
+    #     user: str,
+    #     namespace: str = None,
+    #     tag: str = None,
+    #     limit: int = 100,
+    #     offset: int = 0,
+    # ) -> List[peppy.Project]:
+    #     """
+    #     Get a list of projects in provided namespace.
+    #     Default limit is 100, to change it use limit and offset parameter
+    #     :param namespace: The namespace to fetch all projects from.
+    #     :param tag: The tag to fetch all projects from.
+    #     :param limit: The maximum number of items to return.
+    #     :param offset: The index of the first item to return. Default: 0 (the first item).
+    #         Use with limit to get the next set of items.
+    #     :return: a list of peppy.Project instances for the requested projects.
+    #     """
+    #     offset_number = limit * offset
+    #     if namespace:
+    #         if tag:
+    #             sql_q = (
+    #                 f"select {ID_COL}, {PROJ_COL}, {ANNO_COL} "
+    #                 f"from {DB_TABLE_NAME} "
+    #                 f"where namespace = %s and tag = %s "
+    #                 f"limit {limit} offset {offset_number}"
+    #             )
+    #             results = self._run_sql_fetchall(sql_q, namespace, tag)
+    #         else:
+    #             sql_q = (
+    #                 f"select {ID_COL}, {PROJ_COL}, {ANNO_COL} from {DB_TABLE_NAME} where namespace = %s"
+    #                 f" limit {limit} offset {offset_number}"
+    #             )
+    #             results = self._run_sql_fetchall(sql_q, namespace)
+    #
+    #     # if only tag is provided
+    #     elif tag:
+    #         sql_q = (
+    #             f"select {ID_COL}, {PROJ_COL}, {ANNO_COL} from {DB_TABLE_NAME} where tag = %s"
+    #             f" limit {limit} offset {offset_number}"
+    #         )
+    #         results = self._run_sql_fetchall(sql_q, tag)
+    #
+    #     else:
+    #         _LOGGER.warning(f"Incorrect input!")
+    #         results = []
+    #
+    #     # extract out the project config dictionary from the query
+    #     result_list = []
+    #     for project in results:
+    #         try:
+    #             project_object = peppy.Project().from_dict(project[1])
+    #             project_object.is_private = project[2].get("is_private")
+    #             if not project_object.is_private or (
+    #                 project_object.is_private and namespace == user
+    #             ):
+    #                 result_list.append(project_object)
+    #         except Exception:
+    #             _LOGGER.error(
+    #                 f"Error in init project. Error occurred in peppy. Project id={project[0]}"
+    #             )
+    #
+    #     return result_list
 
     def get_namespace_info(self, namespace: str, user: str = None):
         """
@@ -524,7 +572,7 @@ class Connection:
             projects:(id, name, tag, digest, description, n_samples)
         """
         try:
-            sql_q = f"select {ID_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {ANNO_COL} from {DB_TABLE_NAME} where {NAMESPACE_COL} = %s"
+            sql_q = f"select {ID_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {ANNO_COL}, {PRIVATE_COL} from {DB_TABLE_NAME} where {NAMESPACE_COL} = %s"
             results = self._run_sql_fetchall(sql_q, namespace)
 
             projects = []
@@ -538,7 +586,7 @@ class Connection:
                         digest=project_data[3],
                         description=annotation.description,
                         number_of_samples=annotation.number_of_samples,
-                        is_private=annotation.is_private,
+                        is_private=project_data[5],
                     )
                 )
             namespace = NamespaceModel(
