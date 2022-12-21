@@ -1,7 +1,7 @@
 import datetime
 import json
 from hashlib import md5
-from typing import List, NoReturn, Union, Dict
+from typing import List, NoReturn, Union, Tuple
 from urllib.parse import urlparse
 
 import coloredlogs
@@ -17,6 +17,7 @@ from .models import (
     NamespacesResponseModel,
     ProjectModel,
     UploadResponse,
+    UpdateModel,
 )
 from .search import Search
 from .const import *
@@ -96,7 +97,6 @@ class Connection:
         namespace: str = None,
         name: str = None,
         tag: str = None,
-        description: str = None,
         is_private: bool = False,
         overwrite: bool = False,
         update_only: bool = False,
@@ -109,7 +109,6 @@ class Connection:
         :param namespace: namespace of the project (Default: 'other')
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project
-        :param description: description of the project
         :param is_private: boolean value if the project should be visible just for user that creates it
         :param overwrite: if project exists overwrite the project, otherwise upload it.
             [Default: False - project won't be overwritten if it exists in db]
@@ -133,7 +132,7 @@ class Connection:
 
             # creating annotation:
             proj_annot = Annotation(
-                description=description,
+                description=proj_dict.get('description'),
                 last_update=str(datetime.datetime.now()),
                 n_samples=len(project.samples),
             )
@@ -305,7 +304,6 @@ class Connection:
                 info="project does not exist!",
             )
 
-
     def update_item(
             self,
             update_dict: dict,
@@ -314,46 +312,98 @@ class Connection:
             tag: str,
             ) -> UploadResponse:
         """
+        Update partial parts of the project record
+        :param update_dict: dict with update key->values. Dict structure:
+            {
+                    name: Optional[str]
+                    namespace: Optional[str]
+                    tag: Optional[str]
+                    digest: Optional[str]
+                    project_value: dict
+                    private: Optional[bool]
+                    anno_info: dict
+            }
+        :param namespace: project namespace
+        :param name: project name
+        :param tag: project tag
+        :return: ResponseModel with information if project was updated
+        """
+        cursor = self.pg_connection.cursor()
 
-        :param update_dict:
-        :param namespace:
-        :param name:
-        :param tag:
-        :return:
+        if self.project_exists(namespace=namespace, name=name, tag=tag):
+            try:
+
+                set_sql, set_values = self.__create_update_set(UpdateModel(**update_dict))
+                sql = f"""UPDATE {DB_TABLE_NAME}
+                    {set_sql}
+                    WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
+                _LOGGER.debug("Updating items...")
+                cursor.execute(
+                    sql,
+                    (*set_values, namespace, name, tag),
+                )
+                _LOGGER.info(f"Record '{namespace}/{name}:{tag}' was successfully updated!")
+                self._commit_to_database()
+
+            except Exception as err:
+                _LOGGER.error(f"Error while updating project! Error: {err}")
+                return UploadResponse(
+                    registry_path=f"{namespace}/{name}:{tag}",
+                    log_stage="update_item",
+                    status="failure",
+                    info=f"Error in executing SQL. {err}!",
+                )
+        else:
+            _LOGGER.error("Project does not exist! No project will be updated!")
+            return UploadResponse(
+                registry_path=f"{namespace}/{name}:{tag}",
+                log_stage="update_item",
+                status="failure",
+                info="Project does not exist!",
+            )
+
+        return UploadResponse(
+            registry_path=f"{namespace}/{name}:{tag}",
+            log_stage="update_item",
+            status="success",
+            info="Record was successfully updated!",
+        )
+
+    @staticmethod
+    def __create_update_set(update_info: UpdateModel) -> Tuple[str, tuple]:
         """
+        Create sql SET string by passing UpdateModel that later is converted to dict
+        :param update_info: UpdateModel (similar to database model)
+        :return: {sql_string (contains db keys) and updating values}
         """
-        {digest: ...,
-        project: {
-        """
-        pass
-        # cursor = self.pg_connection.cursor()
-        #
-        # if self.project_exists(namespace=namespace, name=name, tag=tag):
-        #     try:
-        #
-        #         # TODO: create here function that creates set ...
-        #         set_sql = "SET {DIGEST_COL} = %s, {PROJ_COL}= %s, {ANNO_COL}= %s"
-        #         set_sql_values = ["value1", "value2"]
-        #         sql = f"""UPDATE {DB_TABLE_NAME}
-        #             {set_sql}
-        #             WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
-        #         cursor.execute(
-        #             sql,
-        #             (
-        #
-        #             ),
-        #         )
-        #         self._commit_to_database()
-        #
-        #         _LOGGER.error("Project does not exist! No project will be updated!")
-        #     except Exception:
-        #         pass
-        # return UploadResponse(
-        #     registry_path=f"{namespace}/{name}:{tag}",
-        #     log_stage="update_project",
-        #     status="failure",
-        #     info="project does not exist!",
-        # )
+        _LOGGER.debug("Creating SET SQL string to update project")
+        sql_string = f"""SET """
+        sql_values = []
+
+        first = True
+        for key, val in update_info.dict(exclude_none=True).items():
+            if first:
+                sql_string = ''.join([sql_string, f"{key} = %s"])
+                first = False
+            else:
+                sql_string = ', '.join([sql_string, f"{key} = %s"])
+
+            if isinstance(val, dict):
+                input_val = json.dumps(val)
+            else:
+                input_val = val
+
+            sql_values.append(input_val)
+
+            # if not isinstance(val, dict):
+            # else:
+            #     keys_str = ""
+            #     for key1, val1 in val.items():
+            #         keys_str = ", ".join([keys_str, f""" '{{{str(key1)}}}', %s"""])
+            #         sql_values.append(f'"{val1}"')
+            #     sql_string = ', '.join([sql_string, f"""{key} = jsonb_set({key} {keys_str})"""])
+
+        return sql_string, tuple(sql_values)
 
     def delete_project(
         self,
@@ -572,21 +622,21 @@ class Connection:
             projects:(id, name, tag, digest, description, n_samples)
         """
         try:
-            sql_q = f"select {ID_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {ANNO_COL}, {PRIVATE_COL} from {DB_TABLE_NAME} where {NAMESPACE_COL} = %s"
+            sql_q = f"""select {ID_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PRIVATE_COL}, {ANNO_COL}->>'{N_SAMPLES_KEY}', {PROJ_COL}->>'description'
+                            from {DB_TABLE_NAME} where {NAMESPACE_COL} = %s"""
             results = self._run_sql_fetchall(sql_q, namespace)
 
             projects = []
             for project_data in results:
-                annotation = Annotation(**project_data[4])
                 projects.append(
                     ProjectModel(
                         id=project_data[0],
                         name=project_data[1],
                         tag=project_data[2],
                         digest=project_data[3],
-                        description=annotation.description,
-                        number_of_samples=annotation.number_of_samples,
-                        is_private=project_data[5],
+                        description=project_data[6],
+                        number_of_samples=project_data[5],
+                        is_private=project_data[4],
                     )
                 )
             namespace = NamespaceModel(
@@ -689,7 +739,7 @@ class Connection:
                     {NAMESPACE_COL},
                     {NAME_COL},
                     {TAG_COL},
-                    {ANNO_COL}
+                    {ANNO_COL},
                         from {DB_TABLE_NAME}
                 """
         if namespace is None:
@@ -712,7 +762,7 @@ class Connection:
 
         annot = Annotation(
             registry=f"{found_prj[0]}/{found_prj[1]}:{found_prj[2]}",
-            annotation_dict=found_prj[3],
+            **ANNO_COL
         )
 
         return annot

@@ -1,32 +1,25 @@
 # file for manual local tests
 
-import sqlmodel
 import pepdbagent
-from pydantic import BaseModel
-from typing import Optional
+from peppy import Project
 
 
-# class Annot(BaseModel):
-#     name: str
-#     surname: str
-#
-# class Model(BaseModel):
-#     person: str
-#     guest: Optional[str]
-#     annot: Annot
-#
-#
-#
-# ff = Model(**fff)
-# print(ff.dict(exclude_none=True))
 con = pepdbagent.Connection(user='postgres',
-                      password='docker',
-                      )
+                            password='docker',
+                            )
 
-con.get_project(namespace="new", name="GSE220436", tag='raw')
+# proj = Project('/home/bnt4me/virginia/repos/pepdbagent/sample_pep/subtable1/project_config.yaml')
 
-dd = con.search.project(namespace="kk", search_str='de', admin=False)
-
-print(dd)
+# con.updload_project(namespace="test", name='sub', tag='f', project=proj, is_private=True)
 
 
+ff = con.update_item(namespace="test", name="sub", tag='f', update_dict={'private': True,
+                                                                                'annot': {'description': "this is my description",
+                                                                                          'something': 'else'},
+                                                                                'digest': "dfdfdf",
+
+                                                                                })
+
+# res = con.search.project(namespace='kk',search_str='d', admin=True)
+res = con.search.namespace('i', admin_nsp=('kk',))
+print(res)

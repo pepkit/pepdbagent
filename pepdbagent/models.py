@@ -1,6 +1,7 @@
 from typing import List, Optional, Union
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, Extra
+from .pepannot import Annotation
 
 
 class Model(BaseModel):
@@ -29,9 +30,9 @@ class NamespacesResponseModel(Model):
 
 
 class NamespaceSearchResultModel(Model):
-    namespace = str
-    number_of_projects = int
-    number_of_samples = int
+    namespace: str
+    number_of_projects: int
+    number_of_samples: int
 
 
 class ProjectSearchResultModel(Model):
@@ -64,6 +65,30 @@ class ProjectSearchModel(Model):
     limit: int
     offset: int
     results: List[ProjectSearchResultModel]
+
+
+class RawPEPModel(BaseModel):
+    name: str
+    description: str
+    _config: dict
+    _sample_dict: dict
+    _subsample_dict: Optional[list] = None
+
+    class Config:
+        extra = Extra.forbid
+
+
+class UpdateModel(BaseModel):
+    name: Optional[str]
+    namespace: Optional[str]
+    tag: Optional[str]
+    digest: Optional[str]
+    project_value: Optional[RawPEPModel]
+    private: Optional[bool]
+    anno_info: Optional[Annotation] = Field(alias="annot")
+
+    class Config:
+        extra = Extra.forbid
 
 
 class UploadResponse(Model):
