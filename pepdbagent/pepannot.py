@@ -3,6 +3,7 @@ from typing import Optional
 
 
 class Annotation(BaseModel):
+    is_private: Optional[bool] = False
     number_of_samples: Optional[int] = Field(alias="n_samples")
     description: Optional[str]
     last_update: Optional[str]

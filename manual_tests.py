@@ -13,6 +13,16 @@ con = pepdbagent.Connection(user='postgres',
 # con.updload_project(namespace="test", name='sub', tag='f', project=proj, is_private=True)
 
 
+gf = con.get_project(namespace="test", name='sub', tag='f')
+
+
+print(gf)
+
+
+gf_annot = con.get_project_annotation(namespace="test", name='sub', tag='f')
+
+print(gf_annot)
+
 ff = con.update_item(namespace="test", name="sub", tag='f', update_dict={'private': True,
                                                                                 'annot': {'description': "this is my description",
                                                                                           'something': 'else'},

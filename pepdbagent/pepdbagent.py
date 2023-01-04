@@ -739,7 +739,8 @@ class Connection:
                     {NAMESPACE_COL},
                     {NAME_COL},
                     {TAG_COL},
-                    {ANNO_COL},
+                    {PRIVATE_COL},
+                    {ANNO_COL}
                         from {DB_TABLE_NAME}
                 """
         if namespace is None:
@@ -762,7 +763,8 @@ class Connection:
 
         annot = Annotation(
             registry=f"{found_prj[0]}/{found_prj[1]}:{found_prj[2]}",
-            **ANNO_COL
+            is_private=found_prj[3],
+            **found_prj[4],
         )
 
         return annot
