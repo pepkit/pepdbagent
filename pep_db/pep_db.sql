@@ -13,7 +13,9 @@ CREATE TABLE projects (
     digest TEXT NOT NULL,  -- should be changed to CHARACTER
     project_value jsonb NOT NULL,
     private bool NOT NULL,
-    anno_info jsonb,  -- annotation information
+    number_of_samples int NOT NULL,
+    submission_date date NOT NULL,
+    last_update_date date NOT NULL,
     CONSTRAINT id PRIMARY KEY (namespace, name, tag)
 );
 

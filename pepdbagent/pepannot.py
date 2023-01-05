@@ -8,6 +8,7 @@ class Annotation(BaseModel):
     number_of_samples: Optional[int] = Field(alias="n_samples")
     description: Optional[str]
     last_update: Optional[str]
+    submission_date: Optional[str]
 
     class Config:
         allow_population_by_field_name = True

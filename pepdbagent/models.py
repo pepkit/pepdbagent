@@ -1,3 +1,4 @@
+import datetime
 from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field, validator, Extra
@@ -44,6 +45,8 @@ class ProjectSearchResultModel(Model):
     description: Union[str, None]
     digest: Union[str, None]
     is_private: Union[bool, None]
+    last_update_date: Optional[str]
+    submission_date: Optional[str]
 
     @validator("is_private")
     def is_private_should_be_bool(cls, v):
@@ -99,7 +102,8 @@ class UpdateModel(BaseModel):
     tag: Optional[str]
     private: Optional[bool]
     digest: Optional[str]
-    anno_info: Optional[Annotation]
+    last_update_date: Optional[datetime.datetime]
+    number_of_samples: Optional[int]
 
     class Config:
         extra = Extra.forbid

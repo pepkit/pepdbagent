@@ -137,11 +137,11 @@ class Connection:
             proj_digest = self._create_digest(proj_dict)
 
             # creating annotation:
-            proj_annot = Annotation(
-                last_update=str(datetime.datetime.now()),
-                n_samples=len(project.samples),
-            )
-
+            # proj_annot = Annotation(
+            #     last_update=str(datetime.datetime.now()),
+            #     n_samples=len(project.samples),
+            # )
+            number_of_samples = len(project.samples)
             proj_dict = json.dumps(proj_dict)
 
             if update_only:
@@ -154,15 +154,15 @@ class Connection:
                     proj_name=proj_name,
                     tag=tag,
                     project_digest=proj_digest,
-                    proj_annot=proj_annot,
+                    number_of_samples=number_of_samples,
                 )
                 return response
             else:
                 try:
                     _LOGGER.info(f"Uploading {proj_name} project...")
 
-                    sql_base = f"""INSERT INTO {DB_TABLE_NAME}({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {ANNO_COL}, {PRIVATE_COL})
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    sql_base = f"""INSERT INTO {DB_TABLE_NAME}({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {N_SAMPLES_COL}, {PRIVATE_COL}, {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL})
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING {ID_COL};"""
 
                     cursor.execute(
@@ -173,8 +173,10 @@ class Connection:
                             tag,
                             proj_digest,
                             proj_dict,
-                            proj_annot.json(exclude_defaults=True),
+                            number_of_samples,
                             is_private,
+                            datetime.datetime.now(),
+                            datetime.datetime.now(),
                         ),
                     )
                     proj_id = cursor.fetchone()[0]
@@ -200,7 +202,7 @@ class Connection:
                             proj_name=proj_name,
                             tag=tag,
                             project_digest=proj_digest,
-                            proj_annot=proj_annot,
+                            number_of_samples=number_of_samples,
                         )
                         return response
                     else:
@@ -246,7 +248,7 @@ class Connection:
         proj_name: str,
         tag: str,
         project_digest: str,
-        proj_annot,
+        number_of_samples: int,
     ) -> UploadResponse:
         """
         Update existing project by providing all necessary information.
@@ -255,7 +257,7 @@ class Connection:
         :param proj_name: project name
         :param tag: project tag
         :param project_digest: project digest
-        :param proj_annot: project annotation in Annotation object
+        :param number_of_samples: number of samples in project
         :return: NoReturn
         """
 
@@ -265,14 +267,15 @@ class Connection:
             try:
                 _LOGGER.info(f"Updating {proj_name} project...")
                 sql = f"""UPDATE {DB_TABLE_NAME}
-                    SET {DIGEST_COL} = %s, {PROJ_COL}= %s, {ANNO_COL}= %s
+                    SET {DIGEST_COL} = %s, {PROJ_COL}= %s, {N_SAMPLES_COL}= %s, {LAST_UPDATE_DATE_COL} = %s
                     WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
                 cursor.execute(
                     sql,
                     (
                         project_digest,
                         project_dict,
-                        proj_annot.json(exclude_defaults=True),
+                        number_of_samples,
+                        datetime.datetime.now(),
                         namespace,
                         proj_name,
                         tag,
@@ -310,12 +313,12 @@ class Connection:
             )
 
     def update_item(
-            self,
-            update_dict: Union[dict, UpdateItems],
-            namespace: str,
-            name: str,
-            tag: str,
-            ) -> UploadResponse:
+        self,
+        update_dict: Union[dict, UpdateItems],
+        namespace: str,
+        name: str,
+        tag: str,
+    ) -> UploadResponse:
         """
         Update partial parts of the project record
         :param update_dict: dict with update key->values. Dict structure:
@@ -343,21 +346,33 @@ class Connection:
                 update_final = UpdateModel()
 
                 if update_values.project_value is not None:
-                    update_final = UpdateModel(project_value=update_values.project_value.to_dict(extended=True),
-                                               name=update_values.project_value.name,
-                                               digest=self._create_digest(update_values.project_value.to_dict(extended=True)),
-                                               anno_info=Annotation(last_update=str(datetime.datetime.now()),
-                                                                    number_of_samples=len(update_values.project_value.samples))
-                                )
+                    update_final = UpdateModel(
+                        project_value=update_values.project_value.to_dict(
+                            extended=True
+                        ),
+                        name=update_values.project_value.name,
+                        digest=self._create_digest(
+                            update_values.project_value.to_dict(extended=True)
+                        ),
+                        last_update_date=datetime.datetime.now(),
+                        number_of_samples=len(update_values.project_value.samples),
+                    )
 
                 if update_values.tag is not None:
-                    update_final = UpdateModel(tag=update_values.tag, **update_final.dict(exclude_unset=True))
+                    update_final = UpdateModel(
+                        tag=update_values.tag, **update_final.dict(exclude_unset=True)
+                    )
 
                 if update_values.private is not None:
-                    update_final = UpdateModel(private=update_values.private, **update_final.dict(exclude_unset=True))
+                    update_final = UpdateModel(
+                        private=update_values.private,
+                        **update_final.dict(exclude_unset=True),
+                    )
 
                 if update_values.name is not None:
-                    update_final = UpdateModel(name=update_values.name, **update_final.dict(exclude_unset=True))
+                    update_final = UpdateModel(
+                        name=update_values.name, **update_final.dict(exclude_unset=True)
+                    )
 
                 set_sql, set_values = self.__create_update_set(update_final)
                 sql = f"""UPDATE {DB_TABLE_NAME}
@@ -368,7 +383,9 @@ class Connection:
                     sql,
                     (*set_values, namespace, name, tag),
                 )
-                _LOGGER.info(f"Record '{namespace}/{name}:{tag}' was successfully updated!")
+                _LOGGER.info(
+                    f"Record '{namespace}/{name}:{tag}' was successfully updated!"
+                )
                 self._commit_to_database()
 
             except Exception as err:
@@ -409,10 +426,10 @@ class Connection:
         first = True
         for key, val in update_info.dict(exclude_none=True).items():
             if first:
-                sql_string = ''.join([sql_string, f"{key} = %s"])
+                sql_string = "".join([sql_string, f"{key} = %s"])
                 first = False
             else:
-                sql_string = ', '.join([sql_string, f"{key} = %s"])
+                sql_string = ", ".join([sql_string, f"{key} = %s"])
 
             if isinstance(val, dict):
                 input_val = json.dumps(val)
@@ -531,7 +548,7 @@ class Connection:
                 return None
         else:
             _LOGGER.warning(
-                f"No project found for supplied input. Did you supply a valid namespace and project? {sql_q}"
+                f"No project found for supplied input: '{namespace}/{name}:{tag}'. Did you supply a valid namespace and project?"
             )
             return None
 
@@ -590,7 +607,9 @@ class Connection:
                     {TAG_COL},
                     {PRIVATE_COL},
                     {PROJ_COL}->>'description',
-                    {ANNO_COL}
+                    {N_SAMPLES_COL},
+                    {SUBMISSION_DATE_COL},
+                    {LAST_UPDATE_DATE_COL}
                         from {DB_TABLE_NAME}
                 """
         if namespace is None:
@@ -610,17 +629,20 @@ class Connection:
             return Annotation()
 
         _LOGGER.info(f"Project has been found!")
+        if len(found_prj) > 0:
+            annot = Annotation(
+                registry=f"{found_prj[0]}/{found_prj[1]}:{found_prj[2]}",
+                is_private=found_prj[3],
+                description=found_prj[4],
+                number_of_samples=found_prj[5],
+                submission_date=str(found_prj[6]),
+                last_update_date=str(found_prj[7]),
+            )
+            return annot
+        else:
+            _LOGGER.error(f"Project '{namespace}/{name}:{tag}' was not found.")
 
-        annot = Annotation(
-            registry=f"{found_prj[0]}/{found_prj[1]}:{found_prj[2]}",
-            is_private=found_prj[3],
-            description=found_prj[4],
-            number_of_samples=found_prj[5].get("number_of_samples"),
-            last_update=found_prj[5].get("last_update"),
-            # **found_prj[5],
-        )
-
-        return annot
+        return Annotation()
 
     def get_project_annotation_by_registry_path(
         self,
@@ -660,7 +682,7 @@ class Connection:
             projects:(id, name, tag, digest, description, n_samples)
         """
         try:
-            sql_q = f"""select {ID_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PRIVATE_COL}, {ANNO_COL}->>'{N_SAMPLES_KEY}', {PROJ_COL}->>'description'
+            sql_q = f"""select {ID_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PRIVATE_COL}, {N_SAMPLES_COL}, {PROJ_COL}->>'description'
                             from {DB_TABLE_NAME} where {NAMESPACE_COL} = %s"""
             results = self._run_sql_fetchall(sql_q, namespace)
 

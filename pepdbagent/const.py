@@ -7,16 +7,28 @@ NAME_COL = "name"
 TAG_COL = "tag"
 DIGEST_COL = "digest"
 PRIVATE_COL = "private"
+N_SAMPLES_COL = "number_of_samples"
+SUBMISSION_DATE_COL = "submission_date"
+LAST_UPDATE_DATE_COL = "last_update_date"
 
-DB_COLUMNS = [ID_COL, DIGEST_COL, PROJ_COL, ANNO_COL, NAMESPACE_COL, NAME_COL, TAG_COL, PRIVATE_COL]
+
+DB_COLUMNS = [
+    ID_COL,
+    DIGEST_COL,
+    PROJ_COL,
+    NAMESPACE_COL,
+    NAME_COL,
+    TAG_COL,
+    PRIVATE_COL,
+    N_SAMPLES_COL,
+    SUBMISSION_DATE_COL,
+    LAST_UPDATE_DATE_COL,
+]
 
 DEFAULT_NAMESPACE = "_"
 DEFAULT_TAG = "default"
 
 DESCRIPTION_KEY = "description"
-N_SAMPLES_KEY = "number_of_samples"
-UPDATE_DATE_KEY = "last_update"
-IS_PRIVATE_KEY = "is_private"
 
 from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_DICT_KEY
 

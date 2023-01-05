@@ -110,13 +110,13 @@ class Search:
         :return: number of found project in specified namespace
         """
         if not admin:
-            admin_str = f"""and ({ANNO_COL}->>'{IS_PRIVATE_KEY}' = 'false' or {ANNO_COL}->>'{IS_PRIVATE_KEY}' IS NULL)"""
+            admin_str = f"""and ({PRIVATE_COL} = 'false')"""
         else:
             admin_str = ""
         count_sql = f"""
         select count(*)
             from {DB_TABLE_NAME} 
-                where ({NAME_COL} ILIKE '%%{search_str}%%' or ({ANNO_COL}->>'description') ILIKE '%%{search_str}%%') 
+                where ({NAME_COL} ILIKE '%%{search_str}%%' or ({PROJ_COL}->>'description') ILIKE '%%{search_str}%%') 
                     and {NAMESPACE_COL} = '{namespace}' {admin_str};
         """
         result = self.__run_sql_fetchall(count_sql)
@@ -135,13 +135,13 @@ class Search:
         offset: int = DEFAULT_OFFSET,
     ):
         if not admin:
-            admin_str = f"""and ({ANNO_COL}->>'{IS_PRIVATE_KEY}' = 'false' or {ANNO_COL}->>'{IS_PRIVATE_KEY}' IS NULL)"""
+            admin_str = f"""and ({PRIVATE_COL} = 'false')"""
         else:
             admin_str = ""
         count_sql = f"""
-        select {NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, ({ANNO_COL}->>'number_of_samples')::int, ({ANNO_COL}->>'description'), {DIGEST_COL}, {PRIVATE_COL}
+        select {NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {N_SAMPLES_COL}, ({PROJ_COL}->>'description'), {DIGEST_COL}, {PRIVATE_COL}, {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL}
             from {DB_TABLE_NAME} 
-                where ({NAME_COL} ILIKE '%%{search_str}%%' or ({ANNO_COL}->>'description') ILIKE '%%{search_str}%%') 
+                where ({NAME_COL} ILIKE '%%{search_str}%%' or ({PROJ_COL}->>'description') ILIKE '%%{search_str}%%') 
                     and {NAMESPACE_COL} = '{namespace}' {admin_str} 
                         LIMIT {limit} OFFSET {offset};
         """
@@ -158,6 +158,8 @@ class Search:
                         description=res[4],
                         digest=res[5],
                         is_private=res[6],
+                        last_update_date=str(res[8]),
+                        submission_date=str(res[7]),
                     )
                 )
         except KeyError:
@@ -208,7 +210,7 @@ class Search:
             }
         """
         count_sql = f"""
-        select {NAMESPACE_COL}, COUNT({NAME_COL}), SUM( ({ANNO_COL}->>'number_of_samples')::int)
+        select {NAMESPACE_COL}, COUNT({NAME_COL}), SUM({N_SAMPLES_COL})
             from {DB_TABLE_NAME} where (({NAMESPACE_COL} ILIKE '%%{search_str}%%' and {PRIVATE_COL} is false)
                 or ({NAMESPACE_COL} ILIKE '%%{search_str}%%' and {NAMESPACE_COL} in %s )) 
                     GROUP BY {NAMESPACE_COL}
