@@ -2,6 +2,7 @@ from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field, validator, Extra
 from .pepannot import Annotation
+import peppy
 
 
 class Model(BaseModel):
@@ -78,14 +79,27 @@ class RawPEPModel(BaseModel):
         extra = Extra.forbid
 
 
-class UpdateModel(BaseModel):
-    name: Optional[str]
-    namespace: Optional[str]
+class UpdateItems(BaseModel):
+    project_value: Optional[peppy.Project] = Field(alias="project")
     tag: Optional[str]
-    digest: Optional[str]
-    project_value: Optional[RawPEPModel]
+    private: Optional[bool] = Field(alias="is_private")
+    name: Optional[str]
+
+    # do not update
+    # anno_info: Optional[Annotation] = Field(alias="annot")
+
+    class Config:
+        extra = Extra.forbid
+
+
+# is Used only by pepdbagent. Don't use it outside
+class UpdateModel(BaseModel):
+    project_value: Optional[dict]
+    name: Optional[str]
+    tag: Optional[str]
     private: Optional[bool]
-    anno_info: Optional[Annotation] = Field(alias="annot")
+    digest: Optional[str]
+    anno_info: Optional[Annotation]
 
     class Config:
         extra = Extra.forbid

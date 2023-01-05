@@ -18,6 +18,7 @@ from .models import (
     ProjectModel,
     UploadResponse,
     UpdateModel,
+    UpdateItems,
 )
 from .search import Search
 from .const import *
@@ -94,9 +95,10 @@ class Connection:
     def upload_project(
         self,
         project: peppy.Project,
-        namespace: str = None,
+        namespace: str,
         name: str = None,
         tag: str = None,
+        description: str = None,
         is_private: bool = False,
         overwrite: bool = False,
         update_only: bool = False,
@@ -108,8 +110,9 @@ class Connection:
         :param peppy.Project project: Project object that has to be uploaded to the DB
         :param namespace: namespace of the project (Default: 'other')
         :param name: name of the project (Default: name is taken from the project object)
-        :param tag: tag (or version) of the project
-        :param is_private: boolean value if the project should be visible just for user that creates it
+        :param tag: tag (or version) of the project.
+        :param description: project description.
+        :param is_private: boolean value if the project should be visible just for user that creates it.
         :param overwrite: if project exists overwrite the project, otherwise upload it.
             [Default: False - project won't be overwritten if it exists in db]
         :param update_only: if project exists overwrite it, otherwise do nothing.  [Default: False]
@@ -123,16 +126,18 @@ class Connection:
 
             proj_dict = project.to_dict(extended=True)
 
-            proj_digest = self._create_digest(proj_dict)
-
             if name:
                 proj_name = name
             else:
                 proj_name = proj_dict["name"]
 
+            proj_dict["description"] = description
+            proj_dict["name"] = name
+
+            proj_digest = self._create_digest(proj_dict)
+
             # creating annotation:
             proj_annot = Annotation(
-                description=proj_dict.get('description'),
                 last_update=str(datetime.datetime.now()),
                 n_samples=len(project.samples),
             )
@@ -168,7 +173,7 @@ class Connection:
                             tag,
                             proj_digest,
                             proj_dict,
-                            proj_annot.json(),
+                            proj_annot.json(exclude_defaults=True),
                             is_private,
                         ),
                     )
@@ -267,7 +272,7 @@ class Connection:
                     (
                         project_digest,
                         project_dict,
-                        proj_annot.json(),
+                        proj_annot.json(exclude_defaults=True),
                         namespace,
                         proj_name,
                         tag,
@@ -306,7 +311,7 @@ class Connection:
 
     def update_item(
             self,
-            update_dict: dict,
+            update_dict: Union[dict, UpdateItems],
             namespace: str,
             name: str,
             tag: str,
@@ -315,14 +320,12 @@ class Connection:
         Update partial parts of the project record
         :param update_dict: dict with update key->values. Dict structure:
             {
-                    name: Optional[str]
-                    namespace: Optional[str]
-                    tag: Optional[str]
-                    digest: Optional[str]
-                    project_value: dict
+                    project: Optional[peppy.Project]
                     private: Optional[bool]
-                    anno_info: dict
+                    tag: Optional[str]
+                    name: Optional[str]
             }
+            *project_value should contain name and description
         :param namespace: project namespace
         :param name: project name
         :param tag: project tag
@@ -330,10 +333,33 @@ class Connection:
         """
         cursor = self.pg_connection.cursor()
 
+        if isinstance(update_dict, UpdateItems):
+            update_values = update_dict
+        else:
+            update_values = UpdateItems(**update_dict)
+
         if self.project_exists(namespace=namespace, name=name, tag=tag):
             try:
+                update_final = UpdateModel()
 
-                set_sql, set_values = self.__create_update_set(UpdateModel(**update_dict))
+                if update_values.project_value is not None:
+                    update_final = UpdateModel(project_value=update_values.project_value.to_dict(extended=True),
+                                               name=update_values.project_value.name,
+                                               digest=self._create_digest(update_values.project_value.to_dict(extended=True)),
+                                               anno_info=Annotation(last_update=str(datetime.datetime.now()),
+                                                                    number_of_samples=len(update_values.project_value.samples))
+                                )
+
+                if update_values.tag is not None:
+                    update_final = UpdateModel(tag=update_values.tag, **update_final.dict(exclude_unset=True))
+
+                if update_values.private is not None:
+                    update_final = UpdateModel(private=update_values.private, **update_final.dict(exclude_unset=True))
+
+                if update_values.name is not None:
+                    update_final = UpdateModel(name=update_values.name, **update_final.dict(exclude_unset=True))
+
+                set_sql, set_values = self.__create_update_set(update_final)
                 sql = f"""UPDATE {DB_TABLE_NAME}
                     {set_sql}
                     WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
@@ -395,6 +421,7 @@ class Connection:
 
             sql_values.append(input_val)
 
+            # # To update each value in the json schema separately
             # if not isinstance(val, dict):
             # else:
             #     keys_str = ""
@@ -543,69 +570,80 @@ class Connection:
             _LOGGER.error("get_raw_project: name was not provided")
             return None
 
-    # def get_projects_in_namespace(
-    #     self,
-    #     user: str,
-    #     namespace: str = None,
-    #     tag: str = None,
-    #     limit: int = 100,
-    #     offset: int = 0,
-    # ) -> List[peppy.Project]:
-    #     """
-    #     Get a list of projects in provided namespace.
-    #     Default limit is 100, to change it use limit and offset parameter
-    #     :param namespace: The namespace to fetch all projects from.
-    #     :param tag: The tag to fetch all projects from.
-    #     :param limit: The maximum number of items to return.
-    #     :param offset: The index of the first item to return. Default: 0 (the first item).
-    #         Use with limit to get the next set of items.
-    #     :return: a list of peppy.Project instances for the requested projects.
-    #     """
-    #     offset_number = limit * offset
-    #     if namespace:
-    #         if tag:
-    #             sql_q = (
-    #                 f"select {ID_COL}, {PROJ_COL}, {ANNO_COL} "
-    #                 f"from {DB_TABLE_NAME} "
-    #                 f"where namespace = %s and tag = %s "
-    #                 f"limit {limit} offset {offset_number}"
-    #             )
-    #             results = self._run_sql_fetchall(sql_q, namespace, tag)
-    #         else:
-    #             sql_q = (
-    #                 f"select {ID_COL}, {PROJ_COL}, {ANNO_COL} from {DB_TABLE_NAME} where namespace = %s"
-    #                 f" limit {limit} offset {offset_number}"
-    #             )
-    #             results = self._run_sql_fetchall(sql_q, namespace)
-    #
-    #     # if only tag is provided
-    #     elif tag:
-    #         sql_q = (
-    #             f"select {ID_COL}, {PROJ_COL}, {ANNO_COL} from {DB_TABLE_NAME} where tag = %s"
-    #             f" limit {limit} offset {offset_number}"
-    #         )
-    #         results = self._run_sql_fetchall(sql_q, tag)
-    #
-    #     else:
-    #         _LOGGER.warning(f"Incorrect input!")
-    #         results = []
-    #
-    #     # extract out the project config dictionary from the query
-    #     result_list = []
-    #     for project in results:
-    #         try:
-    #             project_object = peppy.Project().from_dict(project[1])
-    #             project_object.is_private = project[2].get("is_private")
-    #             if not project_object.is_private or (
-    #                 project_object.is_private and namespace == user
-    #             ):
-    #                 result_list.append(project_object)
-    #         except Exception:
-    #             _LOGGER.error(
-    #                 f"Error in init project. Error occurred in peppy. Project id={project[0]}"
-    #             )
-    #
-    #     return result_list
+    def get_project_annotation(
+        self,
+        namespace: str = None,
+        name: str = None,
+        tag: str = None,
+    ) -> Annotation:
+        """
+        Retrieving project annotation dict by specifying project name
+        :param namespace: project registry_path - will return dict of project annotations
+        :param name: project name in database
+        :param tag: tag of the projects
+        :return: dict of annotations
+        """
+        sql_q = f"""
+                select 
+                    {NAMESPACE_COL},
+                    {NAME_COL},
+                    {TAG_COL},
+                    {PRIVATE_COL},
+                    {PROJ_COL}->>'description',
+                    {ANNO_COL}
+                        from {DB_TABLE_NAME}
+                """
+        if namespace is None:
+            namespace = DEFAULT_NAMESPACE
+        if tag is None:
+            tag = DEFAULT_TAG
+
+        if name:
+            sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
+            found_prj = self._run_sql_fetchone(sql_q, name, namespace, tag)
+
+        else:
+            _LOGGER.error(
+                "You haven't provided name, digest nor id! Execution is unsuccessful"
+            )
+            _LOGGER.info("Files haven't been downloaded, returning empty dict")
+            return Annotation()
+
+        _LOGGER.info(f"Project has been found!")
+
+        annot = Annotation(
+            registry=f"{found_prj[0]}/{found_prj[1]}:{found_prj[2]}",
+            is_private=found_prj[3],
+            description=found_prj[4],
+            number_of_samples=found_prj[5].get("number_of_samples"),
+            last_update=found_prj[5].get("last_update"),
+            # **found_prj[5],
+        )
+
+        return annot
+
+    def get_project_annotation_by_registry_path(
+        self,
+        registry_path: str,
+    ) -> Annotation:
+        """
+        Retrieving project annotation dict by specifying registry path
+        :param registry_path: project registry_path
+
+        :return: dict of annotations
+        """
+
+        reg = ubiquerg.parse_registry_path(registry_path)
+        namespace = reg["namespace"]
+        name = reg["item"]
+        tag = reg["tag"]
+
+        if namespace is None:
+            namespace = DEFAULT_NAMESPACE
+        if tag is None:
+            tag = DEFAULT_TAG
+
+        return self.get_project_annotation(namespace=namespace, name=name, tag=tag)
 
     def get_namespace_info(self, namespace: str, user: str = None):
         """
@@ -721,116 +759,45 @@ class Connection:
 
         return namespaces_to_return
 
-    def get_project_annotation(
-        self,
-        namespace: str = None,
-        name: str = None,
-        tag: str = None,
-    ) -> Annotation:
-        """
-        Retrieving project annotation dict by specifying project name
-        :param namespace: project registry_path - will return dict of project annotations
-        :param name: project name in database
-        :param tag: tag of the projects
-        :return: dict of annotations
-        """
-        sql_q = f"""
-                select 
-                    {NAMESPACE_COL},
-                    {NAME_COL},
-                    {TAG_COL},
-                    {PRIVATE_COL},
-                    {ANNO_COL}
-                        from {DB_TABLE_NAME}
-                """
-        if namespace is None:
-            namespace = DEFAULT_NAMESPACE
-        if tag is None:
-            tag = DEFAULT_TAG
-
-        if name:
-            sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
-            found_prj = self._run_sql_fetchone(sql_q, name, namespace, tag)
-
-        else:
-            _LOGGER.error(
-                "You haven't provided name, digest nor id! Execution is unsuccessful"
-            )
-            _LOGGER.info("Files haven't been downloaded, returning empty dict")
-            return Annotation()
-
-        _LOGGER.info(f"Project has been found!")
-
-        annot = Annotation(
-            registry=f"{found_prj[0]}/{found_prj[1]}:{found_prj[2]}",
-            is_private=found_prj[3],
-            **found_prj[4],
-        )
-
-        return annot
-
-    def get_project_annotation_by_registry_path(
-        self,
-        registry_path: str,
-    ) -> Annotation:
-        """
-        Retrieving project annotation dict by specifying registry path
-        :param registry_path: project registry_path
-
-        :return: dict of annotations
-        """
-
-        reg = ubiquerg.parse_registry_path(registry_path)
-        namespace = reg["namespace"]
-        name = reg["item"]
-        tag = reg["tag"]
-
-        if namespace is None:
-            namespace = DEFAULT_NAMESPACE
-        if tag is None:
-            tag = DEFAULT_TAG
-
-        return self.get_project_annotation(namespace=namespace, name=name, tag=tag)
-
-    def get_namespace_annotation(self, namespace: str = None) -> dict:
-        """
-        Retrieving namespace annotation dict.
-        Data that will be retrieved: number of tags, projects and samples
-        If namespace is None it will retrieve dict with all namespace annotations.
-        :param namespace: project namespace
-        """
-        sql_q = f"""
-        select {NAMESPACE_COL}, count(DISTINCT {TAG_COL}) as n_tags , 
-        count({NAME_COL}) as 
-        n_namespace, SUM(({ANNO_COL} ->> 'n_samples')::int) 
-        as n_samples 
-            from {DB_TABLE_NAME}
-                group by {NAMESPACE_COL};
-        """
-        result = self._run_sql_fetchall(sql_q)
-        anno_dict = {}
-
-        for name_sp_result in result:
-            anno_dict[name_sp_result[0]] = {
-                "namespace": name_sp_result[0],
-                "n_tags": name_sp_result[1],
-                "n_projects": name_sp_result[2],
-                "n_samples": name_sp_result[3],
-            }
-
-        if namespace:
-            try:
-                return anno_dict[namespace]
-            except KeyError:
-                _LOGGER.warning(f"Namespace '{namespace}' was not found.")
-                return {
-                    "namespace": namespace,
-                    "n_tags": 0,
-                    "n_projects": 0,
-                    "n_samples": 0,
-                }
-
-        return anno_dict
+    # def get_namespace_annotation(self, namespace: str = None) -> dict:
+    #     """
+    #     Retrieving namespace annotation dict.
+    #     Data that will be retrieved: number of tags, projects and samples
+    #     If namespace is None it will retrieve dict with all namespace annotations.
+    #     :param namespace: project namespace
+    #     """
+    #     sql_q = f"""
+    #     select {NAMESPACE_COL}, count(DISTINCT {TAG_COL}) as n_tags ,
+    #     count({NAME_COL}) as
+    #     n_namespace, SUM(({ANNO_COL} ->> 'n_samples')::int)
+    #     as n_samples
+    #         from {DB_TABLE_NAME}
+    #             group by {NAMESPACE_COL};
+    #     """
+    #     result = self._run_sql_fetchall(sql_q)
+    #     anno_dict = {}
+    #
+    #     for name_sp_result in result:
+    #         anno_dict[name_sp_result[0]] = {
+    #             "namespace": name_sp_result[0],
+    #             "n_tags": name_sp_result[1],
+    #             "n_projects": name_sp_result[2],
+    #             "n_samples": name_sp_result[3],
+    #         }
+    #
+    #     if namespace:
+    #         try:
+    #             return anno_dict[namespace]
+    #         except KeyError:
+    #             _LOGGER.warning(f"Namespace '{namespace}' was not found.")
+    #             return {
+    #                 "namespace": namespace,
+    #                 "n_tags": 0,
+    #                 "n_projects": 0,
+    #                 "n_samples": 0,
+    #             }
+    #
+    #     return anno_dict
 
     def project_exists(
         self,
@@ -861,32 +828,6 @@ class Connection:
                           {TAG_COL} = %s;"""
 
         if self._run_sql_fetchone(sql, namespace, name, tag):
-            return True
-        else:
-            return False
-
-    def project_exists_by_registry_path(
-        self,
-        registry_path: str,
-    ) -> bool:
-        """
-        Checking if project exists in the database
-        :param registry_path: project registry path
-        :return: Returning True if project exist
-        """
-
-        reg = ubiquerg.parse_registry_path(
-            registry_path,
-            defaults=[
-                ("namespace", DEFAULT_NAMESPACE),
-                ("item", None),
-                ("tag", DEFAULT_TAG),
-            ],
-        )
-
-        if self.project_exists(
-            namespace=reg["namespace"], name=reg["item"], tag=reg["tag"]
-        ):
             return True
         else:
             return False
