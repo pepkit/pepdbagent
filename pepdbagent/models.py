@@ -2,7 +2,6 @@ import datetime
 from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field, validator, Extra
-from .pepannot import Annotation
 import peppy
 
 
@@ -36,17 +35,20 @@ class NamespaceSearchResultModel(Model):
     number_of_projects: int
     number_of_samples: int
 
-
-class ProjectSearchResultModel(Model):
-    namespace: str
-    name: str
-    tag: str
-    number_of_samples: Union[int, None]
-    description: Union[str, None]
-    digest: Union[str, None]
-    is_private: Union[bool, None]
-    last_update_date: Optional[str]
+class Annotation(BaseModel):
+    namespace: Optional[str]
+    name: Optional[str]
+    tag: Optional[str]
+    is_private: Optional[bool]
+    number_of_samples: Optional[int] = Field(alias="n_samples")
+    description: Optional[str]
+    last_update: Optional[str]
     submission_date: Optional[str]
+    digest: Optional[str]
+
+    class Config:
+        allow_population_by_field_name = True
+        validate_assignment = True
 
     @validator("is_private")
     def is_private_should_be_bool(cls, v):
@@ -54,6 +56,10 @@ class ProjectSearchResultModel(Model):
             return False
         else:
             return v
+
+
+class ProjectSearchResultModel(Annotation):
+    pass
 
 
 class NamespaceSearchModel(Model):

@@ -19,11 +19,11 @@ from .models import (
     UploadResponse,
     UpdateModel,
     UpdateItems,
+    Annotation,
 )
 from .search import Search
 from .const import *
 from .exceptions import SchemaError
-from .pepannot import Annotation
 
 _LOGGER = logmuse.init_logger("pepDB_connector")
 coloredlogs.install(
@@ -136,11 +136,6 @@ class Connection:
 
             proj_digest = self._create_digest(proj_dict)
 
-            # creating annotation:
-            # proj_annot = Annotation(
-            #     last_update=str(datetime.datetime.now()),
-            #     n_samples=len(project.samples),
-            # )
             number_of_samples = len(project.samples)
             proj_dict = json.dumps(proj_dict)
 
@@ -609,7 +604,8 @@ class Connection:
                     {PROJ_COL}->>'description',
                     {N_SAMPLES_COL},
                     {SUBMISSION_DATE_COL},
-                    {LAST_UPDATE_DATE_COL}
+                    {LAST_UPDATE_DATE_COL},
+                    {DIGEST_COL}
                         from {DB_TABLE_NAME}
                 """
         if namespace is None:
@@ -631,12 +627,15 @@ class Connection:
         _LOGGER.info(f"Project has been found!")
         if len(found_prj) > 0:
             annot = Annotation(
-                registry=f"{found_prj[0]}/{found_prj[1]}:{found_prj[2]}",
+                namespace=found_prj[0],
+                name=found_prj[1],
+                tag=found_prj[2],
                 is_private=found_prj[3],
                 description=found_prj[4],
                 number_of_samples=found_prj[5],
                 submission_date=str(found_prj[6]),
                 last_update_date=str(found_prj[7]),
+                digest=found_prj[8],
             )
             return annot
         else:
@@ -780,46 +779,6 @@ class Connection:
                     break
 
         return namespaces_to_return
-
-    # def get_namespace_annotation(self, namespace: str = None) -> dict:
-    #     """
-    #     Retrieving namespace annotation dict.
-    #     Data that will be retrieved: number of tags, projects and samples
-    #     If namespace is None it will retrieve dict with all namespace annotations.
-    #     :param namespace: project namespace
-    #     """
-    #     sql_q = f"""
-    #     select {NAMESPACE_COL}, count(DISTINCT {TAG_COL}) as n_tags ,
-    #     count({NAME_COL}) as
-    #     n_namespace, SUM(({ANNO_COL} ->> 'n_samples')::int)
-    #     as n_samples
-    #         from {DB_TABLE_NAME}
-    #             group by {NAMESPACE_COL};
-    #     """
-    #     result = self._run_sql_fetchall(sql_q)
-    #     anno_dict = {}
-    #
-    #     for name_sp_result in result:
-    #         anno_dict[name_sp_result[0]] = {
-    #             "namespace": name_sp_result[0],
-    #             "n_tags": name_sp_result[1],
-    #             "n_projects": name_sp_result[2],
-    #             "n_samples": name_sp_result[3],
-    #         }
-    #
-    #     if namespace:
-    #         try:
-    #             return anno_dict[namespace]
-    #         except KeyError:
-    #             _LOGGER.warning(f"Namespace '{namespace}' was not found.")
-    #             return {
-    #                 "namespace": namespace,
-    #                 "n_tags": 0,
-    #                 "n_projects": 0,
-    #                 "n_samples": 0,
-    #             }
-    #
-    #     return anno_dict
 
     def project_exists(
         self,
