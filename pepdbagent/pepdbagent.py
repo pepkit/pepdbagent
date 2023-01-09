@@ -358,9 +358,9 @@ class Connection:
                         tag=update_values.tag, **update_final.dict(exclude_unset=True)
                     )
 
-                if update_values.private is not None:
+                if update_values.is_private is not None:
                     update_final = UpdateModel(
-                        private=update_values.private,
+                        is_private=update_values.is_private,
                         **update_final.dict(exclude_unset=True),
                     )
 

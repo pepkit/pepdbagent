@@ -91,7 +91,7 @@ class RawPEPModel(BaseModel):
 class UpdateItems(BaseModel):
     project_value: Optional[peppy.Project] = Field(alias="project")
     tag: Optional[str]
-    private: Optional[bool] = Field(alias="is_private")
+    is_private: Optional[bool]
     name: Optional[str]
 
     # do not update
@@ -106,7 +106,7 @@ class UpdateModel(BaseModel):
     project_value: Optional[dict]
     name: Optional[str]
     tag: Optional[str]
-    private: Optional[bool]
+    private: Optional[bool] = Field(alias="is_private")
     digest: Optional[str]
     last_update_date: Optional[datetime.datetime]
     number_of_samples: Optional[int]
