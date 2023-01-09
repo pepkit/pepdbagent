@@ -35,6 +35,7 @@ class NamespaceSearchResultModel(Model):
     number_of_projects: int
     number_of_samples: int
 
+
 class Annotation(BaseModel):
     namespace: Optional[str]
     name: Optional[str]

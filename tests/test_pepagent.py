@@ -1,7 +1,7 @@
 from psycopg2.errors import UniqueViolation
 from pepdbagent.pepdbagent import Connection
 import json
-from pepdbagent.pepannot import Annotation
+from pepdbagent.models import Annotation
 
 
 def test_connection_initializes_correctly_from_dsn(
@@ -53,7 +53,12 @@ def test_upload_project_success(
     )
     c = Connection(dsn=test_dsn)
 
-    c.upload_project(test_peppy_project)
+    test_namespace = "test"
+
+    c.upload_project(
+        test_peppy_project,
+        test_namespace,
+    )
 
     assert database_commit_mock.called
 
@@ -76,8 +81,8 @@ def test_upload_project_updates_after_raising_unique_violation_error(
     )
 
     c = Connection(dsn=test_dsn)
-
-    c.upload_project(test_peppy_project, overwrite=True)
+    test_namespace = "test"
+    c.upload_project(test_peppy_project, test_namespace, overwrite=True)
 
     assert update_project_mock.called
 
@@ -111,7 +116,7 @@ def test_update_project(
         proj_name="test",
         tag="test",
         project_digest="aaa",
-        proj_annot=test_proj_annot,
+        number_of_samples=5,
     )
 
     assert database_commit_mock.called

@@ -5,13 +5,16 @@ import pytest
 @pytest.fixture
 def sql_output_for_check_conn_db():
     return [
-        (None, None, None, "anno_info"),
+        (None, None, None, "private"),
         (None, None, None, "digest"),
         (None, None, None, "id"),
         (None, None, None, "name"),
         (None, None, None, "namespace"),
         (None, None, None, "project_value"),
         (None, None, None, "tag"),
+        (None, None, None, "number_of_samples"),
+        (None, None, None, "submission_date"),
+        (None, None, None, "last_update_date"),
     ]
 
 
