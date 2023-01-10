@@ -108,8 +108,6 @@ def test_update_project(
     test_proj_dict = test_peppy_project.to_dict(extended=True)
     test_proj_dict = json.dumps(test_proj_dict)
 
-    test_proj_annot = Annotation()
-
     c._update_project(
         test_proj_dict,
         namespace="test",
@@ -120,6 +118,56 @@ def test_update_project(
     )
 
     assert database_commit_mock.called
+
+
+def test_update_item(
+    mocker, test_dsn, test_peppy_project, sql_output_for_check_conn_db
+):
+    mocker.patch(
+        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
+        return_value=sql_output_for_check_conn_db,
+    )
+    mocker.patch(
+        "pepdbagent.pepdbagent.Connection.project_exists",
+        return_value=True,
+    )
+    database_commit_mock = mocker.patch(
+        "pepdbagent.pepdbagent.Connection._commit_to_database"
+    )
+    mocker.patch("psycopg2.connect")
+
+    c = Connection(dsn=test_dsn)
+
+    test_peppy_project.description = "This is test description"
+
+    c.update_item(
+        update_dict={
+            "tag": "new_tag",
+            "is_private": True,
+            "project": test_peppy_project,
+        },
+        namespace="test",
+        name="test",
+        tag="tag",
+    )
+
+    assert database_commit_mock.called
+
+
+def test_delete_project(mocker, test_dsn, sql_output_for_check_conn_db):
+    mocker.patch(
+        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
+        return_value=sql_output_for_check_conn_db,
+    )
+    database_commit_mock = mocker.patch("psycopg2.connect")
+
+    mocker.patch("psycopg2.connect")
+
+    c = Connection(dsn=test_dsn)
+
+    ret = c.delete_project(namespace="test", name="test", tag="test")
+
+    assert ret is None
 
 
 def test_get_project_by_registry_path(mocker, test_dsn, sql_output_for_check_conn_db):
@@ -163,6 +211,14 @@ def test_get_project(
 
     assert project.name == "public_project"
     assert not project.description
+
+
+def test_search_project():
+    pass
+
+
+def test_search_namespace():
+    pass
 
 
 def test_get_projects_in_namespace():

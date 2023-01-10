@@ -5,7 +5,7 @@ from typing import List, NoReturn, Union, Tuple
 from urllib.parse import urlparse
 
 import coloredlogs
-import logmuse
+import logging
 import peppy
 import psycopg2
 import ubiquerg
@@ -25,11 +25,12 @@ from .search import Search
 from .const import *
 from .exceptions import SchemaError
 
-_LOGGER = logmuse.init_logger("pepDB_connector")
+_LOGGER = logging.getLogger("pepdbagent")
+_PEPPY_LOGGER = logging.getLogger("peppy")
 coloredlogs.install(
-    logger=_LOGGER,
+    logger=_PEPPY_LOGGER,
     datefmt="%H:%M:%S",
-    fmt="[%(levelname)s] [%(asctime)s] %(message)s",
+    fmt="[%(levelname)s] [%(asctime)s] [PEPPY] %(message)s",
 )
 
 

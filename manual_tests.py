@@ -34,21 +34,25 @@ con.upload_project(
 # print(gf_annot)
 
 
-gf = con.get_project(namespace="test_11", name="new_name", tag="balck")
+gf = con.get_project(namespace="Khoroshevskyi", name="new_name", tag="default")
 
 
 gf.name = "new_name"
 gf.description = "funny jou"
 
 ff = con.update_item(
-    namespace="test_11",
+    namespace="Khoroshevskyi",
     name="new_name",
-    tag="balck",
-    update_dict={"project": gf, "is_private": True, "tag": "balck", "name": "boo"},
+    tag="default",
+    update_dict={"project": gf, "is_private": True},
 )
 
 
-ann = con.get_project_annotation(namespace="test_11", name="new_name", tag="balck")
+ann = con.get_project_annotation(
+    namespace="Khoroshevskyi",
+    name="new_name",
+    tag="default",
+)
 
 print(ann.json())
 

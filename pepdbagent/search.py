@@ -1,21 +1,14 @@
 import psycopg2
-import logmuse
-import coloredlogs
 from .models import (
     ProjectSearchModel,
     NamespaceSearchModel,
     ProjectSearchResultModel,
     NamespaceSearchResultModel,
 )
-
+import logging
 from .const import *
 
-_LOGGER = logmuse.init_logger("pepDB_connector")
-coloredlogs.install(
-    logger=_LOGGER,
-    datefmt="%H:%M:%S",
-    fmt="[%(levelname)s] [%(asctime)s] %(message)s",
-)
+_LOGGER = logging.getLogger("pepdbagent")
 
 
 class Search:
