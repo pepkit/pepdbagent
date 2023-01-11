@@ -23,14 +23,14 @@ class Search:
     def namespace(
         self,
         search_str: str = None,
-        admin_nsp: List[str] = None,
+        admin_list: List[str] = None,
         offset: int = DEFAULT_OFFSET,
         limit: int = DEFAULT_LIMIT,
     ) -> NamespaceSearchModel:
         """
         Search available namespaces in the database
         :param search_str: search string
-        :param admin_nsp: list of namespaces where user is admin
+        :param admin_list: list of namespaces where user is admin
         :param offset: offset of the search
         :param limit: limit of the search
         :return: Search result:
@@ -41,18 +41,18 @@ class Search:
                 search results
             }
         """
-        if admin_nsp:
-            admin_nsp = tuple(admin_nsp)
+        if admin_list:
+            admin_list = tuple(admin_list)
         else:
-            admin_nsp = ("",)
+            admin_list = ("",)
         return NamespaceSearchModel(
             number_of_results=self._get_count_of_found_namespaces(
-                search_str=search_str, admin_nsp=admin_nsp
+                search_str=search_str, admin_nsp=admin_list
             ),
             limit=limit,
             offset=offset,
             results=self._find_namespaces(
-                search_str=search_str, admin_nsp=admin_nsp, offset=offset, limit=limit
+                search_str=search_str, admin_nsp=admin_list, offset=offset, limit=limit
             ),
         )
 

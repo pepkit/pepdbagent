@@ -320,7 +320,7 @@ class Connection:
         :param update_dict: dict with update key->values. Dict structure:
             {
                     project: Optional[peppy.Project]
-                    private: Optional[bool]
+                    is_private: Optional[bool]
                     tag: Optional[str]
                     name: Optional[str]
             }
@@ -736,6 +736,8 @@ class Connection:
     def get_namespaces_info_by_list(self, user: str = None) -> list:
         """
         Get list of all available namespaces.
+        :param user: user (namespace) that has admin rights
+        :return: list of namespaces
         """
 
         sql_q = f"""SELECT DISTINCT {NAMESPACE_COL} FROM {DB_TABLE_NAME};"""

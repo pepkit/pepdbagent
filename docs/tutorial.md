@@ -1,179 +1,155 @@
-# pepagent + pep_db
+# pepdbagent
 
-pepdbagent package for processing and uploading retrieving pep projects using python
+pepdbagent is a package for uploading, updating and retrieving Projects and it'd metadata from database.
 
----
-##  Brief pephubdb tutorial:
+### Main functionalities:
+- Uploading and updating peppy projects and metadata.
+- Retrieving projects from database.
+- Deleting projects.
+- Retrieving metadata about projects and namespaces.
+- Searching projects and namespaces inside database.
 
-0) Import Connection from pepdbagent:
-```python
-from pepdbagent import Connection
-```
+## Brief tutorial
 
-1) Create connection with DB:
+### Creating connection between database and agent:
 ```python
 # 1) By providing credentials and connection information:
-projectDB = Connection(user="postgres", password="docker",)
+con = Connection(user="postgres", password="docker",)
 # 2) or By providing connection string:
-projectDB = Connection("postgresql://postgres:docker@localhost:5432/pep-db")
+con = Connection("postgresql://postgres:docker@localhost:5432/pep-db")
 ```
 
-2) Add new project to the DB
+### Uploading, updating, deleting records.
+
+1) **Uploading projects**
 ```python
 # initiate peppy Project
 import peppy
 pep_project = peppy.Project("/sample_pep/subtable3/project_config.yaml")
 # use upload_project function to add this project to the DB
-projectDB.upload_project(pep_project, namespace = "Test", status = "approved", description = "ocean dream", anno={"additional": "annotation"})  
-# additionally you can specify name and tag of the project
-
-# update project*
-
-projectDB.update_project(pep_project, namespace = "Test", anno={"enot": "annotation_dict"})  
-# additionally you can specify name and tag of the project
-
-```
-* If you want to update project you should specify all annotation fields, otherwise they will be empty
-
-3) Get list of projects in namespace:
-```python
-list_of_namespaces = projectDB.get_namespace_info(namespace="King")
-print(list_of_namespaces)
-
+con.upload_project(pep_project, 
+                   namespace = "test", 
+                   name = "test", 
+                   tag = "test", 
+                   description = "ocean dream", 
+                   is_private=True)
 ```
 
-4) Get list of available namespaces:
-
+2) **Re-uploading existing project**:
 ```python
-list_of_namespaces = projectDB.get_namespaces_info_by_list()
-print(list_of_namespaces)
-# To get list with with just names of namespaces set: names=True
-# otherwise you will get list with namespaces with information about all projects
+# To re-upload existing project you can use upload function with argument overwrite set True
+con.upload_project(..., 
+                   overwrite=True)
 ```
 
-5) Get project
+3) **Updating individual items** in the record. 
+There is possibility to update separately: [`project`,`is_private`, `tag`,`name`].
 
 ```python
+# Example 1
+update_dict = {
+    "is_private": True,
+    "tag": "new_tag",
+}
+con.update_item(namespace="test",
+                name="test", 
+                tag="test",
+                update_dict=update_dict)
 
-# Get project by registry
-pr_ob = projectDB.get_project_by_registry_path(registry_path='Test/subtable3')
-print(pr_ob.samples)
+# Example 2
+p_roj = peppy.Project(...)
+update_dict = {
+    "project": p_roj,
+    "is_private": True,
+}
+con.update_item(namespace="test",
+                name="test", 
+                tag="test",
+                update_dict=update_dict)
+```
 
-# Get project by registry
-pr_ob = projectDB.get_project_by_registry_path(registry_path='Test/subtable3:this_is_tag')
-print(pr_ob.samples)
+4) **Deleting record**
+```python
+con.delete_project(namespace="test",
+                   name="test",
+                   tag="test")
+```
 
+
+### Retrieving projects
+1)
+```python
 # Get project by namespace and name
-pr_ob = projectDB.get_project(namespace='Test', name='subtable3')
-print(pr_ob.samples)
+proj = con.get_project(namespace='test', name='test', tag='tag')
 
-# Get project by namespace and name
-pr_ob = projectDB.get_project(namespace='Test', name='subtable3', tag='this_is_tag')
-print(pr_ob.samples)
-
+# Get project by registry path
+proj = con.get_project(registry_path='Test/subtable3:this_is_tag')
 ```
-
-4) Get list of projects
-
+2) **Get raw project**
 ```python
-# Get projects by tag
-pr_ob = projectDB.get_projects_in_namespace(tag='new_tag')
-print(pr_ob.samples)
-
-# Get projects by namespace
-pr_ob = projectDB.get_projects_in_namespace(namespace='King')
-print(pr_ob.samples)
-
-# Get projects by namespace and tag
-pr_ob = projectDB.get_projects_in_namespace(namespace='King', tag='taggg', limit=100)
-print(pr_ob.samples)
-
-# Get projects by list of registry paths
-pr_ob = projectDB.get_projects_in_list(registry_paths=['Test/subtable3:default', 'Test/subtable3:bbb'])
-print(pr_ob.samples)
-
-# Get all the projects
-pr_ob = projectDB.get_all_projects(limit=20, offset=0)
-print(pr_ob.samples)
-
+con.get_raw_project(namespace="test",
+                   name="test",
+                   tag="test")
 ```
 
-5) Get annotation about single project:
+### Retrieving project and namespace annotations
+1) **Get annotation of one project**
+```python
+con.get_project_annotation(namespace="test",
+                           name="test",
+                           tag="test")
+```
+Return of this method is pydantic model, that include all metadata of the project (meta metadata)
 
+2) **Get namespace annotations**
 ```python
 
-# Get dictionary of annotation for 1 project by registry
-projects_anno_list = projectDB.get_project_annotation_by_registry_path()
-# if tag is not set default tag will be set
-projects_anno_list = projectDB.get_project_annotation(namespace='Test/subtable3')
-
-# As a return value user will get `Annotation` class object. There is two options to retrieve data:
-# 1) Using object as simple dict:
-projects_anno_list["status"]
-# 2) Using .key ; Available keys:
-projects_anno_list.registry  # to know what project annotation is it 
-projects_anno_list.status
-projects_anno_list.description
-projects_anno_list.last_update
-projects_anno_list.n_samples
-
+con.get_namespace_info(snamespace='test', 
+                       user= "test")
 ```
+Return is a dictionary with a schema: {
+            namespace,
+            n_samples,
+            n_projects,
+            projects:(id, name, tag, digest, description, n_samples)}
 
-6) Get annotations namespace or all namespaces:
+### **Search**
+Search methods can also work as annotation getters
+1) Search namespaces by name
 
 ```python
-# Get dictionary of annotation for specific namespace
-namespace_anno = projectDB.get_namespace_annotation(namespace='Test')
 
-# Get dictiionary of annotations for all namespaces
-namespace_anno_all = projectDB.get_namespace_annotation()
+con.search.namespace(search_str="some_string", 
+                     admin_list=['admin1','namespace1'],
+                     limit=100,
+                     offset=50,
+                     )
+```
+Example return:
+```str
+number_of_results=1 limit=100 offset=0 results=[NamespaceSearchResultModel(namespace='admin1', number_of_projects=3, number_of_samples=449)]
 ```
 
-
-7) Check project existance:
-
+2) Search project inside namespace
 ```python
-# by name and namespace:
-projectDB.project_exists(namespace="nn", name="buu")
 
-# by name and namespace and tag:
-projectDB.project_exists(namespace="nn", name="buu", tag='dog')
-
-# by registry path:
-projectDB.project_exists_by_registry_path(registry_path='nn/buu/dog')
-
+con.search.project(namespace="test_namespace",
+                   admin=True,  # True if user is admin of the namespace
+                   search_str="some_string", 
+                     limit=100,
+                     offset=0,
+                     )
 ```
+Example return:
+```str
+namespace='Khoroshevskyi' number_of_results=1 limit=100 offset=0 results=[ProjectSearchResultModel(namespace='Khoroshevskyi', name='test', tag='f1', is_private=True, number_of_samples=16, description='descr test', last_update=None, submission_date='2023-01-05', digest='042db0e7d79f92f4180e3f92b8372162')]
+```
+To get all possible projects: don't provide any searching strings
 
 
-8) Check project status:
+### Additional functions.
 
+Check if project exists in database
 ```python
-# by name and namespace and tag:
-# Get dictionary of annotation for specific namespace
-projectDB.project_status(namespace="nn", name="buu", tag='dog')
-
-# by registry path:
-projectDB.project_status_by_registry(registry_path='nn/buu/dog')
+con.project_exists(namespace="test", name="test")
 ```
-
-9) Get registry paths of all the projects by digest:
-```python
-projectDB.get_registry_paths_by_digest(digest='sdafsgwerg243rt2gregw3qr24')
-```
-
-
-----
-## pepbdagent 0.3.0
-#### How does search work:
-
-```
-# search for namespaces
-d2 = con.search.namespace_search("dat", ('Khoroshevskyi', 'databio',))
-# search for projects in namespace
-k2 = con.search.project_search(namespace="Khoroshevskyi", search_str='hem', admin=True)
-
-print(d2)
-print(k2)
-
-```
-If the search will be empty, algorithm will return all the projects
