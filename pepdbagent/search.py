@@ -46,7 +46,9 @@ class Search:
         else:
             admin_nsp = ("",)
         return NamespaceSearchModel(
-            number_of_results=self._get_count_of_found_namespaces(search_str=search_str, admin_nsp=admin_nsp),
+            number_of_results=self._get_count_of_found_namespaces(
+                search_str=search_str, admin_nsp=admin_nsp
+            ),
             limit=limit,
             offset=offset,
             results=self._find_namespaces(
@@ -82,8 +84,9 @@ class Search:
             namespace=namespace,
             limit=limit,
             offset=offset,
-            number_of_results=self._get_number_of_found_projects(namespace=namespace, search_str=search_str,
-                                                                 admin=admin),
+            number_of_results=self._get_number_of_found_projects(
+                namespace=namespace, search_str=search_str, admin=admin
+            ),
             results=self._find_project(
                 namespace=namespace,
                 search_str=search_str,

@@ -10,6 +10,7 @@ class Model(BaseModel):
     """
     Configurations for BaseModel
     """
+
     class Config:
         allow_population_by_field_name = True
 
@@ -18,6 +19,7 @@ class Annotation(BaseModel):
     """
     Project Annotations model. All meta metadata
     """
+
     namespace: Optional[str]
     name: Optional[str]
     tag: Optional[str]
@@ -52,6 +54,7 @@ class NamespaceSearchResultModel(Model):
     """
     Model of single namespace search result
     """
+
     namespace: str
     number_of_projects: int
     number_of_samples: int
@@ -61,6 +64,7 @@ class NamespaceSearchModel(Model):
     """
     Model of combined namespace search results
     """
+
     number_of_results: int
     limit: int
     offset: int
@@ -71,6 +75,7 @@ class ProjectSearchModel(Model):
     """
     Model of combined project search results
     """
+
     namespace: str
     number_of_results: int
     limit: int
@@ -82,6 +87,7 @@ class RawPEPModel(BaseModel):
     """
     Model of raw PEP projects
     """
+
     name: str
     description: str
     _config: dict
@@ -96,6 +102,7 @@ class UpdateItems(BaseModel):
     """
     Model used for updating individual items in db
     """
+
     project_value: Optional[peppy.Project] = Field(alias="project")
     tag: Optional[str]
     is_private: Optional[bool]
@@ -104,8 +111,8 @@ class UpdateItems(BaseModel):
     # do not update
     # anno_info: Optional[Annotation] = Field(alias="annot")
 
-    class Config:
-        extra = Extra.forbid
+    # class Config:
+    #     extra = Extra.forbid
 
 
 class UpdateModel(BaseModel):
@@ -113,6 +120,7 @@ class UpdateModel(BaseModel):
     !! is Used only by pepdbagent. Don't use it outside
     Model used for updating individual items and creating sql string in the code
     """
+
     project_value: Optional[dict]
     name: Optional[str]
     tag: Optional[str]
@@ -129,6 +137,7 @@ class UploadResponse(Model):
     """
     Response model in upload or update methods
     """
+
     registry_path: str
     log_stage: str
     status: str
@@ -139,6 +148,7 @@ class NamespaceModel(Model):
     """
     Namespace model with project annotations
     """
+
     number_of_projects: int = Field(alias="n_projects")
     number_of_samples: int = Field(alias="n_samples")
     namespace: str
@@ -147,5 +157,3 @@ class NamespaceModel(Model):
 
 class NamespacesResponseModel(Model):
     namespaces: Optional[List[NamespaceModel]]
-
-
