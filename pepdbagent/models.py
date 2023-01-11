@@ -26,7 +26,7 @@ class Annotation(BaseModel):
     is_private: Optional[bool]
     number_of_samples: Optional[int] = Field(alias="n_samples")
     description: Optional[str]
-    last_update: Optional[str]
+    last_update_date: Optional[str]
     submission_date: Optional[str]
     digest: Optional[str]
 
