@@ -14,8 +14,8 @@ CREATE TABLE projects (
     project_value jsonb NOT NULL,
     private bool NOT NULL,
     number_of_samples int NOT NULL,
-    submission_date date NOT NULL,
-    last_update_date date NOT NULL,
+    submission_date timestamp NOT NULL,
+    last_update_date timestamp NOT NULL,
     CONSTRAINT id PRIMARY KEY (namespace, name, tag)
 );
 
