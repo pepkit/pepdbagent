@@ -7,6 +7,7 @@ from .models import (
 )
 import logging
 from .const import *
+from typing import List
 
 _LOGGER = logging.getLogger("pepdbagent")
 
@@ -14,24 +15,25 @@ _LOGGER = logging.getLogger("pepdbagent")
 class Search:
     def __init__(self, db_conn: psycopg2):
         """
-        Search function using already build connection
+        Search class that holds 2 search methods: namespace and project search.
+        :param db_conn: already existing connection to the db
         """
         self.db_conn = db_conn
 
     def namespace(
         self,
         search_str: str = None,
-        admin_nsp: tuple = ("",),
+        admin_nsp: List[str] = None,
         offset: int = DEFAULT_OFFSET,
         limit: int = DEFAULT_LIMIT,
     ) -> NamespaceSearchModel:
         """
-
-        :param search_str:
-        :param admin_nsp:
-        :param offset:
-        :param limit:
-        :return: Result of a search which consist of:
+        Search available namespaces in the database
+        :param search_str: search string
+        :param admin_nsp: list of namespaces where user is admin
+        :param offset: offset of the search
+        :param limit: limit of the search
+        :return: Search result:
             {
                 total number of results
                 search limit
@@ -39,10 +41,12 @@ class Search:
                 search results
             }
         """
+        if admin_nsp:
+            admin_nsp = tuple(admin_nsp)
+        else:
+            admin_nsp = ("",)
         return NamespaceSearchModel(
-            number_of_results=self._count_find_namespaces(
-                search_str=search_str, admin_nsp=admin_nsp
-            ),
+            number_of_results=self._get_count_of_found_namespaces(search_str=search_str, admin_nsp=admin_nsp),
             limit=limit,
             offset=offset,
             results=self._find_namespaces(
@@ -59,7 +63,7 @@ class Search:
         limit: int = DEFAULT_LIMIT,
     ) -> ProjectSearchModel:
         """
-
+        Search available projects in particular namespace
         :param namespace: Namespace of the projects
         :param admin: True if user is admin of this namespace [Default: False]
         :param search_str: search string
@@ -78,11 +82,8 @@ class Search:
             namespace=namespace,
             limit=limit,
             offset=offset,
-            number_of_results=self._count_find_project(
-                namespace=namespace,
-                search_str=search_str,
-                admin=admin,
-            ),
+            number_of_results=self._get_number_of_found_projects(namespace=namespace, search_str=search_str,
+                                                                 admin=admin),
             results=self._find_project(
                 namespace=namespace,
                 search_str=search_str,
@@ -92,11 +93,11 @@ class Search:
             ),
         )
 
-    def _count_find_project(
+    def _get_number_of_found_projects(
         self, namespace: str, search_str: str = "", admin: bool = False
-    ):
+    ) -> int:
         """
-        Get number of found projects. [This function is related to _find_projects]
+        Get total number of found projects. [This function is related to _find_projects]
         :param namespace: namespace where to search for a project
         :param search_str: search string. will be searched in name and description information
         :param admin: True, if user is admin for this namespace
@@ -126,7 +127,16 @@ class Search:
         admin: bool = False,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
-    ):
+    ) -> List[ProjectSearchResultModel]:
+        """
+        Search for project inside namespace by providing search string.
+        :param namespace: namespace where to search for a project
+        :param search_str: search string that has to be found in the name or project description
+        :param admin: True, if user is admin of the namespace [Default: False]
+        :param limit: limit of return results
+        :param offset: number of results off set (that were already showed)
+        :return: list of found projects with their annotations.
+        """
         if not admin:
             admin_str = f"""and ({PRIVATE_COL} = 'false')"""
         else:
@@ -160,7 +170,7 @@ class Search:
 
         return results_list
 
-    def _count_find_namespaces(
+    def _get_count_of_found_namespaces(
         self, search_str: str = "", admin_nsp: tuple = None
     ) -> int:
         """
@@ -188,9 +198,9 @@ class Search:
         admin_nsp: tuple = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
-    ) -> list:
+    ) -> List[NamespaceSearchResultModel]:
         """
-        Search for namespace by providing search string
+        Search for namespace by providing search string.
         :param search_str: string of symbols, words, keywords to search in the
             namespace name.
         :param admin_nsp: tuple of namespaces where project can be retrieved if they are privet

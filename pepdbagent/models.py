@@ -1,42 +1,23 @@
+# file pydantic models
 import datetime
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, validator, Extra
 import peppy
 
 
 class Model(BaseModel):
+    """
+    Configurations for BaseModel
+    """
     class Config:
         allow_population_by_field_name = True
 
 
-class ProjectModel(Model):
-    name: str
-    tag: str
-    description: Optional[str]
-    digest: str
-    number_of_samples: int = Field(alias="n_samples")
-    is_private: bool
-
-
-class NamespaceModel(Model):
-    number_of_projects: int = Field(alias="n_projects")
-    number_of_samples: int = Field(alias="n_samples")
-    namespace: str
-    projects: List[ProjectModel]
-
-
-class NamespacesResponseModel(Model):
-    namespaces: Optional[List[NamespaceModel]]
-
-
-class NamespaceSearchResultModel(Model):
-    namespace: str
-    number_of_projects: int
-    number_of_samples: int
-
-
 class Annotation(BaseModel):
+    """
+    Project Annotations model. All meta metadata
+    """
     namespace: Optional[str]
     name: Optional[str]
     tag: Optional[str]
@@ -63,7 +44,23 @@ class ProjectSearchResultModel(Annotation):
     pass
 
 
+class ProjectModel(Annotation):
+    pass
+
+
+class NamespaceSearchResultModel(Model):
+    """
+    Model of single namespace search result
+    """
+    namespace: str
+    number_of_projects: int
+    number_of_samples: int
+
+
 class NamespaceSearchModel(Model):
+    """
+    Model of combined namespace search results
+    """
     number_of_results: int
     limit: int
     offset: int
@@ -71,6 +68,9 @@ class NamespaceSearchModel(Model):
 
 
 class ProjectSearchModel(Model):
+    """
+    Model of combined project search results
+    """
     namespace: str
     number_of_results: int
     limit: int
@@ -79,6 +79,9 @@ class ProjectSearchModel(Model):
 
 
 class RawPEPModel(BaseModel):
+    """
+    Model of raw PEP projects
+    """
     name: str
     description: str
     _config: dict
@@ -90,6 +93,9 @@ class RawPEPModel(BaseModel):
 
 
 class UpdateItems(BaseModel):
+    """
+    Model used for updating individual items in db
+    """
     project_value: Optional[peppy.Project] = Field(alias="project")
     tag: Optional[str]
     is_private: Optional[bool]
@@ -102,8 +108,11 @@ class UpdateItems(BaseModel):
         extra = Extra.forbid
 
 
-# is Used only by pepdbagent. Don't use it outside
 class UpdateModel(BaseModel):
+    """
+    !! is Used only by pepdbagent. Don't use it outside
+    Model used for updating individual items and creating sql string in the code
+    """
     project_value: Optional[dict]
     name: Optional[str]
     tag: Optional[str]
@@ -117,7 +126,26 @@ class UpdateModel(BaseModel):
 
 
 class UploadResponse(Model):
+    """
+    Response model in upload or update methods
+    """
     registry_path: str
     log_stage: str
     status: str
     info: str
+
+
+class NamespaceModel(Model):
+    """
+    Namespace model with project annotations
+    """
+    number_of_projects: int = Field(alias="n_projects")
+    number_of_samples: int = Field(alias="n_samples")
+    namespace: str
+    projects: List[ProjectModel]
+
+
+class NamespacesResponseModel(Model):
+    namespaces: Optional[List[NamespaceModel]]
+
+
