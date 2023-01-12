@@ -7,18 +7,19 @@ from .models import (
 )
 import logging
 from .const import *
+from .base import BaseConnection
 from typing import List
 
 _LOGGER = logging.getLogger("pepdbagent")
 
 
-class Search:
+class Search(BaseConnection):
     def __init__(self, db_conn: psycopg2):
         """
         Search class that holds 2 search methods: namespace and project search.
         :param db_conn: already existing connection to the db
         """
-        self.db_conn = db_conn
+        super().__init__(db_conn=db_conn)
 
     def namespace(
         self,
@@ -116,7 +117,7 @@ class Search:
                 where ({NAME_COL} ILIKE '%%{search_str}%%' or ({PROJ_COL}->>'description') ILIKE '%%{search_str}%%') 
                     and {NAMESPACE_COL} = '{namespace}' {admin_str};
         """
-        result = self.__run_sql_fetchall(count_sql)
+        result = self._run_sql_fetchall(count_sql)
         try:
             number_of_prj = result[0][0]
         except IndexError:
@@ -151,7 +152,7 @@ class Search:
                     and {NAMESPACE_COL} = '{namespace}' {admin_str} 
                         LIMIT {limit} OFFSET {offset};
         """
-        results = self.__run_sql_fetchall(count_sql)
+        results = self._run_sql_fetchall(count_sql)
         results_list = []
         try:
             for res in results:
@@ -188,7 +189,7 @@ class Search:
             from {DB_TABLE_NAME} where (({NAMESPACE_COL} ILIKE '%%{search_str}%%' and {PRIVATE_COL} = false)
                 or ({NAMESPACE_COL} ILIKE '%%{search_str}%%' and {NAMESPACE_COL} in %s )) 
         """
-        result = self.__run_sql_fetchall(count_sql, admin_nsp)
+        result = self._run_sql_fetchall(count_sql, admin_nsp)
         try:
             number_of_prj = result[0][0]
         except KeyError:
@@ -222,7 +223,7 @@ class Search:
                     GROUP BY {NAMESPACE_COL}
                         LIMIT {limit} OFFSET {offset};
         """
-        results = self.__run_sql_fetchall(count_sql, admin_nsp)
+        results = self._run_sql_fetchall(count_sql, admin_nsp)
         results_list = []
         try:
             for res in results:
@@ -237,21 +238,3 @@ class Search:
             results_list = []
 
         return results_list
-
-    def __run_sql_fetchall(self, sql_query: str, *argv) -> list:
-        """
-        Fetching all result by providing sql query and arguments
-        :param str sql_query: sql string that has to run
-        :param argv: arguments that has to be added to sql query
-        :return: set of query result
-        """
-        cursor = self.db_conn.cursor()
-        try:
-            cursor.execute(sql_query, (*argv,))
-            output_result = cursor.fetchall()
-            cursor.close()
-            return output_result
-        except psycopg2.Error as e:
-            _LOGGER.error(f"Error occurred while running query: {e}")
-        finally:
-            cursor.close()

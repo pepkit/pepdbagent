@@ -22,6 +22,7 @@ from .models import (
     Annotation,
 )
 from .search import Search
+from .base import BaseConnection
 from .const import *
 from .exceptions import SchemaError
 
@@ -34,7 +35,7 @@ coloredlogs.install(
 )
 
 
-class Connection:
+class Connection(BaseConnection):
     """
     A class to connect to pep-db and upload, download, read and process pep projects.
     """
@@ -78,20 +79,10 @@ class Connection:
         # Ensure data is added to the database immediately after write commands
         self.pg_connection.autocommit = True
 
+        super().__init__(db_conn=self.pg_connection)
+
         self._check_conn_db()
         _LOGGER.info(f"Connected successfully!")
-
-    def _commit_to_database(self) -> None:
-        """
-        Commit to database
-        """
-        self.pg_connection.commit()
-
-    def close_connection(self) -> None:
-        """
-        Close connection with database
-        """
-        self.pg_connection.close()
 
     def upload_project(
         self,
@@ -816,46 +807,6 @@ class Connection:
         else:
             return False
 
-    def _run_sql_fetchone(self, sql_query: str, *argv) -> list:
-        """
-        Fetching one result by providing sql query and arguments
-        :param sql_query: sql string that has to run
-        :param argv: arguments that has to be added to sql query
-        :return: set of query result
-        """
-        cursor = self.pg_connection.cursor()
-        try:
-            cursor.execute(sql_query, argv)
-            output_result = cursor.fetchone()
-
-            # must run check here since None is not iterable.
-            if output_result is not None:
-                return list(output_result)
-            else:
-                return []
-        except psycopg2.Error as e:
-            _LOGGER.error(f"Error occurred while running query: {e}")
-        finally:
-            cursor.close()
-
-    def _run_sql_fetchall(self, sql_query: str, *argv) -> list:
-        """
-        Fetching all result by providing sql query and arguments
-        :param str sql_query: sql string that has to run
-        :param argv: arguments that has to be added to sql query
-        :return: set of query result
-        """
-        cursor = self.pg_connection.cursor()
-        try:
-            cursor.execute(sql_query, argv)
-            output_result = cursor.fetchall()
-            cursor.close()
-            return output_result
-        except psycopg2.Error as e:
-            _LOGGER.error(f"Error occurred while running query: {e}")
-        finally:
-            cursor.close()
-
     @staticmethod
     def _create_digest(project_dict: dict) -> str:
         """
@@ -892,9 +843,6 @@ class Connection:
         cols_name.sort()
         if DB_COLUMNS != cols_name:
             raise SchemaError
-
-    def __exit__(self):
-        self.close_connection()
 
     def __str__(self):
         return f"Connection to the database: '{self.db_name}' is set!"
