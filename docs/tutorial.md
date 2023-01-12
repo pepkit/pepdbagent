@@ -1,6 +1,6 @@
 # pepdbagent
 
-pepdbagent is a package for uploading, updating and retrieving Projects and it'd metadata from database.
+`pepdbagent` is a Python package for uploading, updating, and retrieving PEP metadata from a Postgres database.
 
 ### Main functionalities:
 - Uploading and updating peppy projects and metadata.
