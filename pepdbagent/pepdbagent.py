@@ -658,6 +658,34 @@ class Connection(BaseConnection):
 
         return self.get_project_annotation(namespace=namespace, name=name, tag=tag)
 
+    def get_project_annotations_by_list_of_registry_paths(
+        self,
+        registry_paths: List[str],
+    ) -> List[Annotation]:
+        """
+        Retrieving multiple annotation by specifying list of registry paths
+        :param registry_paths: list of registry paths
+
+        :return: list of annotation (Annotation models)
+        """
+        annotations_list = []
+        for registry_path in registry_paths:
+            reg = ubiquerg.parse_registry_path(registry_path)
+            namespace = reg["namespace"]
+            name = reg["item"]
+            tag = reg["tag"]
+
+            if namespace is None:
+                namespace = DEFAULT_NAMESPACE
+            if tag is None:
+                tag = DEFAULT_TAG
+
+            self.get_project_annotation(namespace=namespace, name=name, tag=tag)
+            annotations_list.append(
+                self.get_project_annotation(namespace=namespace, name=name, tag=tag)
+            )
+        return annotations_list
+
     def get_namespace_info(self, namespace: str, user: str = None):
         """
         Fetch projects information from a particular namespace. This doesn't retrieve full project

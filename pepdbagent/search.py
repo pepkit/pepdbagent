@@ -120,7 +120,9 @@ class Search(BaseConnection):
                 where ({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s) 
                     and {NAMESPACE_COL} = %s {admin_str};
         """
-        result = self._run_sql_fetchall(count_sql, search_str, search_str, namespace, *admin_val)
+        result = self._run_sql_fetchall(
+            count_sql, search_str, search_str, namespace, *admin_val
+        )
         try:
             number_of_prj = result[0][0]
         except IndexError:
@@ -158,7 +160,9 @@ class Search(BaseConnection):
                     and {NAMESPACE_COL} = %s {admin_str} 
                         LIMIT %s OFFSET %s;
         """
-        results = self._run_sql_fetchall(count_sql, search_str, search_str, namespace, *admin_val, limit, offset)
+        results = self._run_sql_fetchall(
+            count_sql, search_str, search_str, namespace, *admin_val, limit, offset
+        )
         results_list = []
         try:
             for res in results:
@@ -196,7 +200,9 @@ class Search(BaseConnection):
             from {DB_TABLE_NAME} where (({NAMESPACE_COL} ILIKE %s and {PRIVATE_COL} = %s)
                 or ({NAMESPACE_COL} ILIKE %s and {NAMESPACE_COL} in %s )) 
         """
-        result = self._run_sql_fetchall(count_sql, search_str, False, search_str, admin_nsp)
+        result = self._run_sql_fetchall(
+            count_sql, search_str, False, search_str, admin_nsp
+        )
         try:
             number_of_prj = result[0][0]
         except KeyError:
@@ -231,7 +237,9 @@ class Search(BaseConnection):
                     GROUP BY {NAMESPACE_COL}
                         LIMIT %s OFFSET %s;
         """
-        results = self._run_sql_fetchall(count_sql, search_str, False, search_str, admin_nsp, limit, offset)
+        results = self._run_sql_fetchall(
+            count_sql, search_str, False, search_str, admin_nsp, limit, offset
+        )
         results_list = []
         try:
             for res in results:
