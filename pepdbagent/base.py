@@ -8,6 +8,7 @@ class BaseConnection:
     """
     A class with base methods, that are used in several classes. e.g. fetch_one or fetch_all
     """
+
     def __init__(self, db_conn: psycopg2):
         """
         Coping
@@ -71,4 +72,3 @@ class BaseConnection:
             _LOGGER.error(f"Error occurred while running query: {e}")
         finally:
             cursor.close()
-
