@@ -107,17 +107,20 @@ class Search(BaseConnection):
         :param admin: True, if user is admin for this namespace
         :return: number of found project in specified namespace
         """
+        search_str = f"%%{search_str}%%"
         if not admin:
-            admin_str = f"""and ({PRIVATE_COL} = 'false')"""
+            admin_str = f"""and ({PRIVATE_COL} = %s)"""
+            admin_val = (False,)
         else:
             admin_str = ""
+            admin_val = tuple()
         count_sql = f"""
         select count(*)
             from {DB_TABLE_NAME} 
-                where ({NAME_COL} ILIKE '%%{search_str}%%' or ({PROJ_COL}->>'description') ILIKE '%%{search_str}%%') 
-                    and {NAMESPACE_COL} = '{namespace}' {admin_str};
+                where ({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s) 
+                    and {NAMESPACE_COL} = %s {admin_str};
         """
-        result = self._run_sql_fetchall(count_sql)
+        result = self._run_sql_fetchall(count_sql, search_str, search_str, namespace, *admin_val)
         try:
             number_of_prj = result[0][0]
         except IndexError:
@@ -141,18 +144,21 @@ class Search(BaseConnection):
         :param offset: number of results off set (that were already showed)
         :return: list of found projects with their annotations.
         """
+        search_str = f"%%{search_str}%%"
         if not admin:
-            admin_str = f"""and ({PRIVATE_COL} = 'false')"""
+            admin_str = f"""and ({PRIVATE_COL} = %s)"""
+            admin_val = (False,)
         else:
             admin_str = ""
+            admin_val = tuple()
         count_sql = f"""
         select {NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {N_SAMPLES_COL}, ({PROJ_COL}->>'description'), {DIGEST_COL}, {PRIVATE_COL}, {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL}
             from {DB_TABLE_NAME} 
-                where ({NAME_COL} ILIKE '%%{search_str}%%' or ({PROJ_COL}->>'description') ILIKE '%%{search_str}%%') 
-                    and {NAMESPACE_COL} = '{namespace}' {admin_str} 
-                        LIMIT {limit} OFFSET {offset};
+                where ({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s) 
+                    and {NAMESPACE_COL} = %s {admin_str} 
+                        LIMIT %s OFFSET %s;
         """
-        results = self._run_sql_fetchall(count_sql)
+        results = self._run_sql_fetchall(count_sql, search_str, search_str, namespace, *admin_val, limit, offset)
         results_list = []
         try:
             for res in results:
@@ -184,12 +190,13 @@ class Search(BaseConnection):
         :param admin_nsp: tuple of namespaces where project can be retrieved if they are privet
         :return: number of found namespaces
         """
+        search_str = f"%%{search_str}%%"
         count_sql = f"""
         select COUNT(DISTINCT ({NAMESPACE_COL}))
-            from {DB_TABLE_NAME} where (({NAMESPACE_COL} ILIKE '%%{search_str}%%' and {PRIVATE_COL} = false)
-                or ({NAMESPACE_COL} ILIKE '%%{search_str}%%' and {NAMESPACE_COL} in %s )) 
+            from {DB_TABLE_NAME} where (({NAMESPACE_COL} ILIKE %s and {PRIVATE_COL} = %s)
+                or ({NAMESPACE_COL} ILIKE %s and {NAMESPACE_COL} in %s )) 
         """
-        result = self._run_sql_fetchall(count_sql, admin_nsp)
+        result = self._run_sql_fetchall(count_sql, search_str, False, search_str, admin_nsp)
         try:
             number_of_prj = result[0][0]
         except KeyError:
@@ -216,14 +223,15 @@ class Search(BaseConnection):
                 number_of_samples,
             }
         """
+        search_str = f"%%{search_str}%%"
         count_sql = f"""
         select {NAMESPACE_COL}, COUNT({NAME_COL}), SUM({N_SAMPLES_COL})
-            from {DB_TABLE_NAME} where (({NAMESPACE_COL} ILIKE '%%{search_str}%%' and {PRIVATE_COL} is false)
-                or ({NAMESPACE_COL} ILIKE '%%{search_str}%%' and {NAMESPACE_COL} in %s )) 
+            from {DB_TABLE_NAME} where (({NAMESPACE_COL} ILIKE %s and {PRIVATE_COL} is %s)
+                or ({NAMESPACE_COL} ILIKE %s and {NAMESPACE_COL} in %s )) 
                     GROUP BY {NAMESPACE_COL}
-                        LIMIT {limit} OFFSET {offset};
+                        LIMIT %s OFFSET %s;
         """
-        results = self._run_sql_fetchall(count_sql, admin_nsp)
+        results = self._run_sql_fetchall(count_sql, search_str, False, search_str, admin_nsp, limit, offset)
         results_list = []
         try:
             for res in results:
