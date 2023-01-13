@@ -55,8 +55,6 @@ class PEPDatabaseProject:
                 _subsample_dict: dict
             }
         """
-        if namespace is None:
-            namespace = DEFAULT_NAMESPACE
         if tag is None:
             tag = DEFAULT_TAG
 
