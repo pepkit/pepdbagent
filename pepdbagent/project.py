@@ -38,32 +38,91 @@ class PEPDatabaseProject:
         name: str,
         tag: str,
         raw: bool = False,
-    ) -> peppy.Project:
+    ) -> Union[peppy.Project, dict, None]:
         """
-
-        :param namespace:
-        :param name:
-        :param tag:
-        :param raw:
-        :return:
+        Retrieve project from database by specifying project registry_path
+        :param peppy.Project project: peppy.Project object that has to be uploaded to the DB
+        :param namespace: namespace of the project
+        :param name: name of the project (Default: name is taken from the project object)
+        :param tag: tag (or version) of the project.
+        :param raw:retrieve unprocessed (raw) PEP dict.
+        :return: peppy.Project object with found project or dict with unprocessed
+            PEP elements: {
+                name: str
+                description: str
+                _config: dict
+                _sample_dict: dict
+                _subsample_dict: dict
+            }
         """
-        ...
+        if namespace is None:
+            namespace = DEFAULT_NAMESPACE
+        if tag is None:
+            tag = DEFAULT_TAG
 
+        sql_q = f"""
+                select {ID_COL}, {PROJ_COL}, {PRIVATE_COL} from {DB_TABLE_NAME}
+                """
+
+        if name is not None:
+            sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
+            found_prj = self.con.run_sql_fetchone(sql_q, name, namespace, tag)
+
+        else:
+            _LOGGER.error(
+                "You haven't provided name! Execution is unsuccessful"
+                "Files haven't been downloaded, returning empty project"
+            )
+            return None
+
+        if found_prj:
+            _LOGGER.info(f"Project has been found: {found_prj[0]}")
+            project_value = found_prj[1]
+            is_private = found_prj[2]
+            if raw:
+                return project_value
+            else:
+                try:
+                    project_obj = peppy.Project().from_dict(project_value)
+                    project_obj.is_private = is_private
+                    return project_obj
+                except Exception:
+                    _LOGGER.error(
+                        f"Error in init project. Error occurred in peppy. Project id={found_prj[0]}"
+                    )
+                    return None
+        else:
+            _LOGGER.warning(
+                f"No project found for supplied input: '{namespace}/{name}:{tag}'. Did you supply a valid namespace and project?"
+            )
+            return None
 
     def get_by_rp(
         self,
         registry_path: str,
         raw: bool = False,
-    ) -> peppy.Project:
+    ) -> Union[peppy.Project, dict, None]:
         """
-
-        :param registry_path:
-        :param raw:
-        :return:
+        Retrieve project from database by specifying project registry_path
+        :param registry_path: project registry_path [e.g. namespace/name:tag]
+        :param raw: retrieve unprocessed (raw) PEP dict.
+        :return: peppy.Project object with found project or dict with unprocessed
+            PEP elements: {
+                name: str
+                description: str
+                _config: dict
+                _sample_dict: dict
+                _subsample_dict: dict
+            }
         """
-        ...
+        try:
+            namespace, name, tag = registry_path_converter(registry_path)
+        except RegistryPathError as err:
+            _LOGGER.error(str(err), registry_path)
+            return None
+        return self.get(namespace=namespace, name=name, tag=tag, raw=raw)
 
-    def delete_project(
+    def delete(
         self,
         namespace: str = None,
         name: str = None,
@@ -71,7 +130,7 @@ class PEPDatabaseProject:
     ) -> None:
         cursor = self.con.pg_connection.cursor()
         sql_delete = f"""DELETE FROM {DB_TABLE_NAME} 
-        WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
+            WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
 
         try:
             cursor.execute(sql_delete, (namespace, name, tag))
@@ -82,16 +141,16 @@ class PEPDatabaseProject:
             cursor.close()
             return None
 
-    def delete_project_by_registry_path(
+    def delete_by_rp(
         self,
         registry_path: str,
     ) -> None:
         try:
             namespace, name, tag = registry_path_converter(registry_path)
         except RegistryPathError as err:
-            _LOGGER.error(str(RegistryPathError), registry_path)
+            _LOGGER.error(str(err), registry_path)
             return None
-        return self.delete_project(namespace=namespace, name=name, tag=tag)
+        return self.delete(namespace=namespace, name=name, tag=tag)
 
     def upload(
         self,
@@ -99,7 +158,6 @@ class PEPDatabaseProject:
         namespace: str,
         name: str = None,
         tag: str = None,
-        description: str = None,
         is_private: bool = False,
         overwrite: bool = False,
         update_only: bool = False,
@@ -112,7 +170,6 @@ class PEPDatabaseProject:
         :param namespace: namespace of the project (Default: 'other')
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
-        :param description: project description.
         :param is_private: boolean value if the project should be visible just for user that creates it.
         :param overwrite: if project exists overwrite the project, otherwise upload it.
             [Default: False - project won't be overwritten if it exists in db]
@@ -120,8 +177,6 @@ class PEPDatabaseProject:
         """
         cursor = self.con.pg_connection.cursor()
         try:
-            if namespace is None:
-                namespace = DEFAULT_NAMESPACE
             if tag is None:
                 tag = DEFAULT_TAG
 
@@ -132,7 +187,6 @@ class PEPDatabaseProject:
             else:
                 proj_name = proj_dict["name"]
 
-            proj_dict["description"] = description
             proj_dict["name"] = name
 
             proj_digest = create_digest(proj_dict)
@@ -144,14 +198,12 @@ class PEPDatabaseProject:
                 _LOGGER.info(
                     f"Update_only argument is set True. Updating project {proj_name} ..."
                 )
-                response = self._update_project(
-                    project_dict=proj_dict,
-                    namespace=namespace,
-                    proj_name=proj_name,
-                    tag=tag,
-                    project_digest=proj_digest,
-                    number_of_samples=number_of_samples,
-                )
+                response = self._overwrite(project_dict=proj_dict,
+                                           namespace=namespace,
+                                           proj_name=proj_name,
+                                           tag=tag,
+                                           project_digest=proj_digest,
+                                           number_of_samples=number_of_samples)
                 return response
             else:
                 try:
@@ -193,14 +245,12 @@ class PEPDatabaseProject:
                 except UniqueViolation:
                     if overwrite:
 
-                        response = self._update_project(
-                            project_dict=proj_dict,
-                            namespace=namespace,
-                            proj_name=proj_name,
-                            tag=tag,
-                            project_digest=proj_digest,
-                            number_of_samples=number_of_samples,
-                        )
+                        response = self._overwrite(project_dict=proj_dict,
+                                                   namespace=namespace,
+                                                   proj_name=proj_name,
+                                                   tag=tag,
+                                                   project_digest=proj_digest,
+                                                   number_of_samples=number_of_samples)
                         return response
                     else:
                         _LOGGER.warning(
@@ -238,7 +288,7 @@ class PEPDatabaseProject:
                 info=f"psycopg2.Error. Error message: {e}",
             )
 
-    def _update_project(
+    def _overwrite(
         self,
         project_dict: json,
         namespace: str,
@@ -255,12 +305,12 @@ class PEPDatabaseProject:
         :param tag: project tag
         :param project_digest: project digest
         :param number_of_samples: number of samples in project
-        :return: NoReturn
+        :return: UploadResponse with information if project was updated
         """
 
         cursor = self.con.pg_connection.cursor()
 
-        if self.project_exists(namespace=namespace, name=proj_name, tag=tag):
+        if self.exists(namespace=namespace, name=proj_name, tag=tag):
             try:
                 _LOGGER.info(f"Updating {proj_name} project...")
                 sql = f"""UPDATE {DB_TABLE_NAME}
@@ -309,7 +359,7 @@ class PEPDatabaseProject:
                 info="project does not exist!",
             )
 
-    def update_item(
+    def update(
         self,
         update_dict: Union[dict, UpdateItems],
         namespace: str,
@@ -317,7 +367,7 @@ class PEPDatabaseProject:
         tag: str,
     ) -> UploadResponse:
         """
-        Update partial parts of the project record
+        Update partial parts of the record in db
         :param update_dict: dict with update key->values. Dict structure:
             {
                     project: Optional[peppy.Project]
@@ -338,7 +388,7 @@ class PEPDatabaseProject:
         else:
             update_values = UpdateItems(**update_dict)
 
-        if self.project_exists(namespace=namespace, name=name, tag=tag):
+        if self.exists(namespace=namespace, name=name, tag=tag):
             try:
                 update_final = UpdateModel()
 
@@ -437,7 +487,7 @@ class PEPDatabaseProject:
 
         return sql_string, tuple(sql_values)
 
-    def project_exists(
+    def exists(
         self,
         namespace: str = None,
         name: str = None,
