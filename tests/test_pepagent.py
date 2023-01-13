@@ -1,34 +1,35 @@
 from psycopg2.errors import UniqueViolation
-from pepdbagent.pepdbagent_old import Connection
+from pepdbagent.pepdbagent import PEPDatabaseAgent
+from pepdbagent.models import BaseModel
 import json
-from pepdbagent.models import Annotation
+import psycopg2
 
 
 def test_connection_initializes_correctly_from_dsn(
     mocker, sql_output_for_check_conn_db, test_dsn
 ):
-    mocker.patch("pepdbagent.pepdbagent.psycopg2.connect")
+    mocker.patch("psycopg2.connect")
     mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
+        "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
         return_value=sql_output_for_check_conn_db,
     )
 
-    c = Connection(dsn=test_dsn)
+    c = PEPDatabaseAgent(dsn=test_dsn)
 
-    assert c.db_name == "pep-base-sql"
-    assert c.pg_connection.autocommit
+    assert c.con.db_name == "pep-base-sql"
+    assert c.con.pg_connection.autocommit
 
 
 def test_connection_initializes_correctly_without_dsn(
     mocker, sql_output_for_check_conn_db
 ):
-    mocker.patch("pepdbagent.pepdbagent.psycopg2.connect")
+    mocker.patch("psycopg2.connect")
     mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
+        "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
         return_value=sql_output_for_check_conn_db,
     )
 
-    c = Connection(
+    c = PEPDatabaseAgent(
         host="localhost",
         port="5432",
         database="pep-base-sql",
@@ -36,26 +37,26 @@ def test_connection_initializes_correctly_without_dsn(
         password="docker",
     )
 
-    assert c.db_name == "pep-base-sql"
-    assert c.pg_connection.autocommit
+    assert c.con.db_name == "pep-base-sql"
+    assert c.con.pg_connection.autocommit
 
 
 def test_upload_project_success(
     mocker, sql_output_for_check_conn_db, test_dsn, test_peppy_project
 ):
     database_commit_mock = mocker.patch(
-        "pepdbagent.pepdbagent.Connection._commit_to_database"
+        "pepdbagent.pepdbagent.BaseConnection.commit_to_database"
     )
     mocker.patch("psycopg2.connect")
     mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
+        "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
         return_value=sql_output_for_check_conn_db,
     )
-    c = Connection(dsn=test_dsn)
+    c = PEPDatabaseAgent(dsn=test_dsn)
 
     test_namespace = "test"
 
-    c.upload_project(
+    c.project.submit(
         test_peppy_project,
         test_namespace,
     )
@@ -67,22 +68,22 @@ def test_upload_project_updates_after_raising_unique_violation_error(
     mocker, sql_output_for_check_conn_db, test_dsn, test_peppy_project
 ):
     update_project_mock = mocker.patch(
-        "pepdbagent.pepdbagent.Connection._update_project"
+        "pepdbagent.pepdbagent.PEPDatabaseProject._overwrite"
     )
     mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
+        "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
         return_value=sql_output_for_check_conn_db,
     )
     mocker.patch("psycopg2.connect")
 
     mocker.patch(
-        "pepdbagent.pepdbagent.Connection._commit_to_database",
+        "pepdbagent.pepdbagent.BaseConnection.commit_to_database",
         side_effect=UniqueViolation(),
     )
 
-    c = Connection(dsn=test_dsn)
+    c = PEPDatabaseAgent(dsn=test_dsn)
     test_namespace = "test"
-    c.upload_project(test_peppy_project, test_namespace, overwrite=True)
+    c.project._overwrite(test_peppy_project, test_namespace, overwrite=True)
 
     assert update_project_mock.called
 
@@ -91,24 +92,24 @@ def test_update_project(
     mocker, test_dsn, test_peppy_project, sql_output_for_check_conn_db
 ):
     mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
+        "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
         return_value=sql_output_for_check_conn_db,
     )
     mocker.patch(
-        "pepdbagent.pepdbagent.Connection.project_exists",
+        "pepdbagent.pepdbagent.PEPDatabaseProject.exists",
         return_value=True,
     )
     database_commit_mock = mocker.patch(
-        "pepdbagent.pepdbagent.Connection._commit_to_database"
+        "pepdbagent.pepdbagent.BaseConnection.commit_to_database"
     )
     mocker.patch("psycopg2.connect")
 
-    c = Connection(dsn=test_dsn)
+    c = PEPDatabaseAgent(dsn=test_dsn)
 
     test_proj_dict = test_peppy_project.to_dict(extended=True)
     test_proj_dict = json.dumps(test_proj_dict)
 
-    c._update_project(
+    c.project._overwrite(
         test_proj_dict,
         namespace="test",
         proj_name="test",
@@ -124,23 +125,23 @@ def test_update_item(
     mocker, test_dsn, test_peppy_project, sql_output_for_check_conn_db
 ):
     mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
+        "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
         return_value=sql_output_for_check_conn_db,
     )
     mocker.patch(
-        "pepdbagent.pepdbagent.Connection.project_exists",
+        "pepdbagent.pepdbagent.PEPDatabaseProject.exists",
         return_value=True,
     )
     database_commit_mock = mocker.patch(
-        "pepdbagent.pepdbagent.Connection._commit_to_database"
+        "pepdbagent.pepdbagent.BaseConnection.commit_to_database"
     )
     mocker.patch("psycopg2.connect")
 
-    c = Connection(dsn=test_dsn)
+    c = PEPDatabaseAgent(dsn=test_dsn)
 
     test_peppy_project.description = "This is test description"
 
-    c.update_item(
+    c.project.edit(
         update_dict={
             "tag": "new_tag",
             "is_private": True,
@@ -156,54 +157,54 @@ def test_update_item(
 
 def test_delete_project(mocker, test_dsn, sql_output_for_check_conn_db):
     mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
+        "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
         return_value=sql_output_for_check_conn_db,
     )
     database_commit_mock = mocker.patch("psycopg2.connect")
 
     mocker.patch("psycopg2.connect")
 
-    c = Connection(dsn=test_dsn)
+    c = PEPDatabaseAgent(dsn=test_dsn)
 
-    ret = c.delete_project(namespace="test", name="test", tag="test")
+    ret = c.project.delete(namespace="test", name="test", tag="test")
 
     assert ret is None
 
 
 def test_get_project_by_registry_path(mocker, test_dsn, sql_output_for_check_conn_db):
     mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
+        "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
         return_value=sql_output_for_check_conn_db,
     )
     get_project_mock = mocker.patch(
-        "pepdbagent.pepdbagent.Connection.get_project",
+        "pepdbagent.pepdbagent.PEPDatabaseProject.get",
         return_value=sql_output_for_check_conn_db,
     )
     mocker.patch("psycopg2.connect")
 
-    c = Connection(dsn=test_dsn)
+    c = PEPDatabaseAgent(dsn=test_dsn)
 
-    c.get_project_by_registry_path("some/project:tag")
+    c.project.get_by_rp("some/project:tag")
 
-    get_project_mock.assert_called_with(namespace="some", name="project", tag="tag")
+    get_project_mock.assert_called_with(namespace="some", name="project", tag="tag", raw=False)
 
 
 def test_get_project(
     mocker, test_dsn, sql_output_for_check_conn_db, test_database_project_return
 ):
     mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchall",
+        "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
         return_value=sql_output_for_check_conn_db,
     )
     mocker.patch(
-        "pepdbagent.pepdbagent.Connection._run_sql_fetchone",
+        "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchone",
         return_value=test_database_project_return,
     )
     mocker.patch("psycopg2.connect")
 
-    c = Connection(dsn=test_dsn)
+    c = PEPDatabaseAgent(dsn=test_dsn)
 
-    project = c.get_project(
+    project = c.project.get(
         namespace="test_namespace",
         name="test_name",
         tag="test_tag",

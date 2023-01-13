@@ -34,6 +34,7 @@ class PEPDatabaseAgent(object):
             password=password,
             dsn=dsn,
         )
+        self.con = con
 
         self.__project = PEPDatabaseProject(con)
         self.__annotation = PEPDatabaseAnnotation(con)
