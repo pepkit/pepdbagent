@@ -260,7 +260,13 @@ class PEPDatabaseAnnotation:
                 where ({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s or {TAG_COL} ILIKE %s)
                     and ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s ) {and_namespace_sql};"""
         result = self.con.run_sql_fetchall(
-            count_sql, search_str, search_str, search_str, False, admin_tuple, *namespace
+            count_sql,
+            search_str,
+            search_str,
+            search_str,
+            False,
+            admin_tuple,
+            *namespace,
         )
         try:
             number_of_prj = result[0][0]

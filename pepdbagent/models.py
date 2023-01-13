@@ -37,6 +37,7 @@ class AnnotationReturnModel(BaseModel):
     """
     Annotation return model.
     """
+
     count: int
     limit: int
     offset: int

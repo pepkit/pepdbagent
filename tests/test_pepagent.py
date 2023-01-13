@@ -186,7 +186,9 @@ def test_get_project_by_registry_path(mocker, test_dsn, sql_output_for_check_con
 
     c.project.get_by_rp("some/project:tag")
 
-    get_project_mock.assert_called_with(namespace="some", name="project", tag="tag", raw=False)
+    get_project_mock.assert_called_with(
+        namespace="some", name="project", tag="tag", raw=False
+    )
 
 
 def test_get_project(
