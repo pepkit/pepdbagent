@@ -5,66 +5,30 @@ from peppy import Project
 from pydantic import BaseModel
 
 
-con = pepdbagent.Connection(
+con = pepdbagent.PEPDatabaseAgent(
     user="postgres",
     password="docker",
 )
 
-# proj = Project(
-#     "/home/bnt4me/virginia/repos/pepdbagent/sample_pep/subtable1/project_config.yaml"
-# )
-#
-# con.upload_project(
-#     namespace="test_11",
-#     name="sub",
-#     tag="f1",
-#     project=proj,
-#     is_private=True,
-#     overwrite=True,
-# )
-#
-#
-# # gf = con.get_project(namespace="test", name='sub', tag='f')
-# #
-# #
-# # print(gf)
-# #
-# #
-# # gf_annot = con.get_project_annotation(namespace="test", name='sub', tag='f')
-# #
-# # print(gf_annot)
-#
-#
-# gf = con.get_project(namespace="Khoroshevskyi", name="new_name", tag="default")
-#
-#
-# gf.name = "new_name"
-# gf.description = "funny jou"
-#
-# ff = con.update_item(
-#     namespace="Khoroshevskyi",
-#     name="new_name",
-#     tag="default",
-#     update_dict={"project": gf, "is_private": True},
-# )
-#
-#
-ann = con.get_project_annotation(
-    namespace="Khoroshevskyi",
-    name="dupa",
-    tag="f1",
-)
+dd1 = con.annotation._get_single_annotation("Khoroshevskyi", "dupa", "f1")
+dd2 = con.annotation._get_single_annotation("Khoroshevskyi", "gse_yaml", "default")
 
-print(ann.json())
+dd_list = con.annotation.get_by_rp(["Khoroshevskyi/gse_yaml:default", "Khoroshevskyi/gse_yaml:default", "Khoroshevskyi/dupa:f1"], admin="Khoroshevskyi")
+dd_list_private = con.annotation.get_by_rp(["Khoroshevskyi/gse_yaml:default", "Khoroshevskyi/gse_yaml:default", "Khoroshevskyi/dupa:f1"])
 
-res = con.search.project(namespace="Khoroshevskyi", search_str="", admin=True)
-print(res)
+dd_search = con.annotation.get(namespace="Khoroshevskyi")
+dd_search_pr = con.annotation.get(namespace="Khoroshevskyi", admin="Khoroshevskyi")
+dd_search_pr_namespace = con.annotation.get(query="s", admin=["Khoroshevskyi","test_11"])
 
-res = con.search.namespace(
-    "i",
-    admin_list=[
-        "kk",
-        "Khoroshevskyi",
-    ],
-)
-print(res)
+print(dd1)
+print(dd2)
+
+print(dd_list)
+print(dd_list_private)
+
+print(dd_search)
+print(dd_search_pr)
+print(dd_search_pr_namespace)
+
+
+ff = con.namespace.get("Khoroshevskyi", admin="Khoroshevskyi")

@@ -1,5 +1,5 @@
 from psycopg2.errors import UniqueViolation
-from pepdbagent.pepdbagent import Connection
+from pepdbagent.pepdbagent_old import Connection
 import json
 from pepdbagent.models import Annotation
 

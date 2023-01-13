@@ -5,17 +5,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, validator, Extra
 import peppy
 
-
-class Model(BaseModel):
-    """
-    Configurations for BaseModel
-    """
-
-    class Config:
-        allow_population_by_field_name = True
-
-
-class Annotation(BaseModel):
+class AnnotationModel(BaseModel):
     """
     Project Annotations model. All meta metadata
     """
@@ -24,7 +14,7 @@ class Annotation(BaseModel):
     name: Optional[str]
     tag: Optional[str]
     is_private: Optional[bool]
-    number_of_samples: Optional[int] = Field(alias="n_samples")
+    number_of_samples: Optional[int]
     description: Optional[str]
     last_update_date: Optional[str]
     submission_date: Optional[str]
@@ -42,15 +32,14 @@ class Annotation(BaseModel):
             return v
 
 
-class ProjectSearchResultModel(Annotation):
-    pass
+class AnnotationReturnModel(BaseModel):
+    count: int
+    limit: int
+    offset: int
+    result: List[AnnotationModel]
 
 
-class ProjectModel(Annotation):
-    pass
-
-
-class NamespaceSearchResultModel(Model):
+class NamespaceResultModel(BaseModel):
     """
     Model of single namespace search result
     """
@@ -60,7 +49,7 @@ class NamespaceSearchResultModel(Model):
     number_of_samples: int
 
 
-class NamespaceSearchModel(Model):
+class NamespaceReturnModel(BaseModel):
     """
     Model of combined namespace search results
     """
@@ -68,34 +57,7 @@ class NamespaceSearchModel(Model):
     number_of_results: int
     limit: int
     offset: int
-    results: List[NamespaceSearchResultModel]
-
-
-class ProjectSearchModel(Model):
-    """
-    Model of combined project search results
-    """
-
-    namespace: str
-    number_of_results: int
-    limit: int
-    offset: int
-    results: List[ProjectSearchResultModel]
-
-
-class RawPEPModel(BaseModel):
-    """
-    Model of raw PEP projects
-    """
-
-    name: str
-    description: str
-    _config: dict
-    _sample_dict: dict
-    _subsample_dict: Optional[list] = None
-
-    class Config:
-        extra = Extra.forbid
+    results: List[NamespaceResultModel]
 
 
 class UpdateItems(BaseModel):
@@ -133,7 +95,7 @@ class UpdateModel(BaseModel):
         extra = Extra.forbid
 
 
-class UploadResponse(Model):
+class UploadResponse(BaseModel):
     """
     Response model in upload or update methods
     """
@@ -142,48 +104,3 @@ class UploadResponse(Model):
     log_stage: str
     status: str
     info: str
-
-
-class NamespaceModel(Model):
-    """
-    Namespace model with project annotations
-    """
-
-    number_of_projects: int = Field(alias="n_projects")
-    number_of_samples: int = Field(alias="n_samples")
-    namespace: str
-    projects: List[ProjectModel]
-
-
-class NamespacesResponseModel(Model):
-    namespaces: Optional[List[NamespaceModel]]
-
-######################################################################
-
-
-class AnnotationReturnModel(BaseModel):
-    count: int
-    limit: int
-    offset: int
-    result: List[Annotation]
-
-
-class NamespaceResultModel(BaseModel):
-    """
-    Model of single namespace search result
-    """
-
-    namespace: str
-    number_of_projects: int
-    number_of_samples: int
-
-
-class NamespaceReturnModel(BaseModel):
-    """
-    Model of combined namespace search results
-    """
-
-    number_of_results: int
-    limit: int
-    offset: int
-    results: List[NamespaceResultModel]

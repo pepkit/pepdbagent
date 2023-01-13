@@ -1,4 +1,4 @@
-DB_TABLE_NAME = "projects"
+DB_TABLE_NAME = "project"
 ID_COL = "id"
 PROJ_COL = "project_value"
 ANNO_COL = "anno_info"

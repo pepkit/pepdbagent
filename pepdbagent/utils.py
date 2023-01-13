@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 import json
 from hashlib import md5
-from typing import Tuple
+from typing import Tuple, Union
 import ubiquerg
 from .exceptions import RegistryPathError
 
@@ -71,3 +71,18 @@ def registry_path_converter(registry_path: str) -> Tuple[str, str, str]:
 
     else:
         raise RegistryPathError
+
+
+def tuple_converter(value: Union[tuple, list, str, None]) -> tuple:
+    """
+    Convert string list or tuple to tuple.
+    # is used to create admin tuple.
+    :param value: Any value that has to converted to tuple
+    :return: tuple of strings
+    """
+    if isinstance(value, str):
+        value = [value]
+    if value:
+        return tuple(value)
+    else:
+        return tuple(" ",)

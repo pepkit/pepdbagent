@@ -12,7 +12,7 @@ from .const import (
 )
 
 from .models import NamespaceResultModel, NamespaceReturnModel
-
+from .utils import tuple_converter
 
 class PEPDatabaseNamespace:
     """
@@ -48,18 +48,15 @@ class PEPDatabaseNamespace:
                 search results
             }
         """
-        if admin:
-            admin_list = tuple(admin)
-        else:
-            admin_list = ("",)
+        admin_tuple = tuple_converter(admin)
         return NamespaceReturnModel(
-            number_of_results=self._count_namespace(search_str=query, admin_nsp=admin_list),
+            number_of_results=self._count_namespace(search_str=query, admin_nsp=admin_tuple),
             limit=limit,
             offset=offset,
-            results=self._get_projects(search_str=query, admin_nsp=admin_list, limit=limit, offset=offset),
+            results=self._get_namespace(search_str=query, admin_nsp=admin_tuple, limit=limit, offset=offset),
         )
 
-    def _get_projects(
+    def _get_namespace(
         self,
         search_str: str,
         admin_nsp: tuple = None,
