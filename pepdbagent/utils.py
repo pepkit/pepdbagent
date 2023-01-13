@@ -26,6 +26,7 @@ def is_valid_registry_path(rpath: str) -> bool:
         ]
     )
 
+
 def all_elements_are_strings(iterable: Iterable) -> bool:
     """
     Helper method to determine if an iterable only contains `str` objects.
@@ -85,4 +86,6 @@ def tuple_converter(value: Union[tuple, list, str, None]) -> tuple:
     if value:
         return tuple(value)
     else:
-        return tuple(" ",)
+        return tuple(
+            " ",
+        )

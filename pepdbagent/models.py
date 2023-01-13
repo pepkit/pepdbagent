@@ -5,6 +5,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, validator, Extra
 import peppy
 
+
 class AnnotationModel(BaseModel):
     """
     Project Annotations model. All meta metadata

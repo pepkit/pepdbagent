@@ -1,7 +1,7 @@
 from typing import Union, List
 
-from .base import BaseConnection
-from .const import (
+from pepdbagent.base_connection import BaseConnection
+from pepdbagent.const import (
     DEFAULT_LIMIT,
     DEFAULT_OFFSET,
     NAMESPACE_COL,
@@ -11,8 +11,9 @@ from .const import (
     PRIVATE_COL,
 )
 
-from .models import NamespaceResultModel, NamespaceReturnModel
-from .utils import tuple_converter
+from pepdbagent.models import NamespaceResultModel, NamespaceReturnModel
+from pepdbagent.utils import tuple_converter
+
 
 class PEPDatabaseNamespace:
     """
@@ -32,7 +33,7 @@ class PEPDatabaseNamespace:
         query: str = "",
         admin: Union[List[str], str] = None,
         limit: int = DEFAULT_LIMIT,
-        offset: int = DEFAULT_OFFSET
+        offset: int = DEFAULT_OFFSET,
     ) -> NamespaceReturnModel:
         """
         Search available namespaces in the database
@@ -50,10 +51,14 @@ class PEPDatabaseNamespace:
         """
         admin_tuple = tuple_converter(admin)
         return NamespaceReturnModel(
-            number_of_results=self._count_namespace(search_str=query, admin_nsp=admin_tuple),
+            number_of_results=self._count_namespace(
+                search_str=query, admin_nsp=admin_tuple
+            ),
             limit=limit,
             offset=offset,
-            results=self._get_namespace(search_str=query, admin_nsp=admin_tuple, limit=limit, offset=offset),
+            results=self._get_namespace(
+                search_str=query, admin_nsp=admin_tuple, limit=limit, offset=offset
+            ),
         )
 
     def _get_namespace(
@@ -102,9 +107,7 @@ class PEPDatabaseNamespace:
 
         return results_list
 
-    def _count_namespace(
-        self, search_str: str = "", admin_nsp: tuple = None
-    ) -> int:
+    def _count_namespace(self, search_str: str = "", admin_nsp: tuple = None) -> int:
         """NamespaceSearchModel
         Get number of found namespace. [This function is related to _find_namespaces]
         :param search_str: string of symbols, words, keywords to search in the

@@ -6,15 +6,15 @@ import peppy
 import psycopg2
 from psycopg2.errors import NotNullViolation, UniqueViolation
 
-from .models import (
+from pepdbagent.models import (
     UploadResponse,
     UpdateModel,
     UpdateItems,
 )
-from .base import BaseConnection
-from .const import *
-from .utils import create_digest, registry_path_converter
-from .exceptions import RegistryPathError
+from pepdbagent.base_connection import BaseConnection
+from pepdbagent.const import *
+from pepdbagent.utils import create_digest, registry_path_converter
+from pepdbagent.exceptions import RegistryPathError
 
 _LOGGER = logging.getLogger("pepdbagent")
 
@@ -196,12 +196,14 @@ class PEPDatabaseProject:
                 _LOGGER.info(
                     f"Update_only argument is set True. Updating project {proj_name} ..."
                 )
-                response = self._overwrite(project_dict=proj_dict,
-                                           namespace=namespace,
-                                           proj_name=proj_name,
-                                           tag=tag,
-                                           project_digest=proj_digest,
-                                           number_of_samples=number_of_samples)
+                response = self._overwrite(
+                    project_dict=proj_dict,
+                    namespace=namespace,
+                    proj_name=proj_name,
+                    tag=tag,
+                    project_digest=proj_digest,
+                    number_of_samples=number_of_samples,
+                )
                 return response
             else:
                 try:
@@ -243,12 +245,14 @@ class PEPDatabaseProject:
                 except UniqueViolation:
                     if overwrite:
 
-                        response = self._overwrite(project_dict=proj_dict,
-                                                   namespace=namespace,
-                                                   proj_name=proj_name,
-                                                   tag=tag,
-                                                   project_digest=proj_digest,
-                                                   number_of_samples=number_of_samples)
+                        response = self._overwrite(
+                            project_dict=proj_dict,
+                            namespace=namespace,
+                            proj_name=proj_name,
+                            tag=tag,
+                            project_digest=proj_digest,
+                            number_of_samples=number_of_samples,
+                        )
                         return response
                     else:
                         _LOGGER.warning(

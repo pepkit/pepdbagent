@@ -1,19 +1,18 @@
-from .base import BaseConnection
-from .annotation import PEPDatabaseAnnotation
-from .project import PEPDatabaseProject
-from .namespace import PEPDatabaseNamespace
+from .base_connection import BaseConnection
+from pepdbagent.modules.annotation import PEPDatabaseAnnotation
+from pepdbagent.modules.project import PEPDatabaseProject
+from pepdbagent.modules.namespace import PEPDatabaseNamespace
 
 
 class PEPDatabaseAgent(object):
-
     def __init__(
-            self,
-            host="localhost",
-            port=5432,
-            database="pep-db",
-            user=None,
-            password=None,
-            dsn=None,
+        self,
+        host="localhost",
+        port=5432,
+        database="pep-db",
+        user=None,
+        password=None,
+        dsn=None,
     ):
         """
         Initialize connection to the pep_db database. You can use The basic connection parameters
@@ -27,12 +26,14 @@ class PEPDatabaseAgent(object):
         (e.g. "localhost://username:password@pdp_db:5432")
         """
 
-        con = BaseConnection(host=host,
-                             port=port,
-                             database=database,
-                             user=user,
-                             password=password,
-                             dsn=dsn)
+        con = BaseConnection(
+            host=host,
+            port=port,
+            database=database,
+            user=user,
+            password=password,
+            dsn=dsn,
+        )
 
         self.__project = PEPDatabaseProject(con)
         self.__annotation = PEPDatabaseAnnotation(con)

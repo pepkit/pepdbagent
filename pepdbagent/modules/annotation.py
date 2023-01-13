@@ -1,8 +1,8 @@
 from typing import Union, List
 import logging
 
-from .base import BaseConnection
-from .const import (
+from pepdbagent.base_connection import BaseConnection
+from pepdbagent.const import (
     DEFAULT_LIMIT,
     DEFAULT_OFFSET,
     DEFAULT_TAG,
@@ -15,12 +15,12 @@ from .const import (
     SUBMISSION_DATE_COL,
     LAST_UPDATE_DATE_COL,
     DIGEST_COL,
-    DB_TABLE_NAME
+    DB_TABLE_NAME,
 )
-from .utils import tuple_converter, registry_path_converter
+from pepdbagent.utils import tuple_converter, registry_path_converter
 
-from .models import AnnotationModel, AnnotationReturnModel
-from .exceptions import RegistryPathError
+from pepdbagent.models import AnnotationModel, AnnotationReturnModel
+from pepdbagent.exceptions import RegistryPathError
 
 _LOGGER = logging.getLogger("pepdbagent")
 
@@ -46,7 +46,7 @@ class PEPDatabaseAnnotation:
         query: str = "",
         admin: Union[List[str], str] = None,
         limit: int = DEFAULT_LIMIT,
-        offset: int = DEFAULT_OFFSET
+        offset: int = DEFAULT_OFFSET,
     ) -> AnnotationReturnModel:
         """
 
@@ -61,12 +61,14 @@ class PEPDatabaseAnnotation:
         """
         ...
         if all([namespace, name, tag]):
-            found_annotations = list(self._get_single_annotation(
+            found_annotations = list(
+                self._get_single_annotation(
                     namespace=namespace,
                     name=name,
                     tag=tag,
                     admin=admin,
-                ))
+                )
+            )
             return AnnotationReturnModel(
                 count=len(found_annotations),
                 limit=1,
@@ -162,7 +164,9 @@ class PEPDatabaseAnnotation:
         if name:
             sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s 
                                 and ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s );"""
-            found_prj = self.con.run_sql_fetchone(sql_q, name, namespace, tag, False, admin_tuple)
+            found_prj = self.con.run_sql_fetchone(
+                sql_q, name, namespace, tag, False, admin_tuple
+            )
 
         else:
             _LOGGER.error(
@@ -261,7 +265,14 @@ class PEPDatabaseAnnotation:
                         LIMIT %s OFFSET %s;
         """
         results = self.con.run_sql_fetchall(
-            count_sql, search_str, search_str, False, admin_tuple, *namespace, limit, offset
+            count_sql,
+            search_str,
+            search_str,
+            False,
+            admin_tuple,
+            *namespace,
+            limit,
+            offset,
         )
         results_list = []
         try:
