@@ -150,7 +150,7 @@ class PEPDatabaseProject:
             return None
         return self.delete(namespace=namespace, name=name, tag=tag)
 
-    def upload(
+    def submit(
         self,
         project: peppy.Project,
         namespace: str,
@@ -357,7 +357,7 @@ class PEPDatabaseProject:
                 info="project does not exist!",
             )
 
-    def update(
+    def edit(
         self,
         update_dict: Union[dict, UpdateItems],
         namespace: str,
