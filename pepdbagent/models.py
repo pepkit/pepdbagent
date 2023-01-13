@@ -157,3 +157,33 @@ class NamespaceModel(Model):
 
 class NamespacesResponseModel(Model):
     namespaces: Optional[List[NamespaceModel]]
+
+######################################################################
+
+
+class AnnotationReturnModel(BaseModel):
+    count: int
+    limit: int
+    offset: int
+    result: List[Annotation]
+
+
+class NamespaceResultModel(BaseModel):
+    """
+    Model of single namespace search result
+    """
+
+    namespace: str
+    number_of_projects: int
+    number_of_samples: int
+
+
+class NamespaceReturnModel(BaseModel):
+    """
+    Model of combined namespace search results
+    """
+
+    number_of_results: int
+    limit: int
+    offset: int
+    results: List[NamespaceResultModel]
