@@ -59,9 +59,9 @@ def create_digest(project_dict: dict) -> str:
 
 def registry_path_converter(registry_path: str) -> Tuple[str, str, str]:
     """
-
-    :param registry_path:
-    :return:
+    Convert registry path to namespace, name, tag
+    :param registry_path: registry path that has structure: "namespace/name:tag"
+    :return: tuple(namespace, name, tag)
     """
     if is_valid_registry_path(registry_path):
         reg = ubiquerg.parse_registry_path(registry_path)
@@ -78,7 +78,7 @@ def tuple_converter(value: Union[tuple, list, str, None]) -> tuple:
     """
     Convert string list or tuple to tuple.
     # is used to create admin tuple.
-    :param value: Any value that has to converted to tuple
+    :param value: Any value that has to be converted to tuple
     :return: tuple of strings
     """
     if isinstance(value, str):

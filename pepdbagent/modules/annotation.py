@@ -49,17 +49,39 @@ class PEPDatabaseAnnotation:
         offset: int = DEFAULT_OFFSET,
     ) -> AnnotationReturnModel:
         """
-
-        :param namespace:
-        :param name:
-        :param tag:
-        :param query:
-        :param admin:
-        :param limit:
-        :param offset:
-        :return:
+        Get project annotations.
+        There is 5 scenarios how to get project or projects annotations:
+            - provide name, namespace and tag. Return: project annotations of exact provided PK(namespace, name, tag)
+            - provide only namespace. Return: list of projects annotations in specified namespace
+            - Nothing is provided. Return: list of projects annotations in all database
+            - provide query. Return: list of projects annotations find in database that have query pattern.
+            - provide query and namespace. Return:  list of projects annotations find in specific namespace
+                that have query pattern.
+        :param namespace: Namespace
+        :param name: Project name
+        :param tag: tag
+        :param query: query (search string): Pattern of name, tag or description
+        :param admin: admin name (namespace), or list of namespaces, where user is admin
+        :param limit: return limit
+        :param offset: return offset
+        :return: pydantic model: AnnotationReturnModel(
+            limit:
+            offset:
+            count:
+            result: List [ AnnotationModel(
+                        namespace:
+                        name:
+                        tag:
+                        is_private:
+                        number_of_samples:
+                        description:
+                        last_update_date:
+                        submission_date:
+                        digest:
+                    )
+                ]
+            )
         """
-        ...
         if all([namespace, name, tag]):
             found_annotations = list(
                 self._get_single_annotation(
@@ -96,10 +118,26 @@ class PEPDatabaseAnnotation:
         admin: Union[List[str], str] = None,
     ) -> AnnotationReturnModel:
         """
-
+        Get project annotations by providing registry_path or list of registry paths.
         :param registry_paths: registry path string or list of registry paths
         :param admin: list of namespaces where user is admin
-        :return:
+                :return: pydantic model: AnnotationReturnModel(
+            limit:
+            offset:
+            count:
+            result: List [ AnnotationModel(
+                        namespace:
+                        name:
+                        tag:
+                        is_private:
+                        number_of_samples:
+                        description:
+                        last_update_date:
+                        submission_date:
+                        digest:
+                    )
+                ]
+            )
         """
         if isinstance(registry_paths, list):
             anno_results = []
@@ -203,7 +241,7 @@ class PEPDatabaseAnnotation:
         """
         Get total number of found projects. [This function is related to _find_projects]
         :param namespace: namespace where to search for a project
-        :param search_str: search string. will be searched in name and description information
+        :param search_str: search string. will be searched in name, tag and description information
         :param admin: True, if user is admin for this namespace
         :return: number of found project in specified namespace
         """
@@ -219,10 +257,10 @@ class PEPDatabaseAnnotation:
         count_sql = f"""
         select count(*)
             from {DB_TABLE_NAME} 
-                where ({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s) 
+                where ({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s or {TAG_COL} ILIKE %s)
                     and ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s ) {and_namespace_sql};"""
         result = self.con.run_sql_fetchall(
-            count_sql, search_str, search_str, False, admin_tuple, *namespace
+            count_sql, search_str, search_str, search_str, False, admin_tuple, *namespace
         )
         try:
             number_of_prj = result[0][0]
@@ -241,7 +279,7 @@ class PEPDatabaseAnnotation:
         """
         Search for project inside namespace by providing search string.
         :param namespace: namespace where to search for a project
-        :param search_str: search string that has to be found in the name or project description
+        :param search_str: search string that has to be found in the name, tag or project description
         :param admin: True, if user is admin of the namespace [Default: False]
         :param limit: limit of return results
         :param offset: number of results off set (that were already showed)
@@ -260,12 +298,13 @@ class PEPDatabaseAnnotation:
         count_sql = f"""
         select {NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {N_SAMPLES_COL}, ({PROJ_COL}->>'description'), {DIGEST_COL}, {PRIVATE_COL}, {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL}
             from {DB_TABLE_NAME} 
-                where ({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s) 
+                where ({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s or {TAG_COL} ILIKE %s) 
                     and ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s ) {and_namespace_sql}
                         LIMIT %s OFFSET %s;
         """
         results = self.con.run_sql_fetchall(
             count_sql,
+            search_str,
             search_str,
             search_str,
             False,

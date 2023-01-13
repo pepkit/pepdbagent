@@ -54,12 +54,19 @@ dd_search_pr_namespace = con.annotation.get(
     query="s", admin=["Khoroshevskyi", "test_11"]
 )
 
+dd_all = con.annotation.get(
+    admin=["Khoroshevskyi", "test_11"]
+)
+
+
 print(dd_list)
 print(dd_list_private)
 
 print(dd_search)
 print(dd_search_pr)
 print(dd_search_pr_namespace)
+
+print(dd_all)
 
 ################
 # Namespace

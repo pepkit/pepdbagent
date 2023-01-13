@@ -1,4 +1,4 @@
-# file pydantic models
+# file with pydantic models
 import datetime
 from typing import List, Optional
 
@@ -34,6 +34,9 @@ class AnnotationModel(BaseModel):
 
 
 class AnnotationReturnModel(BaseModel):
+    """
+    Annotation return model.
+    """
     count: int
     limit: int
     offset: int
@@ -70,9 +73,6 @@ class UpdateItems(BaseModel):
     tag: Optional[str]
     is_private: Optional[bool]
     name: Optional[str]
-
-    # do not update
-    # anno_info: Optional[Annotation] = Field(alias="annot")
 
     # class Config:
     #     extra = Extra.forbid

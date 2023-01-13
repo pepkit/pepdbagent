@@ -108,8 +108,8 @@ class PEPDatabaseNamespace:
         return results_list
 
     def _count_namespace(self, search_str: str = "", admin_nsp: tuple = None) -> int:
-        """NamespaceSearchModel
-        Get number of found namespace. [This function is related to _find_namespaces]
+        """
+        Get number of found namespace. [This function is related to _get_namespaces]
         :param search_str: string of symbols, words, keywords to search in the
             namespace name.
         :param admin_nsp: tuple of namespaces where project can be retrieved if they are privet

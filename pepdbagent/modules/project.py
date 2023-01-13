@@ -40,12 +40,11 @@ class PEPDatabaseProject:
         raw: bool = False,
     ) -> Union[peppy.Project, dict, None]:
         """
-        Retrieve project from database by specifying project registry_path
-        :param peppy.Project project: peppy.Project object that has to be uploaded to the DB
+        Retrieve project from database by specifying namespace, name and tag
         :param namespace: namespace of the project
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
-        :param raw:retrieve unprocessed (raw) PEP dict.
+        :param raw: retrieve unprocessed (raw) PEP dict.
         :return: peppy.Project object with found project or dict with unprocessed
             PEP elements: {
                 name: str
@@ -91,7 +90,8 @@ class PEPDatabaseProject:
                     return None
         else:
             _LOGGER.warning(
-                f"No project found for supplied input: '{namespace}/{name}:{tag}'. Did you supply a valid namespace and project?"
+                f"No project found for supplied input: '{namespace}/{name}:{tag}'. "
+                f"Did you supply a valid namespace and project?"
             )
             return None
 
@@ -126,6 +126,13 @@ class PEPDatabaseProject:
         name: str = None,
         tag: str = None,
     ) -> None:
+        """
+        Delete record from database
+        :param namespace: Namespace
+        :param name: Name
+        :param tag: Tag
+        :return: None
+        """
         cursor = self.con.pg_connection.cursor()
         sql_delete = f"""DELETE FROM {DB_TABLE_NAME} 
             WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
@@ -143,6 +150,11 @@ class PEPDatabaseProject:
         self,
         registry_path: str,
     ) -> None:
+        """
+        Delete record from database by using registry_path
+        :param registry_path: Registry path of the project ('namespace/name:tag')
+        :return: None
+        """
         try:
             namespace, name, tag = registry_path_converter(registry_path)
         except RegistryPathError as err:
@@ -496,7 +508,7 @@ class PEPDatabaseProject:
         tag: str = None,
     ) -> bool:
         """
-        Checking if project exists in the database
+        Check if project exists in the database.
         :param namespace: project namespace
         :param name: project name
         :param tag: project tag
