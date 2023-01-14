@@ -43,7 +43,7 @@ class PEPDatabaseAnnotation:
         namespace: str = None,
         name: str = None,
         tag: str = None,
-        query: str = "",
+        query: str = None,
         admin: Union[List[str], str] = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
@@ -64,23 +64,7 @@ class PEPDatabaseAnnotation:
         :param admin: admin name (namespace), or list of namespaces, where user is admin
         :param limit: return limit
         :param offset: return offset
-        :return: pydantic model: AnnotationReturnModel(
-            limit:
-            offset:
-            count:
-            result: List [ AnnotationModel(
-                        namespace:
-                        name:
-                        tag:
-                        is_private:
-                        number_of_samples:
-                        description:
-                        last_update_date:
-                        submission_date:
-                        digest:
-                    )
-                ]
-            )
+        :return: pydantic model: AnnotationReturnModel
         """
         if all([namespace, name, tag]):
             found_annotations = list(
@@ -234,8 +218,8 @@ class PEPDatabaseAnnotation:
 
     def _count_projects(
         self,
-        namespace: str,
-        search_str: str = "",
+        namespace: str = None,
+        search_str: str = None,
         admin: Union[str, List[str]] = False,
     ) -> int:
         """
@@ -245,7 +229,13 @@ class PEPDatabaseAnnotation:
         :param admin: True, if user is admin for this namespace
         :return: number of found project in specified namespace
         """
-        search_str = f"%%{search_str}%%"
+        if search_str:
+            search_str = f"%%{search_str}%%"
+            search_sql_values = (search_str, search_str, search_str,)
+            search_sql = f"""({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s or {TAG_COL} ILIKE %s) and"""
+        else:
+            search_sql_values = tuple()
+            search_sql = ""
         admin_tuple = tuple_converter(admin)
         if namespace:
             and_namespace_sql = f"""AND {NAMESPACE_COL} = %s"""
@@ -256,14 +246,12 @@ class PEPDatabaseAnnotation:
 
         count_sql = f"""
         select count(*)
-            from {DB_TABLE_NAME} 
-                where ({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s or {TAG_COL} ILIKE %s)
-                    and ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s ) {and_namespace_sql};"""
+            from {DB_TABLE_NAME} where 
+                    {search_sql}
+                    ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s ) {and_namespace_sql};"""
         result = self.con.run_sql_fetchall(
             count_sql,
-            search_str,
-            search_str,
-            search_str,
+            *search_sql_values,
             False,
             admin_tuple,
             *namespace,
@@ -277,7 +265,7 @@ class PEPDatabaseAnnotation:
     def _get_projects(
         self,
         namespace: str = None,
-        search_str: str = "",
+        search_str: str = None,
         admin: Union[str, List[str]] = False,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
@@ -291,7 +279,13 @@ class PEPDatabaseAnnotation:
         :param offset: number of results off set (that were already showed)
         :return: list of found projects with their annotations.
         """
-        search_str = f"%%{search_str}%%"
+        if search_str:
+            search_str = f"%%{search_str}%%"
+            search_sql_values = (search_str, search_str, search_str,)
+            search_sql = f"""({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s or {TAG_COL} ILIKE %s) and"""
+        else:
+            search_sql_values = tuple()
+            search_sql = ""
         admin_tuple = tuple_converter(admin)
 
         if namespace:
@@ -303,16 +297,14 @@ class PEPDatabaseAnnotation:
 
         count_sql = f"""
         select {NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {N_SAMPLES_COL}, ({PROJ_COL}->>'description'), {DIGEST_COL}, {PRIVATE_COL}, {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL}
-            from {DB_TABLE_NAME} 
-                where ({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s or {TAG_COL} ILIKE %s) 
-                    and ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s ) {and_namespace_sql}
+            from {DB_TABLE_NAME} where
+                 {search_sql}
+                    ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s ) {and_namespace_sql}
                         LIMIT %s OFFSET %s;
         """
         results = self.con.run_sql_fetchall(
             count_sql,
-            search_str,
-            search_str,
-            search_str,
+            *search_sql_values,
             False,
             admin_tuple,
             *namespace,
@@ -320,22 +312,19 @@ class PEPDatabaseAnnotation:
             offset,
         )
         results_list = []
-        try:
-            for res in results:
-                results_list.append(
-                    AnnotationModel(
-                        namespace=res[0],
-                        name=res[1],
-                        tag=res[2],
-                        number_of_samples=res[3],
-                        description=res[4],
-                        digest=res[5],
-                        is_private=res[6],
-                        last_update_date=str(res[8]),
-                        submission_date=str(res[7]),
-                    )
+        for res in results:
+            results_list.append(
+                AnnotationModel(
+                    namespace=res[0],
+                    name=res[1],
+                    tag=res[2],
+                    number_of_samples=res[3],
+                    description=res[4],
+                    digest=res[5],
+                    is_private=res[6],
+                    last_update_date=str(res[8]),
+                    submission_date=str(res[7]),
                 )
-        except KeyError:
-            results_list = []
+            )
 
         return results_list

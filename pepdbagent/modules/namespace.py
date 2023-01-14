@@ -81,16 +81,23 @@ class PEPDatabaseNamespace:
                 number_of_samples,
             }
         """
-        search_str = f"%%{search_str}%%"
+        if search_str:
+            search_str = f"%%{search_str}%%"
+            search_sql_values = (search_str, )
+            search_sql = f"""{NAMESPACE_COL} ILIKE %s and"""
+        else:
+            search_sql_values = tuple()
+            search_sql = ""
+
         count_sql = f"""
         select {NAMESPACE_COL}, COUNT({NAME_COL}), SUM({N_SAMPLES_COL})
-            from {DB_TABLE_NAME} where (({NAMESPACE_COL} ILIKE %s and {PRIVATE_COL} is %s)
-                or ({NAMESPACE_COL} ILIKE %s and {NAMESPACE_COL} in %s )) 
+            from {DB_TABLE_NAME} where {search_sql}
+                ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s) 
                     GROUP BY {NAMESPACE_COL}
                         LIMIT %s OFFSET %s;
         """
         results = self.con.run_sql_fetchall(
-            count_sql, search_str, False, search_str, admin_nsp, limit, offset
+            count_sql, *search_sql_values, False, admin_nsp, limit, offset
         )
         results_list = []
         try:
@@ -107,7 +114,7 @@ class PEPDatabaseNamespace:
 
         return results_list
 
-    def _count_namespace(self, search_str: str = "", admin_nsp: tuple = None) -> int:
+    def _count_namespace(self, search_str: str = None, admin_nsp: tuple = None) -> int:
         """
         Get number of found namespace. [This function is related to _get_namespaces]
         :param search_str: string of symbols, words, keywords to search in the
@@ -115,14 +122,20 @@ class PEPDatabaseNamespace:
         :param admin_nsp: tuple of namespaces where project can be retrieved if they are privet
         :return: number of found namespaces
         """
-        search_str = f"%%{search_str}%%"
+        if search_str:
+            search_str = f"%%{search_str}%%"
+            search_sql_values = (search_str,)
+            search_sql = f"""{NAMESPACE_COL} ILIKE %s and"""
+        else:
+            search_sql_values = tuple()
+            search_sql = ""
         count_sql = f"""
         select COUNT(DISTINCT ({NAMESPACE_COL}))
-            from {DB_TABLE_NAME} where (({NAMESPACE_COL} ILIKE %s and {PRIVATE_COL} = %s)
-                or ({NAMESPACE_COL} ILIKE %s and {NAMESPACE_COL} in %s )) 
+            from {DB_TABLE_NAME} where {search_sql}
+                ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s) 
         """
         result = self.con.run_sql_fetchall(
-            count_sql, search_str, False, search_str, admin_nsp
+            count_sql, *search_sql_values, False, admin_nsp
         )
         try:
             number_of_prj = result[0][0]
