@@ -56,3 +56,9 @@ class PEPDatabaseAgent(object):
 
     def __str__(self):
         return f"Connection to the database: '{self.__db_name}' is set!"
+
+    def __del__(self):
+        self.con.__del__()
+
+    def __exit__(self):
+        self.con.__exit__()

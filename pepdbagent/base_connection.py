@@ -69,6 +69,9 @@ class BaseConnection:
     def __exit__(self):
         self.close_connection()
 
+    def __del__(self):
+        self.close_connection()
+
     def run_sql_fetchone(self, sql_query: str, *argv) -> list:
         """
         Fetching one result by providing sql query and arguments
