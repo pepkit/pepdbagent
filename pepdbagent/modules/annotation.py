@@ -212,7 +212,7 @@ class PEPDatabaseAnnotation:
         admin: Union[str, List[str]] = None,
     ) -> int:
         """
-        Get total number of found projects. [This function is related to _find_projects]
+        Count projects. [This function is related to _find_projects]
         :param namespace: namespace where to search for a project
         :param search_str: search string. will be searched in name, tag and description information
         :param admin: string or list of admins [e.g. "Khoroshevskyi", or ["doc_adin","Khoroshevskyi"]]
