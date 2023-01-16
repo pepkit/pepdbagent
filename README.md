@@ -13,4 +13,4 @@ To install pep-db you can use this tutorial:
 
 
 pepdbagent tutorial is here:
-- [pedbagent](./docs/tutorial.md)
+- [pedbagent](./docs/README.md)

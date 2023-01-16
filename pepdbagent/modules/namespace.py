@@ -1,4 +1,5 @@
 from typing import Union, List
+import logging
 
 from pepdbagent.base_connection import BaseConnection
 from pepdbagent.const import (
@@ -13,6 +14,8 @@ from pepdbagent.const import (
 
 from pepdbagent.models import NamespaceResultModel, NamespaceReturnModel
 from pepdbagent.utils import tuple_converter
+
+_LOGGER = logging.getLogger("pepdbagent")
 
 
 class PEPDatabaseNamespace:
@@ -49,6 +52,7 @@ class PEPDatabaseNamespace:
                 search results
             }
         """
+        _LOGGER.info(f"Getting namespaces annotation with provided info: (query: {query})")
         admin_tuple = tuple_converter(admin)
         return NamespaceReturnModel(
             number_of_results=self._count_namespace(
