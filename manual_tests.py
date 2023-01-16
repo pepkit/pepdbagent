@@ -74,7 +74,6 @@ ff = con.namespace.get("Khoroshevskyi", admin="Khoroshevskyi")
 print(ff)
 
 
-
 ff = con.project.get_by_rp("Khoroshevskyi/gse_yaml:default")
 
 print(ff)
@@ -82,4 +81,9 @@ print(ff)
 
 dell = con.project.delete(namespace="Khoroshevskyi", name="dupa", tag="test1")
 
-con.project.edit(update_dict={"is_private": False},namespace="Khoroshevskyi", name="dupa", tag="test1")
+con.project.edit(
+    update_dict={"is_private": False},
+    namespace="Khoroshevskyi",
+    name="dupa",
+    tag="test1",
+)

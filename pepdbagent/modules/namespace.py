@@ -52,7 +52,9 @@ class PEPDatabaseNamespace:
                 search results
             }
         """
-        _LOGGER.info(f"Getting namespaces annotation with provided info: (query: {query})")
+        _LOGGER.info(
+            f"Getting namespaces annotation with provided info: (query: {query})"
+        )
         admin_tuple = tuple_converter(admin)
         return NamespaceReturnModel(
             number_of_results=self._count_namespace(
@@ -87,7 +89,7 @@ class PEPDatabaseNamespace:
         """
         if search_str:
             search_str = f"%%{search_str}%%"
-            search_sql_values = (search_str, )
+            search_sql_values = (search_str,)
             search_sql = f"""{NAMESPACE_COL} ILIKE %s and"""
         else:
             search_sql_values = tuple()

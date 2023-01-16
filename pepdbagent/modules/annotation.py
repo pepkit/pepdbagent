@@ -132,7 +132,9 @@ class PEPDatabaseAnnotation:
                     _LOGGER.error(str(err), registry_paths)
                     continue
                 try:
-                    single_return = self._get_single_annotation(namespace, name, tag, admin)
+                    single_return = self._get_single_annotation(
+                        namespace, name, tag, admin
+                    )
                     if single_return:
                         anno_results.append(single_return)
                 except ProjectExistenceError:
@@ -200,10 +202,14 @@ class PEPDatabaseAnnotation:
                 last_update_date=str(found_prj[7]),
                 digest=found_prj[8],
             )
-            _LOGGER.info(f"Annotation of the project '{namespace}/{name}:{tag}' has been found!")
+            _LOGGER.info(
+                f"Annotation of the project '{namespace}/{name}:{tag}' has been found!"
+            )
             return annot
         else:
-            raise ProjectExistenceError(f"Project '{namespace}/{name}:{tag}' was not found.")
+            raise ProjectExistenceError(
+                f"Project '{namespace}/{name}:{tag}' was not found."
+            )
 
     def _count_projects(
         self,
@@ -220,7 +226,11 @@ class PEPDatabaseAnnotation:
         """
         if search_str:
             search_str = f"%%{search_str}%%"
-            search_sql_values = (search_str, search_str, search_str,)
+            search_sql_values = (
+                search_str,
+                search_str,
+                search_str,
+            )
             search_sql = f"""({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s or {TAG_COL} ILIKE %s) and"""
         else:
             search_sql_values = tuple()
@@ -268,10 +278,16 @@ class PEPDatabaseAnnotation:
         :param offset: number of results off set (that were already showed)
         :return: list of found projects with their annotations.
         """
-        _LOGGER.info(f"Running annotation search: (namespace: {namespace}, query: {search_str}.")
+        _LOGGER.info(
+            f"Running annotation search: (namespace: {namespace}, query: {search_str}."
+        )
         if search_str:
             search_str = f"%%{search_str}%%"
-            search_sql_values = (search_str, search_str, search_str,)
+            search_sql_values = (
+                search_str,
+                search_str,
+                search_str,
+            )
             search_sql = f"""({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s or {TAG_COL} ILIKE %s) and"""
         else:
             search_sql_values = tuple()

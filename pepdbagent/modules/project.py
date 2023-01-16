@@ -63,7 +63,9 @@ class PEPDatabaseProject:
                 select {ID_COL}, {PROJ_COL}, {PRIVATE_COL} from {DB_TABLE_NAME}
                 """
 
-        sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
+        sql_q = (
+            f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
+        )
         found_prj = self.con.run_sql_fetchone(sql_q, name, namespace, tag)
 
         if found_prj:
@@ -78,9 +80,10 @@ class PEPDatabaseProject:
                 return project_obj
 
         else:
-            raise ProjectExistenceError(f"No project found for supplied input: '{namespace}/{name}:{tag}'. "
-                                        f"Did you supply a valid namespace and project?"
-                                        )
+            raise ProjectExistenceError(
+                f"No project found for supplied input: '{namespace}/{name}:{tag}'. "
+                f"Did you supply a valid namespace and project?"
+            )
 
     def get_by_rp(
         self,
@@ -121,7 +124,9 @@ class PEPDatabaseProject:
             WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
 
         if not self.exists(namespace=namespace, name=name, tag=tag):
-            raise ProjectExistenceError(f"Can't delete unexciting project: '{namespace}/{name}:{tag}'.")
+            raise ProjectExistenceError(
+                f"Can't delete unexciting project: '{namespace}/{name}:{tag}'."
+            )
 
         try:
             cursor.execute(sql_delete, (namespace, name, tag))
@@ -243,12 +248,16 @@ class PEPDatabaseProject:
                     )
                     return None
                 else:
-                    raise ProjectUniqueNameError(f"Namespace, name and tag already exists. Project won't be "
-                                                 f"uploaded. Solution: Set overwrite value as True"
-                                                 f" (project will be overwritten), or change tag!")
+                    raise ProjectUniqueNameError(
+                        f"Namespace, name and tag already exists. Project won't be "
+                        f"uploaded. Solution: Set overwrite value as True"
+                        f" (project will be overwritten), or change tag!"
+                    )
 
             except NotNullViolation as err:
-                raise ProjectNameError(f"Name of the project wasn't provided. Project will not be uploaded. Error: {err}")
+                raise ProjectNameError(
+                    f"Name of the project wasn't provided. Project will not be uploaded. Error: {err}"
+                )
 
     def _overwrite(
         self,
@@ -296,7 +305,9 @@ class PEPDatabaseProject:
             return None
 
         else:
-            raise ProjectExistenceError("Project does not exist! No project will be updated!")
+            raise ProjectExistenceError(
+                "Project does not exist! No project will be updated!"
+            )
 
     def edit(
         self,
@@ -332,9 +343,7 @@ class PEPDatabaseProject:
 
             if update_values.project_value is not None:
                 update_final = UpdateModel(
-                    project_value=update_values.project_value.to_dict(
-                        extended=True
-                    ),
+                    project_value=update_values.project_value.to_dict(extended=True),
                     name=update_values.project_value.name,
                     digest=create_digest(
                         update_values.project_value.to_dict(extended=True)
@@ -368,9 +377,7 @@ class PEPDatabaseProject:
                 sql,
                 (*set_values, namespace, name, tag),
             )
-            _LOGGER.info(
-                f"Record '{namespace}/{name}:{tag}' was successfully updated!"
-            )
+            _LOGGER.info(f"Record '{namespace}/{name}:{tag}' was successfully updated!")
             self.con.commit_to_database()
 
         else:

@@ -16,7 +16,7 @@ class SchemaError(PEPDatabaseAgentError):
 
 
 class RegistryPathError(PEPDatabaseAgentError):
-    def __init__(self, msg=''):
+    def __init__(self, msg=""):
         super().__init__(f"""Provided registry path is incorrect. {msg}""")
 
 
