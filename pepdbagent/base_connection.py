@@ -37,7 +37,7 @@ class BaseConnection:
 
         if dsn is not None:
             self.pg_connection = psycopg2.connect(dsn)
-            self.db_name = urlparse(dsn).path[1:]
+            self.db_name = self._extract_db_name(dsn)
         else:
             self.pg_connection = psycopg2.connect(
                 host=host,
@@ -131,3 +131,12 @@ class BaseConnection:
         cols_name.sort()
         if DB_COLUMNS != cols_name:
             raise SchemaError
+
+    @staticmethod
+    def _extract_db_name(dsn: str) -> str:
+        """
+        Extract database name from libpq conncection string
+        :param dsn: libpq connection string using the dsn parameter
+        :return: database name
+        """
+        return urlparse(dsn).path[1:]
