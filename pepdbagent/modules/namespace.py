@@ -100,18 +100,14 @@ class PEPDatabaseNamespace:
             count_sql, *search_sql_values, False, admin_nsp, limit, offset
         )
         results_list = []
-        try:
-            for res in results:
-                results_list.append(
-                    NamespaceResultModel(
-                        namespace=res[0],
-                        number_of_projects=res[1],
-                        number_of_samples=res[2],
-                    )
+        for res in results:
+            results_list.append(
+                NamespaceResultModel(
+                    namespace=res[0],
+                    number_of_projects=res[1],
+                    number_of_samples=res[2],
                 )
-        except KeyError:
-            results_list = []
-
+            )
         return results_list
 
     def _count_namespace(self, search_str: str = None, admin_nsp: tuple = None) -> int:

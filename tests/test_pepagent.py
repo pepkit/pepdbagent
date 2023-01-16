@@ -16,8 +16,8 @@ def test_connection_initializes_correctly_from_dsn(
 
     c = PEPDatabaseAgent(dsn=test_dsn)
 
-    assert c.con.db_name == "pep-base-sql"
-    assert c.con.pg_connection.autocommit
+    assert c.connection.db_name == "pep-base-sql"
+    assert c.connection.pg_connection.autocommit
 
 
 def test_connection_initializes_correctly_without_dsn(
@@ -37,8 +37,8 @@ def test_connection_initializes_correctly_without_dsn(
         password="docker",
     )
 
-    assert c.con.db_name == "pep-base-sql"
-    assert c.con.pg_connection.autocommit
+    assert c.connection.db_name == "pep-base-sql"
+    assert c.connection.pg_connection.autocommit
 
 
 def test_upload_project_success(
@@ -160,6 +160,11 @@ def test_delete_project(mocker, test_dsn, sql_output_for_check_conn_db):
         "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
         return_value=sql_output_for_check_conn_db,
     )
+    mocker.patch(
+        "pepdbagent.pepdbagent.PEPDatabaseProject.exists",
+        return_value=True,
+    )
+
     database_commit_mock = mocker.patch("psycopg2.connect")
 
     mocker.patch("psycopg2.connect")

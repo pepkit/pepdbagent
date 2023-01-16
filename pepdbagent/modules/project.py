@@ -3,18 +3,20 @@ import json
 from typing import Union, Tuple
 import logging
 import peppy
-import psycopg2
 from psycopg2.errors import NotNullViolation, UniqueViolation
 
 from pepdbagent.models import (
-    UploadResponse,
     UpdateModel,
     UpdateItems,
 )
 from pepdbagent.base_connection import BaseConnection
 from pepdbagent.const import *
 from pepdbagent.utils import create_digest, registry_path_converter
-from pepdbagent.exceptions import RegistryPathError
+from pepdbagent.exceptions import (
+    ProjectExistenceError,
+    ProjectUniqueNameError,
+    ProjectNameError,
+)
 
 _LOGGER = logging.getLogger("pepdbagent")
 
@@ -36,7 +38,7 @@ class PEPDatabaseProject:
         self,
         namespace: str,
         name: str,
-        tag: str,
+        tag: str = None,
         raw: bool = False,
     ) -> Union[peppy.Project, dict, None]:
         """
@@ -61,16 +63,8 @@ class PEPDatabaseProject:
                 select {ID_COL}, {PROJ_COL}, {PRIVATE_COL} from {DB_TABLE_NAME}
                 """
 
-        if name is not None:
-            sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
-            found_prj = self.con.run_sql_fetchone(sql_q, name, namespace, tag)
-
-        else:
-            _LOGGER.error(
-                "You haven't provided name! Execution is unsuccessful"
-                "Files haven't been downloaded, returning empty project"
-            )
-            return None
+        sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
+        found_prj = self.con.run_sql_fetchone(sql_q, name, namespace, tag)
 
         if found_prj:
             _LOGGER.info(f"Project has been found: {found_prj[0]}")
@@ -79,21 +73,14 @@ class PEPDatabaseProject:
             if raw:
                 return project_value
             else:
-                try:
-                    project_obj = peppy.Project().from_dict(project_value)
-                    project_obj.is_private = is_private
-                    return project_obj
-                except Exception:
-                    _LOGGER.error(
-                        f"Error in init project. Error occurred in peppy. Project id={found_prj[0]}"
-                    )
-                    return None
+                project_obj = peppy.Project().from_dict(project_value)
+                project_obj.is_private = is_private
+                return project_obj
+
         else:
-            _LOGGER.warning(
-                f"No project found for supplied input: '{namespace}/{name}:{tag}'. "
-                f"Did you supply a valid namespace and project?"
-            )
-            return None
+            raise ProjectExistenceError(f"No project found for supplied input: '{namespace}/{name}:{tag}'. "
+                                        f"Did you supply a valid namespace and project?"
+                                        )
 
     def get_by_rp(
         self,
@@ -113,11 +100,7 @@ class PEPDatabaseProject:
                 _subsample_dict: dict
             }
         """
-        try:
-            namespace, name, tag = registry_path_converter(registry_path)
-        except RegistryPathError as err:
-            _LOGGER.error(str(err), registry_path)
-            return None
+        namespace, name, tag = registry_path_converter(registry_path)
         return self.get(namespace=namespace, name=name, tag=tag, raw=raw)
 
     def delete(
@@ -137,6 +120,9 @@ class PEPDatabaseProject:
         sql_delete = f"""DELETE FROM {DB_TABLE_NAME} 
             WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
 
+        if not self.exists(namespace=namespace, name=name, tag=tag):
+            raise ProjectExistenceError(f"Can't delete unexciting project: '{namespace}/{name}:{tag}'.")
+
         try:
             cursor.execute(sql_delete, (namespace, name, tag))
             _LOGGER.info(f"Project '{namespace}/{name}:{tag} was successfully deleted'")
@@ -155,11 +141,7 @@ class PEPDatabaseProject:
         :param registry_path: Registry path of the project ('namespace/name:tag')
         :return: None
         """
-        try:
-            namespace, name, tag = registry_path_converter(registry_path)
-        except RegistryPathError as err:
-            _LOGGER.error(str(err), registry_path)
-            return None
+        namespace, name, tag = registry_path_converter(registry_path)
         return self.delete(namespace=namespace, name=name, tag=tag)
 
     def submit(
@@ -171,7 +153,7 @@ class PEPDatabaseProject:
         is_private: bool = False,
         overwrite: bool = False,
         update_only: bool = False,
-    ) -> UploadResponse:
+    ) -> None:
         """
         Upload project to the database.
         Project with the key, that already exists won't be uploaded(but case, when argument
@@ -184,123 +166,89 @@ class PEPDatabaseProject:
         :param overwrite: if project exists overwrite the project, otherwise upload it.
             [Default: False - project won't be overwritten if it exists in db]
         :param update_only: if project exists overwrite it, otherwise do nothing.  [Default: False]
+        :return: None
         """
         cursor = self.con.pg_connection.cursor()
-        try:
-            if tag is None:
-                tag = DEFAULT_TAG
+        if tag is None:
+            tag = DEFAULT_TAG
 
-            proj_dict = project.to_dict(extended=True)
+        proj_dict = project.to_dict(extended=True)
 
-            if name:
-                proj_name = name
-            else:
-                proj_name = proj_dict["name"]
+        if name:
+            proj_name = name
+        else:
+            proj_name = proj_dict["name"]
 
-            proj_dict["name"] = name
+        proj_dict["name"] = name
 
-            proj_digest = create_digest(proj_dict)
+        proj_digest = create_digest(proj_dict)
 
-            number_of_samples = len(project.samples)
-            proj_dict = json.dumps(proj_dict)
+        number_of_samples = len(project.samples)
+        proj_dict = json.dumps(proj_dict)
 
-            if update_only:
+        if update_only:
+            _LOGGER.info(
+                f"Update_only argument is set True. Updating project {proj_name} ..."
+            )
+            self._overwrite(
+                project_dict=proj_dict,
+                namespace=namespace,
+                proj_name=proj_name,
+                tag=tag,
+                project_digest=proj_digest,
+                number_of_samples=number_of_samples,
+            )
+            return None
+        else:
+            try:
+                _LOGGER.info(f"Uploading {namespace}/{proj_name}:{tag} project...")
+
+                sql_base = f"""INSERT INTO {DB_TABLE_NAME} 
+                ({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {N_SAMPLES_COL}, {PRIVATE_COL}, {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL})
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING {ID_COL};"""
+
+                cursor.execute(
+                    sql_base,
+                    (
+                        namespace,
+                        proj_name,
+                        tag,
+                        proj_digest,
+                        proj_dict,
+                        number_of_samples,
+                        is_private,
+                        datetime.datetime.now(),
+                        datetime.datetime.now(),
+                    ),
+                )
+                proj_id = cursor.fetchone()[0]
+
+                self.con.commit_to_database()
+                cursor.close()
                 _LOGGER.info(
-                    f"Update_only argument is set True. Updating project {proj_name} ..."
+                    f"Project: '{namespace}/{proj_name}:{tag}' was successfully uploaded."
                 )
-                response = self._overwrite(
-                    project_dict=proj_dict,
-                    namespace=namespace,
-                    proj_name=proj_name,
-                    tag=tag,
-                    project_digest=proj_digest,
-                    number_of_samples=number_of_samples,
-                )
-                return response
-            else:
-                try:
-                    _LOGGER.info(f"Uploading {namespace}/{proj_name}:{tag} project...")
+                return None
 
-                    sql_base = f"""INSERT INTO {DB_TABLE_NAME} 
-                    ({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {N_SAMPLES_COL}, {PRIVATE_COL}, {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL})
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                            RETURNING {ID_COL};"""
-
-                    cursor.execute(
-                        sql_base,
-                        (
-                            namespace,
-                            proj_name,
-                            tag,
-                            proj_digest,
-                            proj_dict,
-                            number_of_samples,
-                            is_private,
-                            datetime.datetime.now(),
-                            datetime.datetime.now(),
-                        ),
+            except UniqueViolation:
+                if overwrite:
+                    self._overwrite(
+                        project_dict=proj_dict,
+                        namespace=namespace,
+                        proj_name=proj_name,
+                        tag=tag,
+                        project_digest=proj_digest,
+                        number_of_samples=number_of_samples,
                     )
-                    proj_id = cursor.fetchone()[0]
+                    return None
+                else:
+                    raise ProjectUniqueNameError(f"Namespace, name and tag already exists. Project won't be "
+                                                 f"uploaded. Solution: Set overwrite value as True"
+                                                 f" (project will be overwritten), or change tag!")
 
-                    self.con.commit_to_database()
-                    cursor.close()
-                    _LOGGER.info(
-                        f"Project: '{namespace}/{proj_name}:{tag}' was successfully uploaded."
-                    )
-                    return UploadResponse(
-                        registry_path=f"{namespace}/{proj_name}:{tag}",
-                        log_stage="upload_project",
-                        status="success",
-                        info=f"",
-                    )
-
-                except UniqueViolation:
-                    if overwrite:
-
-                        response = self._overwrite(
-                            project_dict=proj_dict,
-                            namespace=namespace,
-                            proj_name=proj_name,
-                            tag=tag,
-                            project_digest=proj_digest,
-                            number_of_samples=number_of_samples,
-                        )
-                        return response
-                    else:
-                        _LOGGER.warning(
-                            f"Namespace, name and tag already exists. Project won't be uploaded. "
-                            f"Solution: Set overwrite value as True (project will be overwritten),"
-                            f" or change tag!"
-                        )
-                        return UploadResponse(
-                            registry_path=f"{namespace}/{proj_name}:{tag}",
-                            log_stage="upload_project",
-                            status="warning",
-                            info=f"project already exists! Overwrite argument is False",
-                        )
-
-                except NotNullViolation as err:
-                    _LOGGER.error(
-                        f"Name of the project wasn't provided. Project will not be uploaded. Error: {err}"
-                    )
-                    return UploadResponse(
-                        registry_path=f"{namespace}/{proj_name}:{tag}",
-                        log_stage="upload_project",
-                        status="failure",
-                        info=f"NotNullViolation. Error message: {err}",
-                    )
-
-        except psycopg2.Error as e:
-            _LOGGER.error(
-                f"Error while uploading project. Project hasn't been uploaded! Error: {e}"
-            )
-            cursor.close()
-            return UploadResponse(
-                registry_path=f"None",
-                log_stage="upload_project",
-                status="failure",
-                info=f"psycopg2.Error. Error message: {e}",
-            )
+            except NotNullViolation as err:
+                raise ProjectNameError(f"Name of the project wasn't provided. Project will not be uploaded. Error: {err}")
 
     def _overwrite(
         self,
@@ -310,7 +258,7 @@ class PEPDatabaseProject:
         tag: str,
         project_digest: str,
         number_of_samples: int,
-    ) -> UploadResponse:
+    ) -> None:
         """
         Update existing project by providing all necessary information.
         :param project_dict: project dictionary in json format
@@ -319,59 +267,36 @@ class PEPDatabaseProject:
         :param tag: project tag
         :param project_digest: project digest
         :param number_of_samples: number of samples in project
-        :return: UploadResponse with information if project was updated
+        :return: None
         """
 
         cursor = self.con.pg_connection.cursor()
 
         if self.exists(namespace=namespace, name=proj_name, tag=tag):
-            try:
-                _LOGGER.info(f"Updating {proj_name} project...")
-                sql = f"""UPDATE {DB_TABLE_NAME}
-                    SET {DIGEST_COL} = %s, {PROJ_COL}= %s, {N_SAMPLES_COL}= %s, {LAST_UPDATE_DATE_COL} = %s
-                    WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
-                cursor.execute(
-                    sql,
-                    (
-                        project_digest,
-                        project_dict,
-                        number_of_samples,
-                        datetime.datetime.now(),
-                        namespace,
-                        proj_name,
-                        tag,
-                    ),
-                )
-                self.con.commit_to_database()
-                _LOGGER.info(
-                    f"Project '{namespace}/{proj_name}:{tag}' has been updated!"
-                )
-                return UploadResponse(
-                    registry_path=f"{namespace}/{proj_name}:{tag}",
-                    log_stage="update_project",
-                    status="success",
-                    info=f"Project was updated",
-                )
-
-            except psycopg2.Error as err:
-                _LOGGER.error(
-                    f"Error occurred while updating the project! Error: {err}"
-                )
-                return UploadResponse(
-                    registry_path=f"{namespace}/{proj_name}:{tag}",
-                    log_stage="update_project",
-                    status="failure",
-                    info=f"Error in executing sql! Error message: {err}",
-                )
+            _LOGGER.info(f"Updating {proj_name} project...")
+            sql = f"""UPDATE {DB_TABLE_NAME}
+                SET {DIGEST_COL} = %s, {PROJ_COL}= %s, {N_SAMPLES_COL}= %s, {LAST_UPDATE_DATE_COL} = %s
+                WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
+            cursor.execute(
+                sql,
+                (
+                    project_digest,
+                    project_dict,
+                    number_of_samples,
+                    datetime.datetime.now(),
+                    namespace,
+                    proj_name,
+                    tag,
+                ),
+            )
+            self.con.commit_to_database()
+            _LOGGER.info(
+                f"Project '{namespace}/{proj_name}:{tag}' has been updated successfully!"
+            )
+            return None
 
         else:
-            _LOGGER.error("Project does not exist! No project will be updated!")
-            return UploadResponse(
-                registry_path=f"{namespace}/{proj_name}:{tag}",
-                log_stage="update_project",
-                status="failure",
-                info="project does not exist!",
-            )
+            raise ProjectExistenceError("Project does not exist! No project will be updated!")
 
     def edit(
         self,
@@ -379,7 +304,7 @@ class PEPDatabaseProject:
         namespace: str,
         name: str,
         tag: str,
-    ) -> UploadResponse:
+    ) -> None:
         """
         Update partial parts of the record in db
         :param update_dict: dict with update key->values. Dict structure:
@@ -393,7 +318,7 @@ class PEPDatabaseProject:
         :param namespace: project namespace
         :param name: project name
         :param tag: project tag
-        :return: ResponseModel with information if project was updated
+        :return: None
         """
         cursor = self.con.pg_connection.cursor()
 
@@ -403,75 +328,55 @@ class PEPDatabaseProject:
             update_values = UpdateItems(**update_dict)
 
         if self.exists(namespace=namespace, name=name, tag=tag):
-            try:
-                update_final = UpdateModel()
+            update_final = UpdateModel()
 
-                if update_values.project_value is not None:
-                    update_final = UpdateModel(
-                        project_value=update_values.project_value.to_dict(
-                            extended=True
-                        ),
-                        name=update_values.project_value.name,
-                        digest=create_digest(
-                            update_values.project_value.to_dict(extended=True)
-                        ),
-                        last_update_date=datetime.datetime.now(),
-                        number_of_samples=len(update_values.project_value.samples),
-                    )
-
-                if update_values.tag is not None:
-                    update_final = UpdateModel(
-                        tag=update_values.tag, **update_final.dict(exclude_unset=True)
-                    )
-
-                if update_values.is_private is not None:
-                    update_final = UpdateModel(
-                        is_private=update_values.is_private,
-                        **update_final.dict(exclude_unset=True),
-                    )
-
-                if update_values.name is not None:
-                    update_final = UpdateModel(
-                        name=update_values.name, **update_final.dict(exclude_unset=True)
-                    )
-
-                set_sql, set_values = self.__create_update_set(update_final)
-                sql = f"""UPDATE {DB_TABLE_NAME}
-                    {set_sql}
-                    WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
-                _LOGGER.debug("Updating items...")
-                cursor.execute(
-                    sql,
-                    (*set_values, namespace, name, tag),
+            if update_values.project_value is not None:
+                update_final = UpdateModel(
+                    project_value=update_values.project_value.to_dict(
+                        extended=True
+                    ),
+                    name=update_values.project_value.name,
+                    digest=create_digest(
+                        update_values.project_value.to_dict(extended=True)
+                    ),
+                    last_update_date=datetime.datetime.now(),
+                    number_of_samples=len(update_values.project_value.samples),
                 )
-                _LOGGER.info(
-                    f"Record '{namespace}/{name}:{tag}' was successfully updated!"
-                )
-                self.con.commit_to_database()
 
-            except Exception as err:
-                _LOGGER.error(f"Error while updating project! Error: {err}")
-                return UploadResponse(
-                    registry_path=f"{namespace}/{name}:{tag}",
-                    log_stage="update_item",
-                    status="failure",
-                    info=f"Error in executing SQL. {err}!",
+            if update_values.tag is not None:
+                update_final = UpdateModel(
+                    tag=update_values.tag, **update_final.dict(exclude_unset=True)
                 )
-        else:
-            _LOGGER.error("Project does not exist! No project will be updated!")
-            return UploadResponse(
-                registry_path=f"{namespace}/{name}:{tag}",
-                log_stage="update_item",
-                status="failure",
-                info="Project does not exist!",
+
+            if update_values.is_private is not None:
+                update_final = UpdateModel(
+                    is_private=update_values.is_private,
+                    **update_final.dict(exclude_unset=True),
+                )
+
+            if update_values.name is not None:
+                update_final = UpdateModel(
+                    name=update_values.name, **update_final.dict(exclude_unset=True)
+                )
+
+            set_sql, set_values = self.__create_update_set(update_final)
+            sql = f"""UPDATE {DB_TABLE_NAME}
+                {set_sql}
+                WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
+            _LOGGER.debug("Updating items...")
+            cursor.execute(
+                sql,
+                (*set_values, namespace, name, tag),
             )
+            _LOGGER.info(
+                f"Record '{namespace}/{name}:{tag}' was successfully updated!"
+            )
+            self.con.commit_to_database()
 
-        return UploadResponse(
-            registry_path=f"{namespace}/{name}:{tag}",
-            log_stage="update_item",
-            status="success",
-            info="Record was successfully updated!",
-        )
+        else:
+            raise ProjectExistenceError("No items will be updated!")
+
+        return None
 
     @staticmethod
     def __create_update_set(update_info: UpdateModel) -> Tuple[str, tuple]:

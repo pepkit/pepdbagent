@@ -95,14 +95,3 @@ class UpdateModel(BaseModel):
 
     class Config:
         extra = Extra.forbid
-
-
-class UploadResponse(BaseModel):
-    """
-    Response model in upload or update methods
-    """
-
-    registry_path: str
-    log_stage: str
-    status: str
-    info: str

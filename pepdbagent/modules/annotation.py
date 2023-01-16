@@ -20,7 +20,7 @@ from pepdbagent.const import (
 from pepdbagent.utils import tuple_converter, registry_path_converter
 
 from pepdbagent.models import AnnotationModel, AnnotationReturnModel
-from pepdbagent.exceptions import RegistryPathError
+from pepdbagent.exceptions import RegistryPathError, ProjectExistenceError
 
 _LOGGER = logging.getLogger("pepdbagent")
 
@@ -131,9 +131,12 @@ class PEPDatabaseAnnotation:
                 except RegistryPathError as err:
                     _LOGGER.error(str(err), registry_paths)
                     continue
-                single_return = self._get_single_annotation(namespace, name, tag, admin)
-                if single_return:
-                    anno_results.append(single_return)
+                try:
+                    single_return = self._get_single_annotation(namespace, name, tag, admin)
+                    if single_return:
+                        anno_results.append(single_return)
+                except ProjectExistenceError:
+                    pass
             return_len = len(anno_results)
             return AnnotationReturnModel(
                 count=return_len,
@@ -143,17 +146,13 @@ class PEPDatabaseAnnotation:
             )
 
         else:
-            try:
-                namespace, name, tag = registry_path_converter(registry_paths)
-            except RegistryPathError as err:
-                _LOGGER.error(str(err), registry_paths)
-                return AnnotationReturnModel()
+            namespace, name, tag = registry_path_converter(registry_paths)
             return self.get(namespace=namespace, name=name, tag=tag, admin=admin)
 
     def _get_single_annotation(
         self,
-        namespace: str = None,
-        name: str = None,
+        namespace: str,
+        name: str,
         tag: str = None,
         admin: Union[List[str], str] = None,
     ) -> Union[AnnotationModel, None]:
@@ -162,9 +161,10 @@ class PEPDatabaseAnnotation:
         :param namespace: project registry_path - will return dict of project annotations
         :param name: project name in database
         :param tag: tag of the projects
-        :param admin: list of namespaces where user is admin
+        :param admin: string or list of admins [e.g. "Khoroshevskyi", or ["doc_adin","Khoroshevskyi"]]
         :return: pydantic Annotation Model of annotations of current project
         """
+        _LOGGER.info(f"Getting annotation of the project: '{namespace}/{name}:{tag}'")
         admin_tuple = tuple_converter(admin)
         sql_q = f"""
                 select 
@@ -183,21 +183,11 @@ class PEPDatabaseAnnotation:
         if tag is None:
             tag = DEFAULT_TAG
 
-        if name:
-            sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s 
-                                and ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s );"""
-            found_prj = self.con.run_sql_fetchone(
-                sql_q, name, namespace, tag, False, admin_tuple
-            )
-
-        else:
-            _LOGGER.error(
-                "You haven't provided name, digest nor id! Execution is unsuccessful"
-            )
-            _LOGGER.info("Files haven't been downloaded, returning empty dict")
-            return AnnotationModel()
-
-        _LOGGER.info(f"Project has been found!")
+        sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s 
+                            and ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s );"""
+        found_prj = self.con.run_sql_fetchone(
+            sql_q, name, namespace, tag, False, admin_tuple
+        )
         if len(found_prj) > 0:
             annot = AnnotationModel(
                 namespace=found_prj[0],
@@ -210,23 +200,22 @@ class PEPDatabaseAnnotation:
                 last_update_date=str(found_prj[7]),
                 digest=found_prj[8],
             )
+            _LOGGER.info(f"Annotation of the project '{namespace}/{name}:{tag}' has been found!")
             return annot
         else:
-            _LOGGER.error(f"Project '{namespace}/{name}:{tag}' was not found.")
-
-        return None
+            raise ProjectExistenceError(f"Project '{namespace}/{name}:{tag}' was not found.")
 
     def _count_projects(
         self,
         namespace: str = None,
         search_str: str = None,
-        admin: Union[str, List[str]] = False,
+        admin: Union[str, List[str]] = None,
     ) -> int:
         """
         Get total number of found projects. [This function is related to _find_projects]
         :param namespace: namespace where to search for a project
         :param search_str: search string. will be searched in name, tag and description information
-        :param admin: True, if user is admin for this namespace
+        :param admin: string or list of admins [e.g. "Khoroshevskyi", or ["doc_adin","Khoroshevskyi"]]
         :return: number of found project in specified namespace
         """
         if search_str:
@@ -266,12 +255,12 @@ class PEPDatabaseAnnotation:
         self,
         namespace: str = None,
         search_str: str = None,
-        admin: Union[str, List[str]] = False,
+        admin: Union[str, List[str]] = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
     ) -> List[AnnotationModel]:
         """
-        Search for project inside namespace by providing search string.
+        Get project by providing search string.
         :param namespace: namespace where to search for a project
         :param search_str: search string that has to be found in the name, tag or project description
         :param admin: True, if user is admin of the namespace [Default: False]
@@ -279,6 +268,7 @@ class PEPDatabaseAnnotation:
         :param offset: number of results off set (that were already showed)
         :return: list of found projects with their annotations.
         """
+        _LOGGER.info(f"Running annotation search: (namespace: {namespace}, query: {search_str}.")
         if search_str:
             search_str = f"%%{search_str}%%"
             search_sql_values = (search_str, search_str, search_str,)
@@ -286,6 +276,7 @@ class PEPDatabaseAnnotation:
         else:
             search_sql_values = tuple()
             search_sql = ""
+
         admin_tuple = tuple_converter(admin)
 
         if namespace:

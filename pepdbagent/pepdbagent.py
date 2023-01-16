@@ -1,4 +1,4 @@
-from .base_connection import BaseConnection
+from pepdbagent.base_connection import BaseConnection
 from pepdbagent.modules.annotation import PEPDatabaseAnnotation
 from pepdbagent.modules.project import PEPDatabaseProject
 from pepdbagent.modules.namespace import PEPDatabaseNamespace
@@ -34,7 +34,7 @@ class PEPDatabaseAgent(object):
             password=password,
             dsn=dsn,
         )
-        self.con = con
+        self.__con = con
 
         self.__project = PEPDatabaseProject(con)
         self.__annotation = PEPDatabaseAnnotation(con)
@@ -58,7 +58,11 @@ class PEPDatabaseAgent(object):
         return f"Connection to the database: '{self.__db_name}' is set!"
 
     def __del__(self):
-        self.con.__del__()
+        self.__con.__del__()
 
     def __exit__(self):
-        self.con.__exit__()
+        self.__con.__exit__()
+
+    @property
+    def connection(self):
+        return self.__con
