@@ -20,7 +20,7 @@ class RegistryPathError(PEPDatabaseAgentError):
         super().__init__(f"""Provided registry path is incorrect. {msg}""")
 
 
-class ProjectExistenceError(PEPDatabaseAgentError):
+class ProjectNotFoundError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
         super().__init__(f"""Project does not exist. {msg}""")
 
@@ -31,5 +31,7 @@ class ProjectUniqueNameError(PEPDatabaseAgentError):
 
 
 class ProjectNameError(PEPDatabaseAgentError):
+    """Exception when project name was not provided"""
+
     def __init__(self, msg=""):
         super().__init__(f"""{msg}""")

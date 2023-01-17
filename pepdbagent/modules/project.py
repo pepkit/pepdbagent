@@ -13,7 +13,7 @@ from pepdbagent.base_connection import BaseConnection
 from pepdbagent.const import *
 from pepdbagent.utils import create_digest, registry_path_converter
 from pepdbagent.exceptions import (
-    ProjectExistenceError,
+    ProjectNotFoundError,
     ProjectUniqueNameError,
     ProjectNameError,
 )
@@ -80,7 +80,7 @@ class PEPDatabaseProject:
                 return project_obj
 
         else:
-            raise ProjectExistenceError(
+            raise ProjectNotFoundError(
                 f"No project found for supplied input: '{namespace}/{name}:{tag}'. "
                 f"Did you supply a valid namespace and project?"
             )
@@ -124,7 +124,7 @@ class PEPDatabaseProject:
             WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
 
         if not self.exists(namespace=namespace, name=name, tag=tag):
-            raise ProjectExistenceError(
+            raise ProjectNotFoundError(
                 f"Can't delete unexciting project: '{namespace}/{name}:{tag}'."
             )
 
@@ -305,7 +305,7 @@ class PEPDatabaseProject:
             return None
 
         else:
-            raise ProjectExistenceError(
+            raise ProjectNotFoundError(
                 "Project does not exist! No project will be updated!"
             )
 
@@ -381,7 +381,7 @@ class PEPDatabaseProject:
             self.con.commit_to_database()
 
         else:
-            raise ProjectExistenceError("No items will be updated!")
+            raise ProjectNotFoundError("No items will be updated!")
 
         return None
 

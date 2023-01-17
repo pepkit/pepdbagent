@@ -20,7 +20,7 @@ from pepdbagent.const import (
 from pepdbagent.utils import tuple_converter, registry_path_converter
 
 from pepdbagent.models import AnnotationModel, AnnotationReturnModel
-from pepdbagent.exceptions import RegistryPathError, ProjectExistenceError
+from pepdbagent.exceptions import RegistryPathError, ProjectNotFoundError
 
 _LOGGER = logging.getLogger("pepdbagent")
 
@@ -67,7 +67,7 @@ class PEPDatabaseAnnotation:
         :return: pydantic model: AnnotationReturnModel
         """
         if all([namespace, name, tag]):
-            found_annotations = list(
+            found_annotation = list(
                 self._get_single_annotation(
                     namespace=namespace,
                     name=name,
@@ -76,10 +76,10 @@ class PEPDatabaseAnnotation:
                 )
             )
             return AnnotationReturnModel(
-                count=len(found_annotations),
+                count=len(found_annotation),
                 limit=1,
                 offset=1,
-                result=found_annotations,
+                result=found_annotation,
             )
         return AnnotationReturnModel(
             limit=limit,
@@ -109,19 +109,7 @@ class PEPDatabaseAnnotation:
             limit:
             offset:
             count:
-            result: List [ AnnotationModel(
-                        namespace:
-                        name:
-                        tag:
-                        is_private:
-                        number_of_samples:
-                        description:
-                        last_update_date:
-                        submission_date:
-                        digest:
-                    )
-                ]
-            )
+            result: List [AnnotationModel])
         """
         if isinstance(registry_paths, list):
             anno_results = []
@@ -137,7 +125,7 @@ class PEPDatabaseAnnotation:
                     )
                     if single_return:
                         anno_results.append(single_return)
-                except ProjectExistenceError:
+                except ProjectNotFoundError:
                     pass
             return_len = len(anno_results)
             return AnnotationReturnModel(
@@ -207,7 +195,7 @@ class PEPDatabaseAnnotation:
             )
             return annot
         else:
-            raise ProjectExistenceError(
+            raise ProjectNotFoundError(
                 f"Project '{namespace}/{name}:{tag}' was not found."
             )
 
@@ -303,7 +291,9 @@ class PEPDatabaseAnnotation:
             namespace = tuple()
 
         count_sql = f"""
-        select {NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {N_SAMPLES_COL}, ({PROJ_COL}->>'description'), {DIGEST_COL}, {PRIVATE_COL}, {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL}
+        select {NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {N_SAMPLES_COL},
+                ({PROJ_COL}->>'description'), {DIGEST_COL}, {PRIVATE_COL}, 
+                {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL}
             from {DB_TABLE_NAME} where
                  {search_sql}
                     ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s ) {and_namespace_sql}

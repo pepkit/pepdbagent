@@ -1,6 +1,6 @@
 # pepdbagent
 
-`pepdbagent` is a Python package for uploading, updating, and retrieving PEP metadata from a Postgres database.
+`pepdbagent` is a Python package for uploading, updating, and retrieving [PEP](http://pep.databio.org/en/latest/) metadata from a Postgres database.
 
 Generally pepdbagent consists of its core - **PEPDatabaseAgent** class that conduct 3 main parts: **Projects**, 
 **Projects Annotations**, **Namespace Annotations**. These parts have different purpose and were separated
@@ -19,7 +19,7 @@ import pepdbagent
 # 1) By providing credentials and connection information:
 agent = pepdbagent.PEPDatabaseAgent(user="postgres", password="docker", )
 # 2) or By providing connection string:
-agent = pepdbagent.PEPDatabaseAgent("postgresql://postgres:docker@localhost:5432/pep-db")
+agent = pepdbagent.PEPDatabaseAgent(dsn="postgresql://postgres:docker@localhost:5432/pep-db")
 ```
 
 ## Project
@@ -32,7 +32,7 @@ Example:
 
 ```python
 import peppy
-prj_obj = peppy.Project("prj_path")
+prj_obj = peppy.Project("/path/to/project_config.yaml")
 
 # submit a project
 agent.project.submit(prj_obj, namespace, name, tag)
