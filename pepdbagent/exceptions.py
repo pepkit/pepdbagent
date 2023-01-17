@@ -28,10 +28,3 @@ class ProjectNotFoundError(PEPDatabaseAgentError):
 class ProjectUniqueNameError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
         super().__init__(f"""{msg}""")
-
-
-class ProjectNameError(PEPDatabaseAgentError):
-    """Exception when project name was not provided"""
-
-    def __init__(self, msg=""):
-        super().__init__(f"""{msg}""")

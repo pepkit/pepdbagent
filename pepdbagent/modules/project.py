@@ -15,7 +15,6 @@ from pepdbagent.utils import create_digest, registry_path_converter
 from pepdbagent.exceptions import (
     ProjectNotFoundError,
     ProjectUniqueNameError,
-    ProjectNameError,
 )
 
 _LOGGER = logging.getLogger("pepdbagent")
@@ -255,7 +254,7 @@ class PEPDatabaseProject:
                     )
 
             except NotNullViolation as err:
-                raise ProjectNameError(
+                raise ValueError(
                     f"Name of the project wasn't provided. Project will not be uploaded. Error: {err}"
                 )
 
