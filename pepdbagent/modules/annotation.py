@@ -78,7 +78,7 @@ class PEPDatabaseAnnotation:
             return AnnotationReturnModel(
                 count=len(found_annotation),
                 limit=1,
-                offset=1,
+                offset=0,
                 results=found_annotation,
             )
         return AnnotationReturnModel(
@@ -130,8 +130,8 @@ class PEPDatabaseAnnotation:
             return_len = len(anno_results)
             return AnnotationReturnModel(
                 count=return_len,
-                limit=return_len,
-                offset=len(registry_paths),
+                limit=len(registry_paths),
+                offset=0,
                 results=anno_results,
             )
 

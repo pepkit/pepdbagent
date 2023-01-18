@@ -35,8 +35,17 @@ prj_obj = peppy.Project("/path/to/project_config.yaml")
 # submit a project
 agent.project.create(prj_obj, namespace, name, tag)
 
-# edit project/metadata
-update_dict = {"is_private" = True}
+# updating record in database (project)
+# To update record in the db user should provide `update_dict`,
+# that can contains any of 4 keys: [project, is_private, name, tag]
+# examples of update_dict:
+update_dict1 = {"is_private" = True}
+update_dict2 = {"is_private" = True, name = "new_name"}
+update_dict3 = {"project" = prj_obj, "is_private"=True}
+update_dict4 = {"project" = prj_obj}
+update_dict4 = {"tag" = "new_tag"}
+
+# after creation of the dict, update record by providing update_dict and namespace, name and tag:
 agent.project.update(update_dict, namespace, name, tag)
 
 # retrieve a project
@@ -48,7 +57,10 @@ agent.project.delete(namespace, name, tag)
 
 ## Annotation
 
-The `.annotation` module provides an interface to PEP annotations. PEP annotations refers to the information *about* the PEPs (or, the PEP metadata). It also provides project search functionality.
+The `.annotation` module provides an interface to PEP annotations. 
+PEP annotations refers to the information *about* the PEPs (or, the PEP metadata). 
+Retrieved information contains: [number of samples, submission date, last update date,
+is private, PEP description, digest, namespace, name, tag]
 
 Example:
 ```python
@@ -69,20 +81,51 @@ agent.annotation.get(query='query', namespace='namespace')
 # Get annotation of multiple projects given a list of registry paths
 agent.annotation.get_by_rp(["namespace1/project1:tag1", "namespace2/project2:tag2"])
 
-# Additionally, to get annotations from private projects you should provide 
-# admin or list of admins.
+# By default get function will retrun annotations for public projects,
+# To get annotation including private projects admin list should be provided.
+# admin list means list of namespaces where user has admin rights
+# For example:
+agent.annotation.get(query='search_pattern', admin=['databio', 'ncbi'])
+```
+Return Example:
+```python
+# annotation.get return type is pydantic model - AnnotationRetrunModel
+AnnotationRetrunModel(count=1,
+                      limit=100, 
+                      offset=0,
+                      results=[AnnotationModel(namespace='databio', 
+                                               name='test', 
+                                               tag='default', 
+                                               is_private=False, 
+                                               number_of_samples=8, 
+                                               description=None, 
+                                               last_update_date='2022-11-09', 
+                                               submission_date='2023-01-09', 
+                                               digest='36bb973f2eca3706ed9852abddd')
 ```
 
 
 # Namespace
-The `.namespace` module retrieves information about namespaces and provides search functionality.
+The `.namespace` module contains search namespace functionality that helps to find namespaces in database 
+and retrieve information: `number of samples`, `number of projects`.
 
 Example:
 ```python
-# Get info about namespace by searching them in query
+# Get info about namespace by providing query argument. Then pepdbagent will
+# search for a specified pattern of namespace in database.
 agent.namespace.get(query='Namespace')
 
-# The same way as in annotation you should provide admin list, to have 
-# information about private projects added to information about namespaces
-agent.namespace.get(query='geo', admin=['databio', 'geo', 'ncbi'])
+# By default all get function will retrun namespace information for public projects,
+# To get information with private projects, admin list should be provided.
+# admin list means list of namespaces where user has admin rights
+# For example:
+agent.namespace.get(query='search_pattern', admin=['databio', 'geo', 'ncbi'])
+```
+Return Example:
+```python
+# namespace.get return type is pydantic model - NamespaceReturnModel
+NamespaceReturnModel(count=1, 
+                     limit=100, 
+                     offset=0, 
+                     results=[NamespaceResultModel(namespace='databio', number_of_projects=6, number_of_samples=470)])
 ```
