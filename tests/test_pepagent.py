@@ -3,6 +3,8 @@ from pepdbagent.pepdbagent import PEPDatabaseAgent
 from pepdbagent.models import BaseModel
 import json
 import psycopg2
+import pytest
+import datetime
 
 
 class TestBaseConnection:
@@ -61,10 +63,7 @@ class TestProject:
 
         test_namespace = "test"
 
-        c.project.submit(
-            test_peppy_project,
-            test_namespace,
-        )
+        c.project.create(test_peppy_project, test_namespace)
 
         assert database_commit_mock.called
 
@@ -143,7 +142,7 @@ class TestProject:
 
         test_peppy_project.description = "This is test description"
 
-        c.project.edit(
+        c.project.update(
             update_dict={
                 "tag": "new_tag",
                 "is_private": True,
@@ -235,28 +234,123 @@ class TestAnnotation:
     """
     Test function within annotation class
     """
-    def test_get_anno_by_providing_list(self):
-        pass
 
-    def test_get_annotation_of_single_project(self):
-        pass
+    @pytest.fixture(scope="function")
+    def initiate_con(
+        self,
+        mocker,
+        test_dsn,
+    ):
+        mocker.patch("psycopg2.connect")
+        mocker.patch(
+            "pepdbagent.pepdbagent.BaseConnection._check_conn_db",
+            return_value=True,
+        )
+        instance = PEPDatabaseAgent(dsn=test_dsn)
 
-    def test_get_annotation_of_single_project_by_rp(self):
-        pass
+        yield instance
 
-    def test_get_annotation_within_namespace(self):
-        pass
+    def test_get_anno_by_providing_list(self, initiate_con, mocker):
+        get_single_annot_mock = mocker.patch(
+            "pepdbagent.pepdbagent.PEPDatabaseAnnotation._get_single_annotation",
+        )
+        initiate_con.annotation.get_by_rp(["this/is:one", "This/if:two"])
+        assert get_single_annot_mock.called
 
-    def test_get_annotation_by_providing_query(self):
-        pass
+    def test_get_annotation_of_single_project(self, mocker, initiate_con):
+        run_sql_one_mock = mocker.patch(
+            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchone",
+            return_value=["1", "2", "3", False, 5, 6, datetime.datetime.now(), datetime.datetime.now(), "9", "10"],
+        )
+        initiate_con.annotation.get("test", "project", "pr")
+        assert run_sql_one_mock.called
+
+    def test_get_annotation_of_single_project_by_rp(self, mocker, initiate_con):
+        run_sql_one_mock = mocker.patch(
+            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchone",
+            return_value=["1", "2", "3", False, 5, 6, datetime.datetime.now(), datetime.datetime.now(), "9", "10"],
+        )
+        initiate_con.annotation.get_by_rp("test/project:pr")
+        assert run_sql_one_mock.called
+
+    def test_get_annotation_within_namespace(self, mocker, initiate_con):
+        run_sql_one_mock = mocker.patch(
+            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
+            return_value=[("1", "2", "3", 6, "5", "dgs", False, datetime.datetime.now(), datetime.datetime.now()),
+                          ("1", "5", "3", 6, "5", "dgs", False, datetime.datetime.now(), datetime.datetime.now(),),
+                          ]
+        )
+        count_prj_mock = mocker.patch(
+            "pepdbagent.pepdbagent.PEPDatabaseAnnotation._count_projects",
+            return_value=2
+        )
+        f = initiate_con.annotation.get(namespace='1')
+        assert f.count == 2
+        assert len(f.results) == 2
+
+    def test_get_annotation_by_providing_query(self, mocker, initiate_con):
+        run_sql_one_mock = mocker.patch(
+            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
+            return_value=[("1", "2", "3", 6, "5", "dgs", False, datetime.datetime.now(), datetime.datetime.now()),
+                          ("1", "5", "3", 6, "5", "dgs", False, datetime.datetime.now(), datetime.datetime.now(),),
+                          ]
+        )
+        count_prj_mock = mocker.patch(
+            "pepdbagent.pepdbagent.PEPDatabaseAnnotation._count_projects",
+            return_value=2
+        )
+        f = initiate_con.annotation.get(query='1')
+        assert f.count == 2
+        assert len(f.results) == 2
+
+    def test_registry_path_exception_pass(self, initiate_con):
+        initiate_con.annotation.get_by_rp(["this/is:one", "This/is/f:two"])
+
+    def test_registry_paths_exception(self, initiate_con):
+        with pytest.raises(Exception):
+            initiate_con.annotation.get_by_rp("This/is/wrong:registry")
 
 
 class TestNamespace:
     """
     Test function within namespace class
     """
-    def test_get_namespace_by_providing_query(self):
-        pass
 
-    def test_get_all_namespaces(self):
-        pass
+    @pytest.fixture(scope="function")
+    def initiate_con(
+            self,
+            mocker,
+            test_dsn,
+    ):
+        mocker.patch("psycopg2.connect")
+        mocker.patch(
+            "pepdbagent.pepdbagent.BaseConnection._check_conn_db",
+            return_value=True,
+        )
+        instance = PEPDatabaseAgent(dsn=test_dsn)
+
+        yield instance
+
+    def test_get_namespace_by_providing_query(self, mocker, initiate_con):
+        run_sql_one_mock = mocker.patch(
+            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
+            return_value=[('names', 2, 3)]
+        )
+        count_prj_mock = mocker.patch(
+            "pepdbagent.pepdbagent.PEPDatabaseNamespace._count_namespace",
+            return_value=2
+        )
+        f = initiate_con.namespace.get(query='1')
+        assert len(f.results) == 1
+
+    def test_get_all_namespaces(self, mocker, initiate_con):
+        run_sql_one_mock = mocker.patch(
+            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
+            return_value=[('names', 2, 3)]
+        )
+        count_prj_mock = mocker.patch(
+            "pepdbagent.pepdbagent.PEPDatabaseNamespace._count_namespace",
+            return_value=2
+        )
+        f = initiate_con.namespace.get()
+        assert len(f.results) == 1

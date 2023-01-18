@@ -41,7 +41,7 @@ class AnnotationReturnModel(BaseModel):
     count: int
     limit: int
     offset: int
-    result: List[AnnotationModel]
+    results: List[AnnotationModel]
 
 
 class NamespaceResultModel(BaseModel):
@@ -59,7 +59,7 @@ class NamespaceReturnModel(BaseModel):
     Model of combined namespace search results
     """
 
-    number_of_results: int
+    count: int
     limit: int
     offset: int
     results: List[NamespaceResultModel]

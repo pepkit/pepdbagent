@@ -67,19 +67,19 @@ class PEPDatabaseAnnotation:
         :return: pydantic model: AnnotationReturnModel
         """
         if all([namespace, name, tag]):
-            found_annotation = list(
+            found_annotation = [
                 self._get_single_annotation(
                     namespace=namespace,
                     name=name,
                     tag=tag,
                     admin=admin,
                 )
-            )
+                ]
             return AnnotationReturnModel(
                 count=len(found_annotation),
                 limit=1,
                 offset=1,
-                result=found_annotation,
+                results=found_annotation,
             )
         return AnnotationReturnModel(
             limit=limit,
@@ -87,7 +87,7 @@ class PEPDatabaseAnnotation:
             count=self._count_projects(
                 namespace=namespace, search_str=query, admin=admin
             ),
-            result=self._get_projects(
+            results=self._get_projects(
                 namespace=namespace,
                 search_str=query,
                 admin=admin,
@@ -132,7 +132,7 @@ class PEPDatabaseAnnotation:
                 count=return_len,
                 limit=return_len,
                 offset=len(registry_paths),
-                result=anno_results,
+                results=anno_results,
             )
 
         else:

@@ -5,18 +5,13 @@ import pepdbagent
 from peppy import Project
 
 
-con = pepdbagent.PEPDatabaseAgent(
-    user="postgres",
-    password="docker",
-)
+con = pepdbagent.PEPDatabaseAgent(dsn="postgresql://postgres:docker@localhost:5432/pep-db")
 ###############
 # Upload
 prj = peppy.Project(
     "/home/bnt4me/virginia/repos/pepdbagent/sample_pep/basic/project_config.yaml"
 )
-con.project.submit(
-    project=prj, namespace="Khoroshevskyi", name="dupa", tag="test1", overwrite=True
-)
+con.project.create(project=prj, namespace="Khoroshevskyi", name="dupa", tag="test1", overwrite=True)
 
 # Project
 
@@ -78,12 +73,6 @@ ff = con.project.get_by_rp("Khoroshevskyi/gse_yaml:default")
 
 print(ff)
 
-
 dell = con.project.delete(namespace="Khoroshevskyi", name="dupa", tag="test1")
 
-con.project.edit(
-    update_dict={"is_private": False},
-    namespace="Khoroshevskyi",
-    name="dupa",
-    tag="test1",
-)
+con.project.update(update_dict={"is_private": False}, namespace="Khoroshevskyi", name="dupa", tag="test1")

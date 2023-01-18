@@ -148,7 +148,7 @@ class PEPDatabaseProject:
         namespace, name, tag = registry_path_converter(registry_path)
         return self.delete(namespace=namespace, name=name, tag=tag)
 
-    def submit(
+    def create(
         self,
         project: peppy.Project,
         namespace: str,
@@ -308,7 +308,7 @@ class PEPDatabaseProject:
                 "Project does not exist! No project will be updated!"
             )
 
-    def edit(
+    def update(
         self,
         update_dict: Union[dict, UpdateItems],
         namespace: str,

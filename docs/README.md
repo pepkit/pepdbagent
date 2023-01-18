@@ -29,14 +29,15 @@ Example:
 
 ```python
 import peppy
+
 prj_obj = peppy.Project("/path/to/project_config.yaml")
 
 # submit a project
-agent.project.submit(prj_obj, namespace, name, tag)
+agent.project.create(prj_obj, namespace, name, tag)
 
 # edit project/metadata
-update_dict = {"is_private"=True}
-agent.project.edit(update_dict, namespace, name, tag)
+update_dict = {"is_private" = True}
+agent.project.update(update_dict, namespace, name, tag)
 
 # retrieve a project
 agent.project.get(namespace, name, tag)
