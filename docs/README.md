@@ -2,9 +2,9 @@
 
 `pepdbagent` is a Python package for uploading, updating, and retrieving [PEP](http://pep.databio.org/en/latest/) metadata from a Postgres database.
 
-The pepdbagent provides a core class called **PEPDatabaseAgent**. This class has 3 main components, divided 
+The pepdbagent provides a core class called **PEPDatabaseAgent**. This class has 3 modules, divided 
 to increase readability, maintainability, and user experience of pepdbagent, which are: **Projects**, 
-**Project Annotations**, and **Namespace Annotations**.  Below, we describe each component in detail:
+**Project Annotations**, and **Namespace Annotations**.  Below, we describe each module in detail:
 
 ## PEPDatabaseAgent
 PEPDatabaseAgent is the primary class that you will use. It connects to the database (using **BaseConnection** class).
@@ -19,11 +19,12 @@ agent = pepdbagent.PEPDatabaseAgent(user="postgres", password="docker", )
 agent = pepdbagent.PEPDatabaseAgent(dsn="postgresql://postgres:docker@localhost:5432/pep-db")
 ```
 
-This `agent` object will provide 3 sub-modules, corresponding to the 3 main entity types stored in PEPhub: `project`,  `annotation`, and `namespace`.
+This `agent` object will provide 3 sub-modules, corresponding to the 3 main entity types stored in PEPhub: `agent.project`,  `agent.annotation`, and `agent.namespace`.
 
 ## Project
-Project is a module that has 3 main purposes:
-- Submitting/Editing projects (+editing metadata)
+
+The `.project` module has 3 main purposes:
+- Submitting/editing projects (and editing metadata)
 - Retrieving projects
 - Deleting projects
 
@@ -36,7 +37,7 @@ prj_obj = peppy.Project("/path/to/project_config.yaml")
 # submit a project
 agent.project.submit(prj_obj, namespace, name, tag)
 
-# addit project/metadata
+# edit project/metadata
 update_dict = {"is_private"=True}
 agent.project.edit(update_dict, namespace, name, tag)
 
@@ -47,8 +48,9 @@ agent.project.get(namespace, name, tag)
 agent.project.delete(namespace, name, tag)
 ```
 
-## Annotation 
-The *Annotation* provides an interface to PEP annotations -- that is, the information *about* the PEPs (or, the PEP metadata). Annotation also provides project search functionality. You access the annotation interface through `<agent>.annotation`.
+## Annotation
+
+The `.annotation` module provides an interface to PEP annotations -- that is, the information *about* the PEPs (or, the PEP metadata). Annotation also provides project search functionality. You access the annotation interface through `<agent>.annotation`.
 
 Example:
 ```python
@@ -75,7 +77,7 @@ agent.annotation.get_by_rp(["namespace1/project1:tag1", "namespace2/project2:tag
 
 
 # Namespace
-Namespace module helps retrieve information about namespaces and provide search functionality.
+The `.namespace` module retrieves information about namespaces and provides search functionality.
 
 Example:
 ```python
