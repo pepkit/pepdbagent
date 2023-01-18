@@ -19,7 +19,7 @@ from pepdbagent.const import (
 )
 from pepdbagent.utils import tuple_converter, registry_path_converter
 
-from pepdbagent.models import AnnotationModel, AnnotationReturnModel
+from pepdbagent.models import AnnotationModel, AnnotationList
 from pepdbagent.exceptions import RegistryPathError, ProjectNotFoundError
 
 _LOGGER = logging.getLogger("pepdbagent")
@@ -47,7 +47,7 @@ class PEPDatabaseAnnotation:
         admin: Union[List[str], str] = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
-    ) -> AnnotationReturnModel:
+    ) -> AnnotationList:
         """
         Get project annotations.
         There is 5 scenarios how to get project or projects annotations:
@@ -75,13 +75,13 @@ class PEPDatabaseAnnotation:
                     admin=admin,
                 )
             ]
-            return AnnotationReturnModel(
+            return AnnotationList(
                 count=len(found_annotation),
                 limit=1,
                 offset=0,
                 results=found_annotation,
             )
-        return AnnotationReturnModel(
+        return AnnotationList(
             limit=limit,
             offset=offset,
             count=self._count_projects(
@@ -100,7 +100,7 @@ class PEPDatabaseAnnotation:
         self,
         registry_paths: Union[List[str], str],
         admin: Union[List[str], str] = None,
-    ) -> AnnotationReturnModel:
+    ) -> AnnotationList:
         """
         Get project annotations by providing registry_path or list of registry paths.
         :param registry_paths: registry path string or list of registry paths
@@ -128,7 +128,7 @@ class PEPDatabaseAnnotation:
                 except ProjectNotFoundError:
                     pass
             return_len = len(anno_results)
-            return AnnotationReturnModel(
+            return AnnotationList(
                 count=return_len,
                 limit=len(registry_paths),
                 offset=0,

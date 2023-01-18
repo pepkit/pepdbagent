@@ -8,7 +8,7 @@ import peppy
 
 class AnnotationModel(BaseModel):
     """
-    Project Annotations model. All meta metadata
+    Project Annotation model. All meta metadata
     """
 
     namespace: Optional[str]
@@ -33,7 +33,7 @@ class AnnotationModel(BaseModel):
             return v
 
 
-class AnnotationReturnModel(BaseModel):
+class AnnotationList(BaseModel):
     """
     Annotation return model.
     """
@@ -54,7 +54,7 @@ class NamespaceResultModel(BaseModel):
     number_of_samples: int
 
 
-class NamespaceReturnModel(BaseModel):
+class NamespaceList(BaseModel):
     """
     Model of combined namespace search results
     """

@@ -12,7 +12,7 @@ from pepdbagent.const import (
     PRIVATE_COL,
 )
 
-from pepdbagent.models import NamespaceResultModel, NamespaceReturnModel
+from pepdbagent.models import NamespaceResultModel, NamespaceList
 from pepdbagent.utils import tuple_converter
 
 _LOGGER = logging.getLogger("pepdbagent")
@@ -37,7 +37,7 @@ class PEPDatabaseNamespace:
         admin: Union[List[str], str] = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
-    ) -> NamespaceReturnModel:
+    ) -> NamespaceList:
         """
         Search available namespaces in the database
         :param query: search string
@@ -56,7 +56,7 @@ class PEPDatabaseNamespace:
             f"Getting namespaces annotation with provided info: (query: {query})"
         )
         admin_tuple = tuple_converter(admin)
-        return NamespaceReturnModel(
+        return NamespaceList(
             count=self._count_namespace(search_str=query, admin_nsp=admin_tuple),
             limit=limit,
             offset=offset,
