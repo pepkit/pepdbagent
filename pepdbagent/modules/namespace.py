@@ -12,7 +12,7 @@ from pepdbagent.const import (
     PRIVATE_COL,
 )
 
-from pepdbagent.models import NamespaceResultModel, NamespaceList
+from pepdbagent.models import Namespace, NamespaceList
 from pepdbagent.utils import tuple_converter
 
 _LOGGER = logging.getLogger("pepdbagent")
@@ -71,7 +71,7 @@ class PEPDatabaseNamespace:
         admin_nsp: tuple = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
-    ) -> List[NamespaceResultModel]:
+    ) -> List[Namespace]:
         """
         Search for namespace by providing search string.
         :param search_str: string of symbols, words, keywords to search in the
@@ -106,7 +106,7 @@ class PEPDatabaseNamespace:
         results_list = []
         for res in results:
             results_list.append(
-                NamespaceResultModel(
+                Namespace(
                     namespace=res[0],
                     number_of_projects=res[1],
                     number_of_samples=res[2],

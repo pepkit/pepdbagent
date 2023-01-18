@@ -44,7 +44,7 @@ class AnnotationList(BaseModel):
     results: List[AnnotationModel]
 
 
-class NamespaceResultModel(BaseModel):
+class Namespace(BaseModel):
     """
     Model of single namespace search result
     """
@@ -62,7 +62,7 @@ class NamespaceList(BaseModel):
     count: int
     limit: int
     offset: int
-    results: List[NamespaceResultModel]
+    results: List[Namespace]
 
 
 class UpdateItems(BaseModel):

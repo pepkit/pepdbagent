@@ -208,7 +208,8 @@ class PEPDatabaseProject:
                 _LOGGER.info(f"Uploading {namespace}/{proj_name}:{tag} project...")
 
                 sql_base = f"""INSERT INTO {DB_TABLE_NAME} 
-                ({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {N_SAMPLES_COL}, {PRIVATE_COL}, {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL})
+                ({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {N_SAMPLES_COL}, 
+                    {PRIVATE_COL}, {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL})
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING {ID_COL};"""
 
