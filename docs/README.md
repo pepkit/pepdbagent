@@ -32,7 +32,7 @@ import peppy
 
 prj_obj = peppy.Project("/path/to/project_config.yaml")
 
-# submit a project
+# create a project
 agent.project.create(prj_obj, namespace, name, tag)
 
 # updating record in database (project)
