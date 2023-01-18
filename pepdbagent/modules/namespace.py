@@ -57,9 +57,7 @@ class PEPDatabaseNamespace:
         )
         admin_tuple = tuple_converter(admin)
         return NamespaceReturnModel(
-            count=self._count_namespace(
-                search_str=query, admin_nsp=admin_tuple
-            ),
+            count=self._count_namespace(search_str=query, admin_nsp=admin_tuple),
             limit=limit,
             offset=offset,
             results=self._get_namespace(

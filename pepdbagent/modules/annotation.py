@@ -74,7 +74,7 @@ class PEPDatabaseAnnotation:
                     tag=tag,
                     admin=admin,
                 )
-                ]
+            ]
             return AnnotationReturnModel(
                 count=len(found_annotation),
                 limit=1,
