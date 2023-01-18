@@ -23,10 +23,7 @@ This `agent` object will provide 3 sub-modules, corresponding to the 3 main enti
 
 ## Project
 
-The `.project` module has 3 main purposes:
-- Submitting/editing projects (and editing metadata)
-- Retrieving projects
-- Deleting projects
+The `.project` module is used to create, update, retrieve, and delete projects.
 
 Example:
 
@@ -50,7 +47,7 @@ agent.project.delete(namespace, name, tag)
 
 ## Annotation
 
-The `.annotation` module provides an interface to PEP annotations -- that is, the information *about* the PEPs (or, the PEP metadata). Annotation also provides project search functionality. You access the annotation interface through `<agent>.annotation`.
+The `.annotation` module provides an interface to PEP annotations. PEP annotations refers to the information *about* the PEPs (or, the PEP metadata). It also provides project search functionality.
 
 Example:
 ```python
