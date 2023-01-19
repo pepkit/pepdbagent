@@ -70,8 +70,7 @@ def registry_path_converter(registry_path: str) -> Tuple[str, str, str]:
         tag = reg["tag"]
         return namespace, name, tag
 
-    else:
-        raise RegistryPathError(f"Error in: '{registry_path}'")
+    raise RegistryPathError(f"Error in: '{registry_path}'")
 
 
 def tuple_converter(value: Union[tuple, list, str, None]) -> tuple:
@@ -85,7 +84,6 @@ def tuple_converter(value: Union[tuple, list, str, None]) -> tuple:
         value = [value]
     if value:
         return tuple(value)
-    else:
-        return tuple(
-            " ",
-        )
+    return tuple(
+        " ",
+    )
