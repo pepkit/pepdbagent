@@ -1,61 +1,78 @@
 # file for manual local tests
+import peppy
 
 import pepdbagent
 from peppy import Project
 
 
-con = pepdbagent.Connection(
-    user="postgres",
-    password="docker",
+con = pepdbagent.PEPDatabaseAgent(dsn="postgresql://postgres:docker@localhost:5432/pep-db")
+###############
+# Upload
+prj = peppy.Project(
+    "/home/bnt4me/virginia/repos/pepdbagent/sample_pep/basic/project_config.yaml"
+)
+con.project.create(project=prj, namespace="Khoroshevskyi", name="dupa", tag="test1", overwrite=True)
+
+# Project
+
+prj_dow = con.project.get(namespace="Khoroshevskyi", name="dupa", tag="test1")
+
+print(prj_dow.name)
+
+prj_raw = con.project.get(namespace="Khoroshevskyi", name="dupa", tag="test1", raw=True)
+
+print(prj_raw)
+
+
+###############
+# Annotation
+
+dd_list = con.annotation.get_by_rp(
+    [
+        "Khoroshevskyi/gse_yaml:default",
+        "Khoroshevskyi/gse_yaml:default",
+        "Khoroshevskyi/dupa:f1",
+    ],
+    admin="Khoroshevskyi",
+)
+dd_list_private = con.annotation.get_by_rp(
+    [
+        "Khoroshevskyi/gse_yaml:default",
+        "Khoroshevskyi/gse_yaml:default",
+        "Khoroshevskyi/dupa:f1",
+    ]
 )
 
-proj = Project(
-    "/home/bnt4me/virginia/repos/pepdbagent/sample_pep/subtable1/project_config.yaml"
+dd_search = con.annotation.get(namespace="Khoroshevskyi")
+dd_search_pr = con.annotation.get(namespace="Khoroshevskyi", admin="Khoroshevskyi")
+dd_search_pr_namespace = con.annotation.get(
+    query="s", admin=["Khoroshevskyi", "test_11"]
 )
 
-con.upload_project(
-    namespace="test_11",
-    name="sub",
-    tag="f1",
-    project=proj,
-    is_private=True,
-    overwrite=True,
-)
+dd_all = con.annotation.get(admin=["Khoroshevskyi", "test_11"])
 
 
-# gf = con.get_project(namespace="test", name='sub', tag='f')
-#
-#
-# print(gf)
-#
-#
-# gf_annot = con.get_project_annotation(namespace="test", name='sub', tag='f')
-#
-# print(gf_annot)
+print(dd_list)
+print(dd_list_private)
+
+print(dd_search)
+print(dd_search_pr)
+print(dd_search_pr_namespace)
+
+print(dd_all)
+
+################
+# Namespace
+
+ff = con.namespace.get("Khoroshevskyi", admin="Khoroshevskyi")
+
+print(ff)
 
 
-gf = con.get_project(namespace="Khoroshevskyi", name="new_name", tag="default")
+ff = con.project.get_by_rp("Khoroshevskyi/gse_yaml:default")
 
+print(ff)
 
-gf.name = "new_name"
-gf.description = "funny jou"
+dell = con.project.delete(namespace="Khoroshevskyi", name="dupa", tag="test1")
 
-ff = con.update_item(
-    namespace="Khoroshevskyi",
-    name="new_name",
-    tag="default",
-    update_dict={"project": gf, "is_private": True},
-)
-
-
-ann = con.get_project_annotation(
-    namespace="Khoroshevskyi",
-    name="new_name",
-    tag="default",
-)
-
-print(ann.json())
-
-# res = con.search.project(namespace='kk',search_str='d', admin=True)
-res = con.search.namespace("i", admin_nsp=("kk",))
-print(res)
+con.project.update(update_dict={"is_private": False}, namespace="Khoroshevskyi", name="dupa", tag="test1")
