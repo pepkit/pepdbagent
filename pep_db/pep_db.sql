@@ -10,9 +10,13 @@ CREATE TABLE projects (
     namespace TEXT NOT NULL,
     name TEXT NOT NULL,
     tag TEXT NOT NULL,
-    digest TEXT NOT NULL,  -- shoud be changed to CHARACTER
+    digest TEXT NOT NULL,  -- should be changed to CHARACTER
     project_value jsonb NOT NULL,
-    anno_info jsonb,  -- annotation information
+    private bool NOT NULL,
+    number_of_samples int NOT NULL,
+    submission_date timestamp NOT NULL,
+    last_update_date timestamp NOT NULL,
     CONSTRAINT id PRIMARY KEY (namespace, name, tag)
 );
 
+-- if you are changing database, don't forget to chane it in const.py file

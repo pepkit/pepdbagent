@@ -3,6 +3,20 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
 
+## [0.3.0] -- 2023-01-19
+
+- Restructured pepdbagent: 
+  - Renamed `Agent` class to `PEPDatabaseAgent`
+  - created subclasses (project, annotation, namespace).
+  - Merged methods that have similar use case.
+  - Removed unused methods.
+  - Simplified pepdbagent API
+- Restructured database (added columns: `private`, `number_of_samples`, `submission_date`, `last_update_date`)
+- Improved logging
+- Added new tests
+- Improved documentation
+
+
 ## [0.2.3] -- 2022-11-21
 
 - Added more logging information in uploading project methods

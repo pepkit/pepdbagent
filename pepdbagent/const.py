@@ -6,24 +6,31 @@ NAMESPACE_COL = "namespace"
 NAME_COL = "name"
 TAG_COL = "tag"
 DIGEST_COL = "digest"
+PRIVATE_COL = "private"
+N_SAMPLES_COL = "number_of_samples"
+SUBMISSION_DATE_COL = "submission_date"
+LAST_UPDATE_DATE_COL = "last_update_date"
 
-DB_COLUMNS = [ID_COL, DIGEST_COL, PROJ_COL, ANNO_COL, NAMESPACE_COL, NAME_COL, TAG_COL]
+
+DB_COLUMNS = [
+    ID_COL,
+    DIGEST_COL,
+    PROJ_COL,
+    NAMESPACE_COL,
+    NAME_COL,
+    TAG_COL,
+    PRIVATE_COL,
+    N_SAMPLES_COL,
+    SUBMISSION_DATE_COL,
+    LAST_UPDATE_DATE_COL,
+]
 
 DEFAULT_NAMESPACE = "_"
 DEFAULT_TAG = "default"
 
-STATUS_KEY = "status"
 DESCRIPTION_KEY = "description"
-N_SAMPLES_KEY = "n_samples"
-UPDATE_DATE_KEY = "last_update"
-IS_PRIVATE_KEY = "is_private"
-DEFAULT_STATUS = "Unknown"
-
-BASE_ANNOTATION_DICT = {
-    STATUS_KEY: DEFAULT_STATUS,
-    DESCRIPTION_KEY: None,
-    N_SAMPLES_KEY: None,
-    UPDATE_DATE_KEY: None,
-}
 
 from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_DICT_KEY
+
+DEFAULT_OFFSET = 0
+DEFAULT_LIMIT = 100
