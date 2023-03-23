@@ -4,6 +4,7 @@ from hashlib import md5
 from typing import Tuple, Union
 import ubiquerg
 from .exceptions import RegistryPathError
+from peppy.const import SAMPLE_RAW_DICT_KEY
 
 
 def is_valid_registry_path(rpath: str) -> bool:
@@ -47,7 +48,7 @@ def create_digest(project_dict: dict) -> str:
     """
     sample_digest = md5(
         json.dumps(
-            project_dict["_sample_dict"],
+            project_dict[SAMPLE_RAW_DICT_KEY],
             separators=(",", ":"),
             ensure_ascii=False,
             allow_nan=False,
