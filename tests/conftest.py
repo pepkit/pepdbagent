@@ -15,6 +15,7 @@ def sql_output_for_check_conn_db():
         (None, None, None, "number_of_samples"),
         (None, None, None, "submission_date"),
         (None, None, None, "last_update_date"),
+        (None, None, None, "schemas"),
     ]
 
 
@@ -55,5 +56,6 @@ def test_database_project_return():
             "is_private": False,
             "description": None,
             "last_update": "2022-10-24 12:24:24.210667",
+            "schemas": "some_schema",
         },
     ]

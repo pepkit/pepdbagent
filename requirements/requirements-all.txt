@@ -1,4 +1,4 @@
-psycopg2-binary
+psycopg2
 logmuse
 peppy>=0.35.4
 ubiquerg>=0.6.2

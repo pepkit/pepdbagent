@@ -118,6 +118,7 @@ class TestProject:
             tag="test",
             project_digest="aaa",
             number_of_samples=5,
+            schemas=None,
         )
 
         assert database_commit_mock.called
@@ -309,6 +310,7 @@ class TestAnnotation:
                     False,
                     datetime.datetime.now(),
                     datetime.datetime.now(),
+                    None,
                 ),
                 (
                     "1",
@@ -320,6 +322,7 @@ class TestAnnotation:
                     False,
                     datetime.datetime.now(),
                     datetime.datetime.now(),
+                    "test_schema",
                 ),
             ],
         )
@@ -345,6 +348,7 @@ class TestAnnotation:
                     False,
                     datetime.datetime.now(),
                     datetime.datetime.now(),
+                    "test schema",
                 ),
                 (
                     "1",
@@ -356,6 +360,7 @@ class TestAnnotation:
                     False,
                     datetime.datetime.now(),
                     datetime.datetime.now(),
+                    None,
                 ),
             ],
         )
