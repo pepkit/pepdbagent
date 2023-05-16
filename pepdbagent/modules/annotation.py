@@ -16,6 +16,7 @@ from pepdbagent.const import (
     LAST_UPDATE_DATE_COL,
     DIGEST_COL,
     DB_TABLE_NAME,
+    SCHEMA_COL,
 )
 from pepdbagent.utils import tuple_converter, registry_path_converter
 
@@ -166,7 +167,8 @@ class PEPDatabaseAnnotation:
                     {N_SAMPLES_COL},
                     {SUBMISSION_DATE_COL},
                     {LAST_UPDATE_DATE_COL},
-                    {DIGEST_COL}
+                    {DIGEST_COL},
+                    {SCHEMA_COL}
                         from {DB_TABLE_NAME}
                 """
 
@@ -189,6 +191,7 @@ class PEPDatabaseAnnotation:
                 submission_date=str(found_prj[6]),
                 last_update_date=str(found_prj[7]),
                 digest=found_prj[8],
+                schemas=found_prj[9],
             )
             _LOGGER.info(
                 f"Annotation of the project '{namespace}/{name}:{tag}' has been found!"
@@ -293,7 +296,7 @@ class PEPDatabaseAnnotation:
         count_sql = f"""
         select {NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {N_SAMPLES_COL},
                 ({PROJ_COL}->>'description'), {DIGEST_COL}, {PRIVATE_COL}, 
-                {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL}
+                {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL}, {SCHEMA_COL}
             from {DB_TABLE_NAME} where
                  {search_sql}
                     ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s ) {and_namespace_sql}
@@ -321,6 +324,7 @@ class PEPDatabaseAnnotation:
                     is_private=res[6],
                     last_update_date=str(res[8]),
                     submission_date=str(res[7]),
+                    schemas=str(res[9]),
                 )
             )
 

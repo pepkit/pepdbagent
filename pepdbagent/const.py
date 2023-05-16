@@ -10,6 +10,7 @@ PRIVATE_COL = "private"
 N_SAMPLES_COL = "number_of_samples"
 SUBMISSION_DATE_COL = "submission_date"
 LAST_UPDATE_DATE_COL = "last_update_date"
+SCHEMA_COL = "schemas"
 
 
 DB_COLUMNS = [
@@ -23,6 +24,7 @@ DB_COLUMNS = [
     N_SAMPLES_COL,
     SUBMISSION_DATE_COL,
     LAST_UPDATE_DATE_COL,
+    SCHEMA_COL,
 ]
 
 DEFAULT_NAMESPACE = "_"

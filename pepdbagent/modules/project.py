@@ -155,6 +155,7 @@ class PEPDatabaseProject:
         name: str = None,
         tag: str = None,
         is_private: bool = False,
+        schemas: str = None,
         overwrite: bool = False,
         update_only: bool = False,
     ) -> None:
@@ -167,6 +168,7 @@ class PEPDatabaseProject:
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
         :param is_private: boolean value if the project should be visible just for user that creates it.
+        :param schemas: assigned schemas to the PEP
         :param overwrite: if project exists overwrite the project, otherwise upload it.
             [Default: False - project won't be overwritten if it exists in db]
         :param update_only: if project exists overwrite it, otherwise do nothing.  [Default: False]
@@ -201,6 +203,7 @@ class PEPDatabaseProject:
                 tag=tag,
                 project_digest=proj_digest,
                 number_of_samples=number_of_samples,
+                schemas=schemas,
             )
             return None
         else:
@@ -209,8 +212,8 @@ class PEPDatabaseProject:
 
                 sql_base = f"""INSERT INTO {DB_TABLE_NAME} 
                 ({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {N_SAMPLES_COL}, 
-                    {PRIVATE_COL}, {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL})
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    {PRIVATE_COL}, {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL}, {SCHEMA_COL})
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING {ID_COL};"""
 
                 cursor.execute(
@@ -225,6 +228,7 @@ class PEPDatabaseProject:
                         is_private,
                         datetime.datetime.now(),
                         datetime.datetime.now(),
+                        schemas,
                     ),
                 )
                 proj_id = cursor.fetchone()[0]
@@ -245,6 +249,7 @@ class PEPDatabaseProject:
                         tag=tag,
                         project_digest=proj_digest,
                         number_of_samples=number_of_samples,
+                        schemas=schemas,
                     )
                     return None
                 else:
@@ -267,6 +272,7 @@ class PEPDatabaseProject:
         tag: str,
         project_digest: str,
         number_of_samples: int,
+        schemas: str,
     ) -> None:
         """
         Update existing project by providing all necessary information.
@@ -276,6 +282,7 @@ class PEPDatabaseProject:
         :param tag: project tag
         :param project_digest: project digest
         :param number_of_samples: number of samples in project
+        :param schemas: assigned schemas to the project
         :return: None
         """
 
@@ -284,7 +291,7 @@ class PEPDatabaseProject:
         if self.exists(namespace=namespace, name=proj_name, tag=tag):
             _LOGGER.info(f"Updating {proj_name} project...")
             sql = f"""UPDATE {DB_TABLE_NAME}
-                SET {DIGEST_COL} = %s, {PROJ_COL}= %s, {N_SAMPLES_COL}= %s, {LAST_UPDATE_DATE_COL} = %s
+                SET {DIGEST_COL} = %s, {PROJ_COL}= %s, {N_SAMPLES_COL}= %s, {LAST_UPDATE_DATE_COL} = %s, {SCHEMA_COL} = %s
                 WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
             cursor.execute(
                 sql,
@@ -293,6 +300,7 @@ class PEPDatabaseProject:
                     project_dict,
                     number_of_samples,
                     datetime.datetime.now(),
+                    schemas,
                     namespace,
                     proj_name,
                     tag,
@@ -324,6 +332,7 @@ class PEPDatabaseProject:
                     is_private: Optional[bool]
                     tag: Optional[str]
                     name: Optional[str]
+                    schemas: Optional[str]
             }
             *project_value should contain name and description
         :param namespace: project namespace
@@ -366,6 +375,12 @@ class PEPDatabaseProject:
             if update_values.name is not None:
                 update_final = UpdateModel(
                     name=update_values.name, **update_final.dict(exclude_unset=True)
+                )
+
+            if update_values.schemas is not None:
+                update_final = UpdateModel(
+                    schemas=update_values.schemas,
+                    **update_final.dict(exclude_unset=True),
                 )
 
             set_sql, set_values = self.__create_update_set(update_final)
