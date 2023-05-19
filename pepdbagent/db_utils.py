@@ -12,14 +12,14 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from sqlalchemy import event
 from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.engine import URL
 
 from typing import Optional, Any
 import datetime
 import logging
 
 from pepdbagent.const import POSTGRES_DIALECT
-from exceptions import SchemaError
-
+from pepdbagent.exceptions import SchemaError
 
 _LOGGER = logging.getLogger("pepdbagent")
 
@@ -39,17 +39,17 @@ class Base(MappedAsDataclass, DeclarativeBase):
     }
 
 
-@event.listens_for(Base.metadata, 'after_create')
+@event.listens_for(Base.metadata, "after_create")
 def receive_after_create(target, connection, tables, **kw):
     """
     listen for the 'after_create' event
     """
     if tables:
-        _LOGGER.warning('A table was created')
-        print('A table was created')
+        _LOGGER.warning("A table was created")
+        print("A table was created")
     else:
-        _LOGGER.info('A table was not created')
-        print('A table was not created')
+        _LOGGER.info("A table was not created")
+        print("A table was not created")
 
 
 class Projects(Base):
@@ -67,27 +67,25 @@ class Projects(Base):
     last_update_date: Mapped[datetime.datetime]
     # schema: Mapped[Optional[str]]
 
-    __table_args__ = (
-        PrimaryKeyConstraint("namespace", "name", "tag", name="id"),
-    )
+    __table_args__ = (PrimaryKeyConstraint("namespace", "name", "tag", name="id"),)
 
 
-class BaseEngine():
+class BaseEngine:
     """
     A class with base methods, that are used in several classes. e.g. fetch_one or fetch_all
     """
 
     def __init__(
-            self,
-            *,
-            host: str = "localhost",
-            port: int = 5432,
-            database: str = "pep-db",
-            user: str = None,
-            password: str = None,
-            dialect: str = POSTGRES_DIALECT,
-            dsn: str = None,
-            echo: bool = False,
+        self,
+        *,
+        host: str = "localhost",
+        port: int = 5432,
+        database: str = "pep-db",
+        user: str = None,
+        password: str = None,
+        drivername: str = POSTGRES_DIALECT,
+        dsn: str = None,
+        echo: bool = False,
     ):
         """
         Initialize connection to the pep_db database. You can use The basic connection parameters
@@ -101,14 +99,22 @@ class BaseEngine():
         (e.g. 'postgresql://user_name:password@host_name:port/db_name')
         """
         if not dsn:
-            dsn = self._create_dsn_string(host=host,
-                                          port=port,
-                                          database=database,
-                                          user=user,
-                                          password=password,
-                                          dialect=dialect, )
+            dsn = URL.create(
+                host=host,
+                port=port,
+                database=database,
+                username=user,
+                password=password,
+                drivername=drivername,
+            )
 
         self._engine = create_engine(dsn, echo=echo)
+
+        session = Session(self._engine)
+        try:
+            session.execute(select(Projects)).first()
+        except ProgrammingError:
+            raise SchemaError()
 
     def create_schema(self):
         Base.metadata.create_all(self._engine)
@@ -130,15 +136,14 @@ class BaseEngine():
 
         return session
 
-
     @staticmethod
     def _create_dsn_string(
-            host: str = "localhost",
-            port: int = 5432,
-            database: str = "pep-db",
-            user: str = None,
-            password: str = None,
-            dialect: str = POSTGRES_DIALECT,
+        host: str = "localhost",
+        port: int = 5432,
+        database: str = "pep-db",
+        user: str = None,
+        password: str = None,
+        dialect: str = POSTGRES_DIALECT,
     ) -> str:
         """
         Using host, port, database, user, and password and dialect
@@ -156,13 +161,14 @@ class BaseEngine():
 
 def main():
     # engine = BaseEngine(dsn='postgresql://postgres:docker@localhost:5432/pep-db')
-    engine = BaseEngine(host="localhost",
-                        port=5432,
-                        database="pep-db",
-                        user="postgres",
-                        password="docker",
-                        echo=True
-                        )
+    engine = BaseEngine(
+        host="localhost",
+        port=5432,
+        database="pep-db",
+        user="postgres",
+        password="docker",
+        echo=True,
+    )
     # engine.create_schema()
     ff = engine.session
 

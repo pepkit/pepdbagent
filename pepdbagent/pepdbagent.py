@@ -1,7 +1,8 @@
-from pepdbagent.base_connection import BaseConnection
+from pepdbagent.db_utils import BaseEngine
 from pepdbagent.modules.annotation import PEPDatabaseAnnotation
 from pepdbagent.modules.project import PEPDatabaseProject
 from pepdbagent.modules.namespace import PEPDatabaseNamespace
+from pepdbagent.const import POSTGRES_DIALECT
 
 
 class PEPDatabaseAgent(object):
@@ -12,7 +13,9 @@ class PEPDatabaseAgent(object):
         database="pep-db",
         user=None,
         password=None,
+        drivername=POSTGRES_DIALECT,
         dsn=None,
+        echo=False,
     ):
         """
         Initialize connection to the pep_db database. You can use The basic connection parameters
@@ -26,19 +29,22 @@ class PEPDatabaseAgent(object):
         (e.g. "localhost://username:password@pdp_db:5432")
         """
 
-        con = BaseConnection(
+        session = BaseEngine(
             host=host,
             port=port,
             database=database,
             user=user,
             password=password,
+            drivername=drivername,
             dsn=dsn,
-        )
-        self.__con = con
+            echo=echo,
+        ).engine
 
-        self.__project = PEPDatabaseProject(con)
-        self.__annotation = PEPDatabaseAnnotation(con)
-        self.__namespace = PEPDatabaseNamespace(con)
+        self.__con = session
+
+        self.__project = PEPDatabaseProject(session)
+        # self.__annotation = PEPDatabaseAnnotation(con)
+        # self.__namespace = PEPDatabaseNamespace(con)
 
         self.__db_name = database
 
@@ -46,13 +52,13 @@ class PEPDatabaseAgent(object):
     def project(self):
         return self.__project
 
-    @property
-    def annotation(self):
-        return self.__annotation
-
-    @property
-    def namespace(self):
-        return self.__namespace
+    # @property
+    # def annotation(self):
+    #     return self.__annotation
+    #
+    # @property
+    # def namespace(self):
+    #     return self.__namespace
 
     def __str__(self):
         return f"Connection to the database: '{self.__db_name}' is set!"

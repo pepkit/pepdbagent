@@ -3,7 +3,12 @@ import json
 from typing import Union, Tuple
 import logging
 import peppy
-from psycopg2.errors import NotNullViolation, UniqueViolation
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+from sqlalchemy import Engine
+from sqlalchemy import insert, select, delete, update
+from sqlalchemy import and_, or_
+from pepdbagent.db_utils import Projects
 
 from pepdbagent.models import (
     UpdateModel,
@@ -27,11 +32,11 @@ class PEPDatabaseProject:
     While using this class, user can retrieve projects from database
     """
 
-    def __init__(self, con: BaseConnection):
+    def __init__(self, engine: Engine):
         """
-        :param con: Connection to db represented by BaseConnection class object
+        :param engine: Connection to db represented by sqlalchemy engine
         """
-        self.con = con
+        self._sa_engine = engine
 
     def get(
         self,
@@ -42,6 +47,7 @@ class PEPDatabaseProject:
     ) -> Union[peppy.Project, dict, None]:
         """
         Retrieve project from database by specifying namespace, name and tag
+
         :param namespace: namespace of the project
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
@@ -58,19 +64,28 @@ class PEPDatabaseProject:
         if tag is None:
             tag = DEFAULT_TAG
 
-        sql_q = f"""
-                select {ID_COL}, {PROJ_COL}, {PRIVATE_COL} from {DB_TABLE_NAME}
-                """
-
-        sql_q = (
-            f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s;"""
-        )
-        found_prj = self.con.run_sql_fetchone(sql_q, name, namespace, tag)
+        with Session(self._sa_engine) as session:
+            found_prj = session.execute(
+                select(
+                    Projects.namespace,
+                    Projects.name,
+                    Projects.project_value,
+                    Projects.private,
+                ).where(
+                    and_(
+                        Projects.namespace == namespace,
+                        Projects.name == name,
+                        Projects.tag == tag,
+                    )
+                )
+            ).one()
 
         if found_prj:
-            _LOGGER.info(f"Project has been found: {found_prj[0]}")
-            project_value = found_prj[1]
-            is_private = found_prj[2]
+            _LOGGER.info(
+                f"Project has been found: {found_prj.namespace}, {found_prj.name}"
+            )
+            project_value = found_prj.project_value
+            is_private = found_prj.private
             if raw:
                 return project_value
             else:
@@ -91,6 +106,7 @@ class PEPDatabaseProject:
     ) -> Union[peppy.Project, dict, None]:
         """
         Retrieve project from database by specifying project registry_path
+
         :param registry_path: project registry_path [e.g. namespace/name:tag]
         :param raw: retrieve unprocessed (raw) PEP dict.
         :return: peppy.Project object with found project or dict with unprocessed
@@ -113,28 +129,29 @@ class PEPDatabaseProject:
     ) -> None:
         """
         Delete record from database
+
         :param namespace: Namespace
         :param name: Name
         :param tag: Tag
         :return: None
         """
-        cursor = self.con.pg_connection.cursor()
-        sql_delete = f"""DELETE FROM {DB_TABLE_NAME} 
-            WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
+        with self._sa_engine as engine:
+            engine.execute(
+                delete(Projects).where(
+                    and_(
+                        Projects.namespace == namespace,
+                        Projects.name == name,
+                        Projects.tag == tag,
+                    )
+                )
+            )
+
+        _LOGGER.info(f"Project '{namespace}/{name}:{tag} was successfully deleted'")
 
         if not self.exists(namespace=namespace, name=name, tag=tag):
             raise ProjectNotFoundError(
                 f"Can't delete unexciting project: '{namespace}/{name}:{tag}'."
             )
-
-        try:
-            cursor.execute(sql_delete, (namespace, name, tag))
-            _LOGGER.info(f"Project '{namespace}/{name}:{tag} was successfully deleted'")
-        except Exception as err:
-            _LOGGER.error(f"Error while deleting project. Message: {err}")
-        finally:
-            cursor.close()
-            return None
 
     def delete_by_rp(
         self,
@@ -153,7 +170,7 @@ class PEPDatabaseProject:
         project: peppy.Project,
         namespace: str,
         name: str = None,
-        tag: str = None,
+        tag: str = DEFAULT_TAG,
         is_private: bool = False,
         overwrite: bool = False,
         update_only: bool = False,
@@ -172,16 +189,16 @@ class PEPDatabaseProject:
         :param update_only: if project exists overwrite it, otherwise do nothing.  [Default: False]
         :return: None
         """
-        cursor = self.con.pg_connection.cursor()
-        if tag is None:
-            tag = DEFAULT_TAG
-
         proj_dict = project.to_dict(extended=True)
 
         if name:
             proj_name = name
-        else:
+        elif proj_dict["name"]:
             proj_name = proj_dict["name"]
+        else:
+            raise ValueError(
+                f"Name of the project wasn't provided. Project will not be uploaded."
+            )
 
         proj_dict["name"] = name
 
@@ -201,42 +218,29 @@ class PEPDatabaseProject:
                 tag=tag,
                 project_digest=proj_digest,
                 number_of_samples=number_of_samples,
+                private=is_private,
             )
             return None
         else:
             try:
                 _LOGGER.info(f"Uploading {namespace}/{proj_name}:{tag} project...")
 
-                sql_base = f"""INSERT INTO {DB_TABLE_NAME} 
-                ({NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {DIGEST_COL}, {PROJ_COL}, {N_SAMPLES_COL}, 
-                    {PRIVATE_COL}, {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL})
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        RETURNING {ID_COL};"""
+                with self._sa_engine.begin() as engine:
+                    engine.execute(
+                        insert(Projects).values(
+                            namespace=namespace,
+                            name=proj_name,
+                            tag=tag,
+                            digest=proj_digest,
+                            project_value=proj_dict,
+                            number_of_samples=number_of_samples,
+                            private=is_private,
+                            submission_date=datetime.datetime.now(),
+                            last_update_date=datetime.datetime.now(),
+                        )
+                    )
 
-                cursor.execute(
-                    sql_base,
-                    (
-                        namespace,
-                        proj_name,
-                        tag,
-                        proj_digest,
-                        proj_dict,
-                        number_of_samples,
-                        is_private,
-                        datetime.datetime.now(),
-                        datetime.datetime.now(),
-                    ),
-                )
-                proj_id = cursor.fetchone()[0]
-
-                self.con.commit_to_database()
-                cursor.close()
-                _LOGGER.info(
-                    f"Project: '{namespace}/{proj_name}:{tag}' was successfully uploaded."
-                )
-                return None
-
-            except UniqueViolation:
+            except IntegrityError:
                 if overwrite:
                     self._overwrite(
                         project_dict=proj_dict,
@@ -245,19 +249,16 @@ class PEPDatabaseProject:
                         tag=tag,
                         project_digest=proj_digest,
                         number_of_samples=number_of_samples,
+                        private=is_private,
                     )
                     return None
+
                 else:
                     raise ProjectUniqueNameError(
                         f"Namespace, name and tag already exists. Project won't be "
                         f"uploaded. Solution: Set overwrite value as True"
                         f" (project will be overwritten), or change tag!"
                     )
-
-            except NotNullViolation as err:
-                raise ValueError(
-                    f"Name of the project wasn't provided. Project will not be uploaded. Error: {err}"
-                )
 
     def _overwrite(
         self,
@@ -267,6 +268,7 @@ class PEPDatabaseProject:
         tag: str,
         project_digest: str,
         number_of_samples: int,
+        private: bool = False,
     ) -> None:
         """
         Update existing project by providing all necessary information.
@@ -276,31 +278,35 @@ class PEPDatabaseProject:
         :param tag: project tag
         :param project_digest: project digest
         :param number_of_samples: number of samples in project
+        :param private: boolean value if the project should be visible just for user that creates it.
         :return: None
         """
-
-        cursor = self.con.pg_connection.cursor()
-
         if self.exists(namespace=namespace, name=proj_name, tag=tag):
             _LOGGER.info(f"Updating {proj_name} project...")
-            sql = f"""UPDATE {DB_TABLE_NAME}
-                SET {DIGEST_COL} = %s, {PROJ_COL}= %s, {N_SAMPLES_COL}= %s, {LAST_UPDATE_DATE_COL} = %s
-                WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
-            cursor.execute(
-                sql,
-                (
-                    project_digest,
-                    project_dict,
-                    number_of_samples,
-                    datetime.datetime.now(),
-                    namespace,
-                    proj_name,
-                    tag,
-                ),
-            )
-            self.con.commit_to_database()
+            with self._sa_engine.begin() as engine:
+                engine.execute(
+                    update(Projects)
+                    .values(
+                        namespace=namespace,
+                        name=proj_name,
+                        tag=tag,
+                        digest=project_digest,
+                        project_value=project_dict,
+                        number_of_samples=number_of_samples,
+                        private=private,
+                        last_update_date=datetime.datetime.now(),
+                    )
+                    .where(
+                        and_(
+                            Projects.namespace == namespace,
+                            Projects.name == proj_name,
+                            Projects.tag == tag,
+                        )
+                    )
+                )
+
             _LOGGER.info(
-                f"Project '{namespace}/{proj_name}:{tag}' has been updated successfully!"
+                f"Project '{namespace}/{proj_name}:{tag}' has been successfully updated!"
             )
             return None
 
@@ -314,7 +320,7 @@ class PEPDatabaseProject:
         update_dict: Union[dict, UpdateItems],
         namespace: str,
         name: str,
-        tag: str,
+        tag: str = DEFAULT_TAG,
     ) -> None:
         """
         Update partial parts of the record in db
@@ -331,93 +337,75 @@ class PEPDatabaseProject:
         :param tag: project tag
         :return: None
         """
-        cursor = self.con.pg_connection.cursor()
-
-        if isinstance(update_dict, UpdateItems):
-            update_values = update_dict
-        else:
-            update_values = UpdateItems(**update_dict)
-
         if self.exists(namespace=namespace, name=name, tag=tag):
-            update_final = UpdateModel()
+            if isinstance(update_dict, UpdateItems):
+                update_values = update_dict
+            else:
+                update_values = UpdateItems(**update_dict)
 
-            if update_values.project_value is not None:
-                update_final = UpdateModel(
-                    project_value=update_values.project_value.to_dict(extended=True),
-                    name=update_values.project_value.name,
-                    digest=create_digest(
-                        update_values.project_value.to_dict(extended=True)
-                    ),
-                    last_update_date=datetime.datetime.now(),
-                    number_of_samples=len(update_values.project_value.samples),
+            update_values = self.__create_update_dict(update_values)
+
+            update_stmt = (
+                update(Projects)
+                .where(
+                    and_(
+                        Projects.namespace == namespace,
+                        Projects.name == name,
+                        Projects.tag == tag,
+                    )
                 )
-
-            if update_values.tag is not None:
-                update_final = UpdateModel(
-                    tag=update_values.tag, **update_final.dict(exclude_unset=True)
-                )
-
-            if update_values.is_private is not None:
-                update_final = UpdateModel(
-                    is_private=update_values.is_private,
-                    **update_final.dict(exclude_unset=True),
-                )
-
-            if update_values.name is not None:
-                update_final = UpdateModel(
-                    name=update_values.name, **update_final.dict(exclude_unset=True)
-                )
-
-            set_sql, set_values = self.__create_update_set(update_final)
-            sql = f"""UPDATE {DB_TABLE_NAME}
-                {set_sql}
-                WHERE {NAMESPACE_COL} = %s and {NAME_COL} = %s and {TAG_COL} = %s;"""
-            _LOGGER.debug("Updating items...")
-            cursor.execute(
-                sql,
-                (*set_values, namespace, name, tag),
+                .values(update_values)
             )
-            _LOGGER.info(f"Record '{namespace}/{name}:{tag}' was successfully updated!")
-            self.con.commit_to_database()
+
+            with self._sa_engine.begin() as engine:
+                engine.execute(update_stmt)
+
+            return None
 
         else:
             raise ProjectNotFoundError("No items will be updated!")
 
-        return None
-
     @staticmethod
-    def __create_update_set(update_info: UpdateModel) -> Tuple[str, tuple]:
+    def __create_update_dict(update_values: UpdateItems) -> dict:
         """
-        Create sql SET string by passing UpdateModel that later is converted to dict
-        :param update_info: UpdateModel (similar to database model)
-        :return: {sql_string (contains db keys) and updating values}
+
+        :return:
         """
-        _LOGGER.debug("Creating SET SQL string to update project")
-        sql_string = f"""SET """
-        sql_values = []
+        update_final = UpdateModel()
 
-        first = True
-        for key, val in update_info.dict(exclude_none=True).items():
-            if first:
-                sql_string = "".join([sql_string, f"{key} = %s"])
-                first = False
-            else:
-                sql_string = ", ".join([sql_string, f"{key} = %s"])
+        if update_values.project_value is not None:
+            update_final = UpdateModel(
+                project_value=update_values.project_value.to_dict(extended=True),
+                name=update_values.project_value.name,
+                digest=create_digest(
+                    update_values.project_value.to_dict(extended=True)
+                ),
+                last_update_date=datetime.datetime.now(),
+                number_of_samples=len(update_values.project_value.samples),
+            )
 
-            if isinstance(val, dict):
-                input_val = json.dumps(val)
-            else:
-                input_val = val
+        if update_values.tag is not None:
+            update_final = UpdateModel(
+                tag=update_values.tag, **update_final.dict(exclude_unset=True)
+            )
 
-            sql_values.append(input_val)
+        if update_values.is_private is not None:
+            update_final = UpdateModel(
+                is_private=update_values.is_private,
+                **update_final.dict(exclude_unset=True),
+            )
 
-        return sql_string, tuple(sql_values)
+        if update_values.name is not None:
+            update_final = UpdateModel(
+                name=update_values.name, **update_final.dict(exclude_unset=True)
+            )
+        return update_final.dict(exclude_unset=True)
 
     def exists(
         self,
-        namespace: str = None,
-        name: str = None,
-        tag: str = None,
+        namespace: str,
+        name: str,
+        tag: str = DEFAULT_TAG,
     ) -> bool:
         """
         Check if project exists in the database.
@@ -426,22 +414,19 @@ class PEPDatabaseProject:
         :param tag: project tag
         :return: Returning True if project exist
         """
-        if namespace is None:
-            namespace = DEFAULT_NAMESPACE
-
-        if tag is None:
-            tag = DEFAULT_TAG
-
-        if name is None:
-            _LOGGER.error(f"Name is not specified")
-            return False
-
-        sql = f"""SELECT {ID_COL} from {DB_TABLE_NAME} 
-                    WHERE {NAMESPACE_COL} = %s AND
-                          {NAME_COL} = %s AND 
-                          {TAG_COL} = %s;"""
-
-        if self.con.run_sql_fetchone(sql, namespace, name, tag):
+        with Session(self._sa_engine) as session:
+            found_prj = session.execute(
+                select(
+                    Projects.id,
+                ).where(
+                    and_(
+                        Projects.namespace == namespace,
+                        Projects.name == name,
+                        Projects.tag == tag,
+                    )
+                )
+            ).all()
+        if len(found_prj) > 0:
             return True
         else:
             return False
