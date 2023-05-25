@@ -1,15 +1,15 @@
 from typing import Union, List
 import logging
 
-from pepdbagent.base_connection import BaseConnection
+from sqlalchemy.orm import Session
+from sqlalchemy import Engine
+from sqlalchemy import insert, select, delete, update, func, distinct
+from sqlalchemy import and_, or_
+
+from pepdbagent.db_utils import Projects
 from pepdbagent.const import (
     DEFAULT_LIMIT,
     DEFAULT_OFFSET,
-    NAMESPACE_COL,
-    NAME_COL,
-    N_SAMPLES_COL,
-    DB_TABLE_NAME,
-    PRIVATE_COL,
 )
 
 from pepdbagent.models import Namespace, NamespaceList
@@ -25,11 +25,11 @@ class PEPDatabaseNamespace:
     While using this class, user can retrieve all necessary metadata about PEPs
     """
 
-    def __init__(self, con: BaseConnection):
+    def __init__(self, engine: Engine):
         """
-        :param con: Connection to db represented by BaseConnection class object
+        :param engine: Connection to db represented by sqlalchemy engine
         """
-        self.con = con
+        self._sa_engine = engine
 
     def get(
         self,
@@ -85,31 +85,32 @@ class PEPDatabaseNamespace:
                 number_of_samples,
             }
         """
-        if search_str:
-            search_str = f"%%{search_str}%%"
-            search_sql_values = (search_str,)
-            search_sql = f"""{NAMESPACE_COL} ILIKE %s and"""
-        else:
-            search_sql_values = tuple()
-            search_sql = ""
+        statement = select(Projects.namespace,
+                           func.count(Projects.name).label("number_of_projects"),
+                           func.sum(Projects.number_of_samples).label("number_of_samples"),
+                           ).group_by(Projects.namespace).select_from(Projects)
 
-        count_sql = f"""
-        select {NAMESPACE_COL}, COUNT({NAME_COL}), SUM({N_SAMPLES_COL})
-            from {DB_TABLE_NAME} where {search_sql}
-                ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s) 
-                    GROUP BY {NAMESPACE_COL}
-                        LIMIT %s OFFSET %s;
-        """
-        results = self.con.run_sql_fetchall(
-            count_sql, *search_sql_values, False, admin_nsp, limit, offset
+        if search_str:
+            sql_search_str = f"%{search_str}%"
+            statement = statement.where(
+                or_(
+                    Projects.namespace.ilike(sql_search_str),
+                )
+            )
+        statement = statement.where(
+            or_(Projects.private.is_(False), Projects.namespace.in_(admin_nsp))
         )
+        statement = statement.limit(limit).offset(offset)
+        with Session(self._sa_engine) as session:
+            query_results = session.execute(statement).all()
+
         results_list = []
-        for res in results:
+        for res in query_results:
             results_list.append(
                 Namespace(
-                    namespace=res[0],
-                    number_of_projects=res[1],
-                    number_of_samples=res[2],
+                    namespace=res.namespace,
+                    number_of_projects=res.number_of_projects,
+                    number_of_samples=res.number_of_samples,
                 )
             )
         return results_list
@@ -122,23 +123,18 @@ class PEPDatabaseNamespace:
         :param admin_nsp: tuple of namespaces where project can be retrieved if they are privet
         :return: number of found namespaces
         """
+        statement = select(func.count(distinct(Projects.namespace)).label("number_of_namespaces")).select_from(Projects)
         if search_str:
-            search_str = f"%%{search_str}%%"
-            search_sql_values = (search_str,)
-            search_sql = f"""{NAMESPACE_COL} ILIKE %s and"""
-        else:
-            search_sql_values = tuple()
-            search_sql = ""
-        count_sql = f"""
-        select COUNT(DISTINCT ({NAMESPACE_COL}))
-            from {DB_TABLE_NAME} where {search_sql}
-                ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s) 
-        """
-        result = self.con.run_sql_fetchall(
-            count_sql, *search_sql_values, False, admin_nsp
+            sql_search_str = f"%{search_str}%"
+            statement = statement.where(
+                or_(
+                    Projects.namespace.ilike(sql_search_str),
+                )
+            )
+        statement = statement.where(
+            or_(Projects.private.is_(False), Projects.namespace.in_(admin_nsp))
         )
-        try:
-            number_of_prj = result[0][0]
-        except KeyError:
-            number_of_prj = 0
-        return number_of_prj
+        with Session(self._sa_engine) as session:
+            query_results = session.execute(statement).first()
+
+        return query_results.number_of_namespaces

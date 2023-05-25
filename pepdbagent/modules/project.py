@@ -42,7 +42,7 @@ class PEPDatabaseProject:
         self,
         namespace: str,
         name: str,
-        tag: str = None,
+        tag: str = DEFAULT_TAG,
         raw: bool = False,
     ) -> Union[peppy.Project, dict, None]:
         """
@@ -61,9 +61,6 @@ class PEPDatabaseProject:
                 _subsample_dict: dict
             }
         """
-        if tag is None:
-            tag = DEFAULT_TAG
-
         with Session(self._sa_engine) as session:
             found_prj = session.execute(
                 select(
@@ -159,6 +156,7 @@ class PEPDatabaseProject:
     ) -> None:
         """
         Delete record from database by using registry_path
+
         :param registry_path: Registry path of the project ('namespace/name:tag')
         :return: None
         """
@@ -179,6 +177,7 @@ class PEPDatabaseProject:
         Upload project to the database.
         Project with the key, that already exists won't be uploaded(but case, when argument
         update is set True)
+
         :param peppy.Project project: Project object that has to be uploaded to the DB
         :param namespace: namespace of the project (Default: 'other')
         :param name: name of the project (Default: name is taken from the project object)
@@ -193,6 +192,7 @@ class PEPDatabaseProject:
 
         if name:
             proj_name = name
+            proj_dict["name"] = name
         elif proj_dict["name"]:
             proj_name = proj_dict["name"]
         else:
@@ -200,12 +200,8 @@ class PEPDatabaseProject:
                 f"Name of the project wasn't provided. Project will not be uploaded."
             )
 
-        proj_dict["name"] = name
-
         proj_digest = create_digest(proj_dict)
-
         number_of_samples = len(project.samples)
-        proj_dict = json.dumps(proj_dict)
 
         if update_only:
             _LOGGER.info(
@@ -225,8 +221,8 @@ class PEPDatabaseProject:
             try:
                 _LOGGER.info(f"Uploading {namespace}/{proj_name}:{tag} project...")
 
-                with self._sa_engine.begin() as engine:
-                    engine.execute(
+                with Session(self._sa_engine) as session:
+                    session.execute(
                         insert(Projects).values(
                             namespace=namespace,
                             name=proj_name,
@@ -239,6 +235,8 @@ class PEPDatabaseProject:
                             last_update_date=datetime.datetime.now(),
                         )
                     )
+
+                return None
 
             except IntegrityError:
                 if overwrite:
@@ -272,6 +270,7 @@ class PEPDatabaseProject:
     ) -> None:
         """
         Update existing project by providing all necessary information.
+
         :param project_dict: project dictionary in json format
         :param namespace: project namespace
         :param proj_name: project name
@@ -324,6 +323,7 @@ class PEPDatabaseProject:
     ) -> None:
         """
         Update partial parts of the record in db
+
         :param update_dict: dict with update key->values. Dict structure:
             {
                     project: Optional[peppy.Project]
@@ -368,8 +368,12 @@ class PEPDatabaseProject:
     @staticmethod
     def __create_update_dict(update_values: UpdateItems) -> dict:
         """
+        Modify keys and values that set for update and create unified
+        dictionary of the values that have to be updated
 
-        :return:
+         :param update_values: UpdateItems (pydantic class) with
+            updating values
+        :return: unified update dict
         """
         update_final = UpdateModel()
 

@@ -25,11 +25,12 @@ class PEPDatabaseAgent(object):
         :param database: the name of the database that you want to connect.
         :param user: the username used to authenticate.
         :param password: password used to authenticate.
+        :param drivername: driver of the database [Default: postgresql]
         :param dsn: libpq connection string using the dsn parameter
         (e.g. "localhost://username:password@pdp_db:5432")
         """
 
-        session = BaseEngine(
+        sa_engine = BaseEngine(
             host=host,
             port=port,
             database=database,
@@ -40,11 +41,11 @@ class PEPDatabaseAgent(object):
             echo=echo,
         ).engine
 
-        self.__con = session
+        self.__sa_engine = sa_engine
 
-        self.__project = PEPDatabaseProject(session)
-        # self.__annotation = PEPDatabaseAnnotation(con)
-        # self.__namespace = PEPDatabaseNamespace(con)
+        self.__project = PEPDatabaseProject(sa_engine)
+        self.__annotation = PEPDatabaseAnnotation(sa_engine)
+        self.__namespace = PEPDatabaseNamespace(sa_engine)
 
         self.__db_name = database
 
@@ -52,23 +53,20 @@ class PEPDatabaseAgent(object):
     def project(self):
         return self.__project
 
-    # @property
-    # def annotation(self):
-    #     return self.__annotation
-    #
-    # @property
-    # def namespace(self):
-    #     return self.__namespace
+    @property
+    def annotation(self):
+        return self.__annotation
+
+    @property
+    def namespace(self):
+        return self.__namespace
 
     def __str__(self):
         return f"Connection to the database: '{self.__db_name}' is set!"
 
-    def __del__(self):
-        self.__con.__del__()
-
     def __exit__(self):
-        self.__con.__exit__()
+        self.__sa_engine.__exit__()
 
     @property
     def connection(self):
-        return self.__con
+        return self.__sa_engine

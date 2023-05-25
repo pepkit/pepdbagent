@@ -4,7 +4,7 @@ from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 from sqlalchemy import PrimaryKeyConstraint, FetchedValue
-from sqlalchemy import Table
+from sqlalchemy import Select, Result
 from sqlalchemy import select
 
 from sqlalchemy import String, BigInteger
@@ -33,10 +33,13 @@ def compile_bigserial_pg(type_, compiler, **kw):
     return "BIGSERIAL"
 
 
-class Base(MappedAsDataclass, DeclarativeBase):
-    type_annotation_map = {
-        dict[str, Any]: JSONB,
-    }
+@compiles(JSONB, "postgresql")
+def compile_jsonb_pg(type_, compiler, **kw):
+    return "JSONB"
+
+
+class Base(DeclarativeBase):
+    pass
 
 
 @event.listens_for(Base.metadata, "after_create")
@@ -60,7 +63,7 @@ class Projects(Base):
     name: Mapped[str] = mapped_column(primary_key=True)
     tag: Mapped[str] = mapped_column(primary_key=True)
     digest: Mapped[str] = mapped_column(String(32))
-    project_value: Mapped[dict[str, Any]]
+    project_value: Mapped[dict] = mapped_column(JSONB, server_default=FetchedValue())
     private: Mapped[bool]
     number_of_samples: Mapped[int]
     submission_date: Mapped[datetime.datetime]
@@ -95,6 +98,7 @@ class BaseEngine:
         :param database: the name of the database that you want to connect.
         :param user: the username used to authenticate.
         :param password: password used to authenticate.
+        :param drivername: driver used in
         :param dsn: libpq connection string using the dsn parameter
         (e.g. 'postgresql://user_name:password@host_name:port/db_name')
         """
@@ -109,18 +113,43 @@ class BaseEngine:
             )
 
         self._engine = create_engine(dsn, echo=echo)
+        self.create_schema(self._engine)
 
         session = Session(self._engine)
         try:
-            session.execute(select(Projects)).first()
+            session.execute(select(Projects).limit(1)).first()
         except ProgrammingError:
             raise SchemaError()
 
-    def create_schema(self):
-        Base.metadata.create_all(self._engine)
+    def create_schema(self, engine=None):
+        """
+        Create sql schema in the database.
+
+        :param engine: sqlalchemy engine [Default: None]
+        :return: None
+        """
+        if not engine:
+            engine = self._engine
+        Base.metadata.create_all(engine)
+        return None
+
+    def session_execute(self, statement: Select) -> Result:
+        """
+        Execute statement using sqlalchemy statement
+
+        :param statement: SQL query or a SQL expression that is constructed using
+            SQLAlchemy's SQL expression language
+        :return: query result represented with declarative base
+        """
+        with Session(self._engine) as session:
+            query_result = session.execute(statement)
+        return query_result
 
     @property
     def session(self):
+        """
+        :return: started sqlalchemy session
+        """
         return self._start_session()
 
     @property
@@ -160,7 +189,6 @@ class BaseEngine:
 
 
 def main():
-    # engine = BaseEngine(dsn='postgresql://postgres:docker@localhost:5432/pep-db')
     engine = BaseEngine(
         host="localhost",
         port=5432,
@@ -169,7 +197,7 @@ def main():
         password="docker",
         echo=True,
     )
-    # engine.create_schema()
+    engine.create_schema()
     ff = engine.session
 
 

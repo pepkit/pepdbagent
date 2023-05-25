@@ -1,24 +1,19 @@
 from typing import Union, List
 import logging
 
-from pepdbagent.base_connection import BaseConnection
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+from sqlalchemy import Engine
+from sqlalchemy import insert, select, delete, update, func
+from sqlalchemy import and_, or_
+
+from pepdbagent.db_utils import Projects
 from pepdbagent.const import (
     DEFAULT_LIMIT,
     DEFAULT_OFFSET,
     DEFAULT_TAG,
-    NAMESPACE_COL,
-    NAME_COL,
-    TAG_COL,
-    PRIVATE_COL,
-    PROJ_COL,
-    N_SAMPLES_COL,
-    SUBMISSION_DATE_COL,
-    LAST_UPDATE_DATE_COL,
-    DIGEST_COL,
-    DB_TABLE_NAME,
 )
 from pepdbagent.utils import tuple_converter, registry_path_converter
-
 from pepdbagent.models import AnnotationModel, AnnotationList
 from pepdbagent.exceptions import RegistryPathError, ProjectNotFoundError
 
@@ -32,11 +27,11 @@ class PEPDatabaseAnnotation:
     While using this class, user can retrieve all necessary metadata about PEPs
     """
 
-    def __init__(self, con: BaseConnection):
+    def __init__(self, engine: Engine):
         """
-        :param con: Connection to db represented by BaseConnection class object
+        :param engine: Connection to db represented by sqlalchemy engine
         """
-        self.con = con
+        self._sa_engine = engine
 
     def get(
         self,
@@ -143,7 +138,7 @@ class PEPDatabaseAnnotation:
         self,
         namespace: str,
         name: str,
-        tag: str = None,
+        tag: str = DEFAULT_TAG,
         admin: Union[List[str], str] = None,
     ) -> Union[AnnotationModel, None]:
         """
@@ -156,39 +151,43 @@ class PEPDatabaseAnnotation:
         """
         _LOGGER.info(f"Getting annotation of the project: '{namespace}/{name}:{tag}'")
         admin_tuple = tuple_converter(admin)
-        sql_q = f"""
-                select 
-                    {NAMESPACE_COL},
-                    {NAME_COL},
-                    {TAG_COL},
-                    {PRIVATE_COL},
-                    {PROJ_COL}->>'description',
-                    {N_SAMPLES_COL},
-                    {SUBMISSION_DATE_COL},
-                    {LAST_UPDATE_DATE_COL},
-                    {DIGEST_COL}
-                        from {DB_TABLE_NAME}
-                """
 
-        if tag is None:
-            tag = DEFAULT_TAG
-
-        sql_q = f""" {sql_q} where {NAME_COL}=%s and {NAMESPACE_COL}=%s and {TAG_COL}=%s 
-                            and ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s );"""
-        found_prj = self.con.run_sql_fetchone(
-            sql_q, name, namespace, tag, False, admin_tuple
+        query = select(
+            Projects.namespace,
+            Projects.name,
+            Projects.tag,
+            Projects.private,
+            Projects.project_value["description"].astext.label("description"),
+            Projects.number_of_samples,
+            Projects.submission_date,
+            Projects.last_update_date,
+            Projects.digest,
+        ).where(
+            and_(
+                Projects.name == name,
+                Projects.namespace == namespace,
+                Projects.tag == tag,
+                or_(
+                    Projects.namespace.in_(admin_tuple),
+                    Projects.private.is_(False),
+                ),
+            )
         )
-        if len(found_prj) > 0:
+
+        with Session(self._sa_engine) as session:
+            query_result = session.execute(query).first()
+
+        if len(query_result) > 0:
             annot = AnnotationModel(
-                namespace=found_prj[0],
-                name=found_prj[1],
-                tag=found_prj[2],
-                is_private=found_prj[3],
-                description=found_prj[4],
-                number_of_samples=found_prj[5],
-                submission_date=str(found_prj[6]),
-                last_update_date=str(found_prj[7]),
-                digest=found_prj[8],
+                namespace=query_result.namespace,
+                name=query_result.name,
+                tag=query_result.tag,
+                is_private=query_result.private,
+                description=query_result.description,
+                number_of_samples=query_result.number_of_samples,
+                submission_date=str(query_result.submission_date),
+                last_update_date=str(query_result.last_update_date),
+                digest=query_result.digest,
             )
             _LOGGER.info(
                 f"Annotation of the project '{namespace}/{name}:{tag}' has been found!"
@@ -212,42 +211,38 @@ class PEPDatabaseAnnotation:
         :param admin: string or list of admins [e.g. "Khoroshevskyi", or ["doc_adin","Khoroshevskyi"]]
         :return: number of found project in specified namespace
         """
+        if admin is None:
+            admin = []
+        statement = select(func.count()).select_from(Projects)
         if search_str:
-            search_str = f"%%{search_str}%%"
-            search_sql_values = (
-                search_str,
-                search_str,
-                search_str,
+            sql_search_str = f"%{search_str}%"
+            search_query = or_(
+                Projects.name.ilike(sql_search_str),
+                Projects.name.ilike(sql_search_str),
             )
-            search_sql = f"""({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s or {TAG_COL} ILIKE %s) and"""
-        else:
-            search_sql_values = tuple()
-            search_sql = ""
-        admin_tuple = tuple_converter(admin)
-        if namespace:
-            and_namespace_sql = f"""AND {NAMESPACE_COL} = %s"""
-            namespace = (namespace,)
-        else:
-            and_namespace_sql = ""
-            namespace = tuple()
 
-        count_sql = f"""
-        select count(*)
-            from {DB_TABLE_NAME} where 
-                    {search_sql}
-                    ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s ) {and_namespace_sql};"""
-        result = self.con.run_sql_fetchall(
-            count_sql,
-            *search_sql_values,
-            False,
-            admin_tuple,
-            *namespace,
+            if self.get_project_number_in_namespace(namespace=namespace, admin=admin) < 1000:
+                search_query = or_(
+                    search_query,
+                    Projects.project_value["description"].astext.ilike(sql_search_str),
+                )
+
+            statement = statement.where(
+                search_query
+            )
+        if namespace:
+            statement = statement.where(Projects.namespace == namespace)
+        statement = statement.where(
+            or_(Projects.private.is_(False), Projects.namespace.in_(admin))
         )
+
+        with Session(self._sa_engine) as session:
+            result = session.execute(statement).first()
+
         try:
-            number_of_prj = result[0][0]
+            return result[0]
         except IndexError:
-            number_of_prj = 0
-        return number_of_prj
+            return 0
 
     def _get_projects(
         self,
@@ -269,59 +264,89 @@ class PEPDatabaseAnnotation:
         _LOGGER.info(
             f"Running annotation search: (namespace: {namespace}, query: {search_str}."
         )
+
+        if admin is None:
+            admin = []
+        statement = select(
+            Projects.namespace,
+            Projects.name,
+            Projects.tag,
+            Projects.private,
+            Projects.project_value["description"].astext.label("description"),
+            Projects.number_of_samples,
+            Projects.submission_date,
+            Projects.last_update_date,
+            Projects.digest,
+        ).select_from(Projects)
         if search_str:
-            search_str = f"%%{search_str}%%"
-            search_sql_values = (
-                search_str,
-                search_str,
-                search_str,
+            sql_search_str = f"%{search_str}%"
+            search_query = or_(
+                Projects.name.ilike(sql_search_str),
+                Projects.name.ilike(sql_search_str),
             )
-            search_sql = f"""({NAME_COL} ILIKE %s or ({PROJ_COL}->>'description') ILIKE %s or {TAG_COL} ILIKE %s) and"""
-        else:
-            search_sql_values = tuple()
-            search_sql = ""
 
-        admin_tuple = tuple_converter(admin)
+            if self.get_project_number_in_namespace(namespace=namespace, admin=admin) < 1000:
 
+                search_query = or_(
+                    search_query,
+                    Projects.project_value["description"].astext.ilike(sql_search_str),
+                )
+
+            statement = statement.where(
+                search_query
+            )
         if namespace:
-            and_namespace_sql = f"""AND {NAMESPACE_COL} = %s"""
-            namespace = (namespace,)
-        else:
-            and_namespace_sql = ""
-            namespace = tuple()
+            statement = statement.where(Projects.namespace == namespace)
 
-        count_sql = f"""
-        select {NAMESPACE_COL}, {NAME_COL}, {TAG_COL}, {N_SAMPLES_COL},
-                ({PROJ_COL}->>'description'), {DIGEST_COL}, {PRIVATE_COL}, 
-                {SUBMISSION_DATE_COL}, {LAST_UPDATE_DATE_COL}
-            from {DB_TABLE_NAME} where
-                 {search_sql}
-                    ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s ) {and_namespace_sql}
-                        LIMIT %s OFFSET %s;
-        """
-        results = self.con.run_sql_fetchall(
-            count_sql,
-            *search_sql_values,
-            False,
-            admin_tuple,
-            *namespace,
-            limit,
-            offset,
+        statement = statement.where(
+            or_(Projects.private.is_(False), Projects.namespace.in_(admin))
         )
+
+        with Session(self._sa_engine) as session:
+            query_results = session.execute(statement.limit(limit).offset(offset)).all()
+
         results_list = []
-        for res in results:
+        for result in query_results:
             results_list.append(
                 AnnotationModel(
-                    namespace=res[0],
-                    name=res[1],
-                    tag=res[2],
-                    number_of_samples=res[3],
-                    description=res[4],
-                    digest=res[5],
-                    is_private=res[6],
-                    last_update_date=str(res[8]),
-                    submission_date=str(res[7]),
+                    namespace=result.namespace,
+                    name=result.name,
+                    tag=result.tag,
+                    is_private=result.private,
+                    description=result.description,
+                    number_of_samples=result.number_of_samples,
+                    submission_date=str(result.submission_date),
+                    last_update_date=str(result.last_update_date),
+                    digest=result.digest,
                 )
             )
 
         return results_list
+
+    def get_project_number_in_namespace(
+            self,
+            namespace: str,
+            admin: Union[str, List[str]] = None,
+    ) -> int:
+        """
+        Get project by providing search string.
+        :param namespace: namespace where to search for a project
+        :param admin: True, if user is admin of the namespace [Default: False]
+        :return Integer: number of projects in the namepsace
+        """
+        if admin is None:
+            admin = []
+        statement = select(func.count()
+                           ).select_from(Projects
+                                         ).where(Projects.namespace == namespace)
+        statement = statement.where(
+            or_(Projects.private.is_(False), Projects.namespace.in_(admin))
+        )
+
+        with Session(self._sa_engine) as session:
+            result = session.execute(statement).first()
+
+        try:
+            return result[0]
+        except IndexError:
+            return 0
