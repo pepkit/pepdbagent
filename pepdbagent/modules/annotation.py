@@ -213,7 +213,7 @@ class PEPDatabaseAnnotation:
             sql_search_str = f"%{search_str}%"
             search_query = or_(
                 Projects.name.ilike(sql_search_str),
-                Projects.name.ilike(sql_search_str),
+                Projects.tag.ilike(sql_search_str),
             )
 
             if (
@@ -278,7 +278,7 @@ class PEPDatabaseAnnotation:
             sql_search_str = f"%{search_str}%"
             search_query = or_(
                 Projects.name.ilike(sql_search_str),
-                Projects.name.ilike(sql_search_str),
+                Projects.tag.ilike(sql_search_str),
             )
 
             if (
