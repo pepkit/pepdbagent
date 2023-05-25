@@ -213,8 +213,8 @@ class PEPDatabaseProject:
             try:
                 _LOGGER.info(f"Uploading {namespace}/{proj_name}:{tag} project...")
 
-                with Session(self._sa_engine) as session:
-                    session.execute(
+                with self._sa_engine.begin() as eng:
+                    eng.execute(
                         insert(Projects).values(
                             namespace=namespace,
                             name=proj_name,
