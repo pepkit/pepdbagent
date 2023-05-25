@@ -1,21 +1,16 @@
-from typing import Union, List
 import logging
+from typing import List, Union
 
+from sqlalchemy import Engine, func, select
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from sqlalchemy import Engine
-from sqlalchemy import insert, select, delete, update, func
-from sqlalchemy import and_, or_
 
+from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET, DEFAULT_TAG
 from pepdbagent.db_utils import Projects
-from pepdbagent.const import (
-    DEFAULT_LIMIT,
-    DEFAULT_OFFSET,
-    DEFAULT_TAG,
-)
-from pepdbagent.utils import tuple_converter, registry_path_converter
-from pepdbagent.models import AnnotationModel, AnnotationList
-from pepdbagent.exceptions import RegistryPathError, ProjectNotFoundError
+from pepdbagent.exceptions import ProjectNotFoundError, RegistryPathError
+from pepdbagent.models import AnnotationList, AnnotationModel
+from pepdbagent.utils import registry_path_converter, tuple_converter
 
 _LOGGER = logging.getLogger("pepdbagent")
 
@@ -221,15 +216,16 @@ class PEPDatabaseAnnotation:
                 Projects.name.ilike(sql_search_str),
             )
 
-            if self.get_project_number_in_namespace(namespace=namespace, admin=admin) < 1000:
+            if (
+                self.get_project_number_in_namespace(namespace=namespace, admin=admin)
+                < 1000
+            ):
                 search_query = or_(
                     search_query,
                     Projects.project_value["description"].astext.ilike(sql_search_str),
                 )
 
-            statement = statement.where(
-                search_query
-            )
+            statement = statement.where(search_query)
         if namespace:
             statement = statement.where(Projects.namespace == namespace)
         statement = statement.where(
@@ -285,16 +281,16 @@ class PEPDatabaseAnnotation:
                 Projects.name.ilike(sql_search_str),
             )
 
-            if self.get_project_number_in_namespace(namespace=namespace, admin=admin) < 1000:
-
+            if (
+                self.get_project_number_in_namespace(namespace=namespace, admin=admin)
+                < 1000
+            ):
                 search_query = or_(
                     search_query,
                     Projects.project_value["description"].astext.ilike(sql_search_str),
                 )
 
-            statement = statement.where(
-                search_query
-            )
+            statement = statement.where(search_query)
         if namespace:
             statement = statement.where(Projects.namespace == namespace)
 
@@ -324,9 +320,9 @@ class PEPDatabaseAnnotation:
         return results_list
 
     def get_project_number_in_namespace(
-            self,
-            namespace: str,
-            admin: Union[str, List[str]] = None,
+        self,
+        namespace: str,
+        admin: Union[str, List[str]] = None,
     ) -> int:
         """
         Get project by providing search string.
@@ -336,9 +332,11 @@ class PEPDatabaseAnnotation:
         """
         if admin is None:
             admin = []
-        statement = select(func.count()
-                           ).select_from(Projects
-                                         ).where(Projects.namespace == namespace)
+        statement = (
+            select(func.count())
+            .select_from(Projects)
+            .where(Projects.namespace == namespace)
+        )
         statement = statement.where(
             or_(Projects.private.is_(False), Projects.namespace.in_(admin))
         )

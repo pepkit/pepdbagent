@@ -2,8 +2,8 @@
 import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator, Extra
 import peppy
+from pydantic import BaseModel, Extra, Field, validator
 
 
 class AnnotationModel(BaseModel):

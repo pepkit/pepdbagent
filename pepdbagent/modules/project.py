@@ -1,26 +1,18 @@
 import datetime
 import json
-from typing import Union, Tuple
 import logging
+from typing import Tuple, Union
+
 import peppy
+from sqlalchemy import Engine, and_, delete, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from sqlalchemy import Engine
-from sqlalchemy import insert, select, delete, update
-from sqlalchemy import and_, or_
-from pepdbagent.db_utils import Projects
 
-from pepdbagent.models import (
-    UpdateModel,
-    UpdateItems,
-)
-from pepdbagent.base_connection import BaseConnection
 from pepdbagent.const import *
+from pepdbagent.db_utils import Projects
+from pepdbagent.exceptions import ProjectNotFoundError, ProjectUniqueNameError
+from pepdbagent.models import UpdateItems, UpdateModel
 from pepdbagent.utils import create_digest, registry_path_converter
-from pepdbagent.exceptions import (
-    ProjectNotFoundError,
-    ProjectUniqueNameError,
-)
 
 _LOGGER = logging.getLogger("pepdbagent")
 

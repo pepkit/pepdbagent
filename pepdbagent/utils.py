@@ -1,10 +1,12 @@
-from collections.abc import Iterable
 import json
+from collections.abc import Iterable
 from hashlib import md5
 from typing import Tuple, Union
+
 import ubiquerg
-from .exceptions import RegistryPathError
 from peppy.const import SAMPLE_RAW_DICT_KEY
+
+from .exceptions import RegistryPathError
 
 
 def is_valid_registry_path(rpath: str) -> bool:

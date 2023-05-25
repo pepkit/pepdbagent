@@ -1,10 +1,12 @@
-from psycopg2.errors import UniqueViolation
-from pepdbagent.pepdbagent import PEPDatabaseAgent
-from pepdbagent.models import BaseModel
-import json
-import psycopg2
-import pytest
 import datetime
+import json
+
+import sqlalchemy
+import pytest
+from psycopg2.errors import UniqueViolation
+
+from pepdbagent.models import BaseModel
+from pepdbagent.pepdbagent import PEPDatabaseAgent
 
 
 class TestBaseConnection:

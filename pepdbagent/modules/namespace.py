@@ -1,17 +1,11 @@
-from typing import Union, List
 import logging
+from typing import List, Union
 
+from sqlalchemy import Engine, and_, delete, distinct, func, insert, or_, select, update
 from sqlalchemy.orm import Session
-from sqlalchemy import Engine
-from sqlalchemy import insert, select, delete, update, func, distinct
-from sqlalchemy import and_, or_
 
+from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET
 from pepdbagent.db_utils import Projects
-from pepdbagent.const import (
-    DEFAULT_LIMIT,
-    DEFAULT_OFFSET,
-)
-
 from pepdbagent.models import Namespace, NamespaceList
 from pepdbagent.utils import tuple_converter
 
@@ -85,10 +79,15 @@ class PEPDatabaseNamespace:
                 number_of_samples,
             }
         """
-        statement = select(Projects.namespace,
-                           func.count(Projects.name).label("number_of_projects"),
-                           func.sum(Projects.number_of_samples).label("number_of_samples"),
-                           ).group_by(Projects.namespace).select_from(Projects)
+        statement = (
+            select(
+                Projects.namespace,
+                func.count(Projects.name).label("number_of_projects"),
+                func.sum(Projects.number_of_samples).label("number_of_samples"),
+            )
+            .group_by(Projects.namespace)
+            .select_from(Projects)
+        )
 
         if search_str:
             sql_search_str = f"%{search_str}%"
@@ -123,7 +122,9 @@ class PEPDatabaseNamespace:
         :param admin_nsp: tuple of namespaces where project can be retrieved if they are privet
         :return: number of found namespaces
         """
-        statement = select(func.count(distinct(Projects.namespace)).label("number_of_namespaces")).select_from(Projects)
+        statement = select(
+            func.count(distinct(Projects.namespace)).label("number_of_namespaces")
+        ).select_from(Projects)
         if search_str:
             sql_search_str = f"%{search_str}%"
             statement = statement.where(

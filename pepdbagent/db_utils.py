@@ -1,22 +1,27 @@
-from sqlalchemy.engine import create_engine
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass
-from sqlalchemy.exc import ProgrammingError
-from sqlalchemy.orm import Session
-from sqlalchemy import PrimaryKeyConstraint, FetchedValue
-from sqlalchemy import Select, Result
-from sqlalchemy import select
-
-from sqlalchemy import String, BigInteger
-from sqlalchemy.dialects.postgresql import JSONB
-
-from sqlalchemy import event
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.engine import URL
-
-from typing import Optional, Any
 import datetime
 import logging
+from typing import Any, Optional
+
+from sqlalchemy import (
+    BigInteger,
+    FetchedValue,
+    PrimaryKeyConstraint,
+    Result,
+    Select,
+    String,
+    event,
+    select,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.engine import URL, create_engine
+from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    Session,
+    mapped_column,
+)
 
 from pepdbagent.const import POSTGRES_DIALECT
 from pepdbagent.exceptions import SchemaError
@@ -186,20 +191,3 @@ class BaseEngine:
         :return: sqlalchemy connection string
         """
         return f"{dialect}://{user}:{password}@{host}:{port}/{database}"
-
-
-def main():
-    engine = BaseEngine(
-        host="localhost",
-        port=5432,
-        database="pep-db",
-        user="postgres",
-        password="docker",
-        echo=True,
-    )
-    engine.create_schema()
-    ff = engine.session
-
-
-if __name__ == "__main__":
-    main()

@@ -1,8 +1,8 @@
+from pepdbagent.const import POSTGRES_DIALECT
 from pepdbagent.db_utils import BaseEngine
 from pepdbagent.modules.annotation import PEPDatabaseAnnotation
-from pepdbagent.modules.project import PEPDatabaseProject
 from pepdbagent.modules.namespace import PEPDatabaseNamespace
-from pepdbagent.const import POSTGRES_DIALECT
+from pepdbagent.modules.project import PEPDatabaseProject
 
 
 class PEPDatabaseAgent(object):
