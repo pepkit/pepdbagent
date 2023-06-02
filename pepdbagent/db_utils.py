@@ -11,6 +11,7 @@ from sqlalchemy import (
     String,
     event,
     select,
+    TIMESTAMP,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import URL, create_engine
@@ -44,7 +45,7 @@ def compile_jsonb_pg(type_, compiler, **kw):
 
 
 class Base(DeclarativeBase):
-    pass
+    type_annotation_map = {datetime.datetime: TIMESTAMP(timezone=True)}
 
 
 @event.listens_for(Base.metadata, "after_create")
@@ -53,11 +54,9 @@ def receive_after_create(target, connection, tables, **kw):
     listen for the 'after_create' event
     """
     if tables:
-        _LOGGER.warning("A table was created")
-        print("A table was created")
+        _LOGGER.info("A table was created")
     else:
         _LOGGER.info("A table was not created")
-        print("A table was not created")
 
 
 class Projects(Base):

@@ -229,8 +229,12 @@ class PEPDatabaseProject:
                             project_value=proj_dict,
                             number_of_samples=number_of_samples,
                             private=is_private,
-                            submission_date=datetime.datetime.now(),
-                            last_update_date=datetime.datetime.now(),
+                            submission_date=datetime.datetime.now(
+                                datetime.timezone.utc
+                            ),
+                            last_update_date=datetime.datetime.now(
+                                datetime.timezone.utc
+                            ),
                         )
                     )
 
@@ -293,7 +297,7 @@ class PEPDatabaseProject:
                         project_value=project_dict,
                         number_of_samples=number_of_samples,
                         private=private,
-                        last_update_date=datetime.datetime.now(),
+                        last_update_date=datetime.datetime.now(datetime.timezone.utc),
                     )
                     .where(
                         and_(
@@ -384,7 +388,7 @@ class PEPDatabaseProject:
                 digest=create_digest(
                     update_values.project_value.to_dict(extended=True)
                 ),
-                last_update_date=datetime.datetime.now(),
+                last_update_date=datetime.datetime.now(datetime.timezone.utc),
                 number_of_samples=len(update_values.project_value.samples),
             )
 
