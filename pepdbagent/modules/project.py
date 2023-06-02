@@ -395,7 +395,7 @@ class PEPDatabaseProject:
             update_final = UpdateModel(
                 name=update_values.name, **update_final.dict(exclude_unset=True)
             )
-        return update_final.dict(exclude_unset=True)
+        return update_final.dict(exclude_unset=True, exclude_none=True)
 
     def exists(
         self,

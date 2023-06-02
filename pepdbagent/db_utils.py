@@ -74,7 +74,6 @@ class Projects(Base):
     submission_date: Mapped[datetime.datetime]
     last_update_date: Mapped[datetime.datetime]
     # schema: Mapped[Optional[str]]
-    # fork: Mapped[id] = mapped_column(BIGSERIAL)
 
     __table_args__ = (PrimaryKeyConstraint("namespace", "name", "tag", name="id"),)
 

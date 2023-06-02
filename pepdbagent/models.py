@@ -75,7 +75,8 @@ class UpdateItems(BaseModel):
     is_private: Optional[bool]
     name: Optional[str]
 
-    # class Config:
+    class Config:
+        arbitrary_types_allowed = True
     #     extra = Extra.forbid
 
 
@@ -86,12 +87,18 @@ class UpdateModel(BaseModel):
     """
 
     project_value: Optional[dict]
-    name: Optional[str]
-    tag: Optional[str]
+    name: Optional[str] = None
+    tag: Optional[str] = None
     private: Optional[bool] = Field(alias="is_private")
     digest: Optional[str]
     last_update_date: Optional[datetime.datetime]
     number_of_samples: Optional[int]
+
+    @validator('tag', 'name')
+    def tag_must_not_be_empty(cls, v):
+        if '' == v:
+            return None
+        return v
 
     class Config:
         extra = Extra.forbid
