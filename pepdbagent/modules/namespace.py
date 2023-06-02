@@ -3,6 +3,7 @@ from typing import List, Union
 
 from sqlalchemy import Engine, and_, delete, distinct, func, insert, or_, select, update
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.selectable import Select
 
 from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET
 from pepdbagent.db_utils import Projects
@@ -89,17 +90,13 @@ class PEPDatabaseNamespace:
             .select_from(Projects)
         )
 
-        if search_str:
-            sql_search_str = f"%{search_str}%"
-            statement = statement.where(
-                or_(
-                    Projects.namespace.ilike(sql_search_str),
-                )
-            )
-        statement = statement.where(
-            or_(Projects.private.is_(False), Projects.namespace.in_(admin_nsp))
+        statement = self._add_condition(
+            statement=statement,
+            search_str=search_str,
+            admin_list=admin_nsp,
         )
         statement = statement.limit(limit).offset(offset)
+
         with Session(self._sa_engine) as session:
             query_results = session.execute(statement).all()
 
@@ -125,6 +122,30 @@ class PEPDatabaseNamespace:
         statement = select(
             func.count(distinct(Projects.namespace)).label("number_of_namespaces")
         ).select_from(Projects)
+        statement = self._add_condition(
+            statement=statement,
+            search_str=search_str,
+            admin_list=admin_nsp,
+        )
+        with Session(self._sa_engine) as session:
+            query_results = session.execute(statement).first()
+
+        return query_results.number_of_namespaces
+
+    @staticmethod
+    def _add_condition(
+        statement: Select,
+        search_str: str = None,
+        admin_list: Union[str, List[str]] = None,
+    ) -> Select:
+        """
+        Add where clause to sqlalchemy statement (in namespace search)
+
+        :param statement: sqlalchemy representation of a SELECT statement.
+        :param search_str: search string that has to be found namespace
+        :param admin_list: list or string of admin rights to namespace
+        :return: sqlalchemy representation of a SELECT statement with where clause.
+        """
         if search_str:
             sql_search_str = f"%{search_str}%"
             statement = statement.where(
@@ -133,9 +154,6 @@ class PEPDatabaseNamespace:
                 )
             )
         statement = statement.where(
-            or_(Projects.private.is_(False), Projects.namespace.in_(admin_nsp))
+            or_(Projects.private.is_(False), Projects.namespace.in_(admin_list))
         )
-        with Session(self._sa_engine) as session:
-            query_results = session.execute(statement).first()
-
-        return query_results.number_of_namespaces
+        return statement

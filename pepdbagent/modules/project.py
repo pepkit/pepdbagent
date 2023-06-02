@@ -53,7 +53,7 @@ class PEPDatabaseProject:
                 _subsample_dict: dict
             }
         """
-        name = name.lower()
+        # name = name.lower()
         namespace = namespace.lower()
         with Session(self._sa_engine) as session:
             found_prj = session.execute(
@@ -126,7 +126,7 @@ class PEPDatabaseProject:
         :param tag: Tag
         :return: None
         """
-        name = name.lower()
+        # name = name.lower()
         namespace = namespace.lower()
         with self._sa_engine as engine:
             engine.execute(

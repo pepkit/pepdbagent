@@ -5,13 +5,14 @@ from sqlalchemy import Engine, func, select
 from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.selectable import Select
 
 from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET, DEFAULT_TAG
 from pepdbagent.db_utils import Projects
 from pepdbagent.exceptions import ProjectNotFoundError, RegistryPathError
 from pepdbagent.models import AnnotationList, AnnotationModel
 from pepdbagent.utils import registry_path_converter, tuple_converter
-from sqlalchemy.sql.selectable import Select
+
 
 _LOGGER = logging.getLogger("pepdbagent")
 
@@ -157,7 +158,7 @@ class PEPDatabaseAnnotation:
         _LOGGER.info(f"Getting annotation of the project: '{namespace}/{name}:{tag}'")
         admin_tuple = tuple_converter(admin)
 
-        query = select(
+        statement = select(
             Projects.namespace,
             Projects.name,
             Projects.tag,
@@ -180,7 +181,7 @@ class PEPDatabaseAnnotation:
         )
 
         with Session(self._sa_engine) as session:
-            query_result = session.execute(query).first()
+            query_result = session.execute(statement).first()
 
         if len(query_result) > 0:
             annot = AnnotationModel(
@@ -219,11 +220,8 @@ class PEPDatabaseAnnotation:
         if admin is None:
             admin = []
         statement = select(func.count()).select_from(Projects)
-        statement = self._add_where_clause(
-            statement,
-            namespace=namespace,
-            search_str=search_str,
-            admin_list=admin,
+        statement = self._add_condition(
+            statement, namespace=namespace, search_str=search_str, admin_list=admin
         )
 
         with Session(self._sa_engine) as session:
@@ -275,13 +273,14 @@ class PEPDatabaseAnnotation:
             Projects.digest,
         ).select_from(Projects)
 
-        statement = self._add_where_clause(
+        statement = self._add_condition(
             statement, namespace=namespace, search_str=search_str, admin_list=admin
         )
         statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
+        statement = statement.limit(limit).offset(offset)
 
         with Session(self._sa_engine) as session:
-            query_results = session.execute(statement.limit(limit).offset(offset)).all()
+            query_results = session.execute(statement).all()
 
         results_list = []
         for result in query_results:
@@ -337,7 +336,7 @@ class PEPDatabaseAnnotation:
         return statement.order_by(order_by_obj)
 
     @staticmethod
-    def _add_where_clause(
+    def _add_condition(
         statement: Select,
         namespace: str = None,
         search_str: str = None,
