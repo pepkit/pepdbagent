@@ -327,8 +327,12 @@ class PEPDatabaseAnnotation:
             )
             order_by_obj = Projects.last_update_date
 
-        if desc:
+        if desc and by == "name":
             order_by_obj = order_by_obj.desc()
+
+        else:
+            if not desc:
+                order_by_obj = order_by_obj.desc()
 
         return statement.order_by(order_by_obj)
 
@@ -340,7 +344,7 @@ class PEPDatabaseAnnotation:
         admin_list: Union[str, List[str]] = None,
     ) -> Select:
         """
-        Add where clause to sqlalchemy statement
+        Add where clause to sqlalchemy statement (in project search)
 
         :param statement: sqlalchemy representation of a SELECT statement.
         :param namespace: project namespace sql:(where namespace = "")

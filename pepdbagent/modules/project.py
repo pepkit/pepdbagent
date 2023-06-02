@@ -53,6 +53,8 @@ class PEPDatabaseProject:
                 _subsample_dict: dict
             }
         """
+        name = name.lower()
+        namespace = namespace.lower()
         with Session(self._sa_engine) as session:
             found_prj = session.execute(
                 select(
@@ -124,6 +126,8 @@ class PEPDatabaseProject:
         :param tag: Tag
         :return: None
         """
+        name = name.lower()
+        namespace = namespace.lower()
         with self._sa_engine as engine:
             engine.execute(
                 delete(Projects).where(
@@ -182,11 +186,13 @@ class PEPDatabaseProject:
         """
         proj_dict = project.to_dict(extended=True)
 
+        namespace = namespace.lower()
         if name:
+            name = name.lower()
             proj_name = name
             proj_dict["name"] = name
         elif proj_dict["name"]:
-            proj_name = proj_dict["name"]
+            proj_name = proj_dict["name"].lower()
         else:
             raise ValueError(
                 f"Name of the project wasn't provided. Project will not be uploaded."
@@ -272,6 +278,8 @@ class PEPDatabaseProject:
         :param private: boolean value if the project should be visible just for user that creates it.
         :return: None
         """
+        proj_name = proj_name.lower()
+        namespace = namespace.lower()
         if self.exists(namespace=namespace, name=proj_name, tag=tag):
             _LOGGER.info(f"Updating {proj_name} project...")
             with self._sa_engine.begin() as engine:

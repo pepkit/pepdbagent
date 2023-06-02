@@ -96,9 +96,15 @@ class UpdateModel(BaseModel):
     number_of_samples: Optional[int]
 
     @validator("tag", "name")
-    def tag_must_not_be_empty(cls, v):
+    def value_must_not_be_empty(cls, v):
         if "" == v:
             return None
+        return v
+
+    @validator("tag", "name")
+    def value_must_be_lowercase(cls, v):
+        if v:
+            return v.lower()
         return v
 
     class Config:
