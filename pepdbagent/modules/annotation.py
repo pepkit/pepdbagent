@@ -11,6 +11,7 @@ from pepdbagent.db_utils import Projects
 from pepdbagent.exceptions import ProjectNotFoundError, RegistryPathError
 from pepdbagent.models import AnnotationList, AnnotationModel
 from pepdbagent.utils import registry_path_converter, tuple_converter
+from sqlalchemy.sql.selectable import Select
 
 _LOGGER = logging.getLogger("pepdbagent")
 
@@ -37,9 +38,12 @@ class PEPDatabaseAnnotation:
         admin: Union[List[str], str] = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
+        order_by: str = "update_date",
+        order_desc: bool = False,
     ) -> AnnotationList:
         """
         Get project annotations.
+
         There is 5 scenarios how to get project or projects annotations:
             - provide name, namespace and tag. Return: project annotations of exact provided PK(namespace, name, tag)
             - provide only namespace. Return: list of projects annotations in specified namespace
@@ -54,6 +58,10 @@ class PEPDatabaseAnnotation:
         :param admin: admin name (namespace), or list of namespaces, where user is admin
         :param limit: return limit
         :param offset: return offset
+        :param order_by: sort the result-set by the information
+            Options: ["name", "update_date", "submission_date"]
+            [Default: update_date]
+        :param order_desc: Sort the records in descending order. [Default: False]
         :return: pydantic model: AnnotationReturnModel
         """
         if all([namespace, name, tag]):
@@ -83,6 +91,8 @@ class PEPDatabaseAnnotation:
                 admin=admin,
                 offset=offset,
                 limit=limit,
+                order_by=order_by,
+                order_desc=order_desc,
             ),
         )
 
@@ -209,27 +219,11 @@ class PEPDatabaseAnnotation:
         if admin is None:
             admin = []
         statement = select(func.count()).select_from(Projects)
-        if search_str:
-            sql_search_str = f"%{search_str}%"
-            search_query = or_(
-                Projects.name.ilike(sql_search_str),
-                Projects.tag.ilike(sql_search_str),
-            )
-
-            if (
-                self.get_project_number_in_namespace(namespace=namespace, admin=admin)
-                < 1000
-            ):
-                search_query = or_(
-                    search_query,
-                    Projects.project_value["description"].astext.ilike(sql_search_str),
-                )
-
-            statement = statement.where(search_query)
-        if namespace:
-            statement = statement.where(Projects.namespace == namespace)
-        statement = statement.where(
-            or_(Projects.private.is_(False), Projects.namespace.in_(admin))
+        statement = self._add_where_clause(
+            statement,
+            namespace=namespace,
+            search_str=search_str,
+            admin_list=admin,
         )
 
         with Session(self._sa_engine) as session:
@@ -247,14 +241,20 @@ class PEPDatabaseAnnotation:
         admin: Union[str, List[str]] = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
+        order_by: str = "update_date",
+        order_desc: bool = False,
     ) -> List[AnnotationModel]:
         """
         Get project by providing search string.
         :param namespace: namespace where to search for a project
-        :param search_str: search string that has to be found in the name, tag or project description
+        :param search_str: search string that has to be found in the name or tag
         :param admin: True, if user is admin of the namespace [Default: False]
         :param limit: limit of return results
         :param offset: number of results off set (that were already showed)
+        :param order_by: sort the result-set by the information
+            Options: ["name", "update_date", "submission_date"]
+            [Default: "update_date"]
+        :param order_desc: Sort the records in descending order. [Default: False]
         :return: list of found projects with their annotations.
         """
         _LOGGER.info(
@@ -274,29 +274,11 @@ class PEPDatabaseAnnotation:
             Projects.last_update_date,
             Projects.digest,
         ).select_from(Projects)
-        if search_str:
-            sql_search_str = f"%{search_str}%"
-            search_query = or_(
-                Projects.name.ilike(sql_search_str),
-                Projects.tag.ilike(sql_search_str),
-            )
 
-            if (
-                self.get_project_number_in_namespace(namespace=namespace, admin=admin)
-                < 1000
-            ):
-                search_query = or_(
-                    search_query,
-                    Projects.project_value["description"].astext.ilike(sql_search_str),
-                )
-
-            statement = statement.where(search_query)
-        if namespace:
-            statement = statement.where(Projects.namespace == namespace)
-
-        statement = statement.where(
-            or_(Projects.private.is_(False), Projects.namespace.in_(admin))
+        statement = self._add_where_clause(
+            statement, namespace=namespace, search_str=search_str, admin_list=admin
         )
+        statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
 
         with Session(self._sa_engine) as session:
             query_results = session.execute(statement.limit(limit).offset(offset)).all()
@@ -319,6 +301,69 @@ class PEPDatabaseAnnotation:
 
         return results_list
 
+    @staticmethod
+    def _add_order_by_keyword(
+        statement: Select, by: str = "update_date", desc: bool = False
+    ) -> Select:
+        """
+        Add order by clause to sqlalchemy statement
+
+        :param statement: sqlalchemy representation of a SELECT statement.
+        :param by: sort the result-set by the information
+            Options: ["name", "update_date", "submission_date"]
+            [Default: "update_date"]
+        :param desc: Sort the records in descending order. [Default: False]
+        :return: sqlalchemy representation of a SELECT statement with order by keyword
+        """
+        if by == "update_date":
+            order_by_obj = Projects.last_update_date
+        elif by == "name":
+            order_by_obj = Projects.name
+        elif by == "submission_date":
+            order_by_obj = Projects.submission_date
+        else:
+            _LOGGER.warning(
+                f"order by: '{by}' statement is unavailable. Projects are sorted by 'update_date'"
+            )
+            order_by_obj = Projects.last_update_date
+
+        if desc:
+            order_by_obj = order_by_obj.desc()
+
+        return statement.order_by(order_by_obj)
+
+    @staticmethod
+    def _add_where_clause(
+        statement: Select,
+        namespace: str = None,
+        search_str: str = None,
+        admin_list: Union[str, List[str]] = None,
+    ) -> Select:
+        """
+        Add where clause to sqlalchemy statement
+
+        :param statement: sqlalchemy representation of a SELECT statement.
+        :param namespace: project namespace sql:(where namespace = "")
+        :param search_str: search string that has to be found in the name or tag
+        :param admin_list: list or string of admin rights to namespace
+        :return: sqlalchemy representation of a SELECT statement with where clause.
+        """
+        if search_str:
+            sql_search_str = f"%{search_str}%"
+            search_query = or_(
+                Projects.name.ilike(sql_search_str),
+                Projects.tag.ilike(sql_search_str),
+            )
+            statement = statement.where(search_query)
+        if namespace:
+            statement = statement.where(Projects.namespace == namespace)
+
+        statement = statement.where(
+            or_(Projects.private.is_(False), Projects.namespace.in_(admin_list))
+        )
+
+        return statement
+
     def get_project_number_in_namespace(
         self,
         namespace: str,
@@ -326,6 +371,7 @@ class PEPDatabaseAnnotation:
     ) -> int:
         """
         Get project by providing search string.
+
         :param namespace: namespace where to search for a project
         :param admin: True, if user is admin of the namespace [Default: False]
         :return Integer: number of projects in the namepsace

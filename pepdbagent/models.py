@@ -77,6 +77,7 @@ class UpdateItems(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
     #     extra = Extra.forbid
 
 
@@ -94,9 +95,9 @@ class UpdateModel(BaseModel):
     last_update_date: Optional[datetime.datetime]
     number_of_samples: Optional[int]
 
-    @validator('tag', 'name')
+    @validator("tag", "name")
     def tag_must_not_be_empty(cls, v):
-        if '' == v:
+        if "" == v:
             return None
         return v
 
