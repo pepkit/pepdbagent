@@ -6,13 +6,13 @@ from typing import Tuple, Union
 import peppy
 from sqlalchemy import Engine, and_, delete, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
 from pepdbagent.const import *
-from pepdbagent.db_utils import Projects
+from pepdbagent.db_utils import Projects, BaseEngine
 from pepdbagent.exceptions import ProjectNotFoundError, ProjectUniqueNameError
 from pepdbagent.models import UpdateItems, UpdateModel
 from pepdbagent.utils import create_digest, registry_path_converter
+
 
 _LOGGER = logging.getLogger("pepdbagent")
 
@@ -24,11 +24,12 @@ class PEPDatabaseProject:
     While using this class, user can retrieve projects from database
     """
 
-    def __init__(self, engine: Engine):
+    def __init__(self, pep_db_engine: BaseEngine):
         """
-        :param engine: Connection to db represented by sqlalchemy engine
+        :param pep_db_engine: pepdbengine object with sa engine
         """
-        self._sa_engine = engine
+        self._sa_engine = pep_db_engine.engine
+        self._pep_db_engine = pep_db_engine
 
     def get(
         self,
@@ -55,21 +56,22 @@ class PEPDatabaseProject:
         """
         # name = name.lower()
         namespace = namespace.lower()
-        with Session(self._sa_engine) as session:
-            found_prj = session.execute(
-                select(
-                    Projects.namespace,
-                    Projects.name,
-                    Projects.project_value,
-                    Projects.private,
-                ).where(
-                    and_(
-                        Projects.namespace == namespace,
-                        Projects.name == name,
-                        Projects.tag == tag,
-                    )
-                )
-            ).one()
+        statement = select(
+            Projects.namespace,
+            Projects.name,
+            Projects.project_value,
+            Projects.private,
+        )
+
+        statement = statement.where(
+            and_(
+                Projects.namespace == namespace,
+                Projects.name == name,
+                Projects.tag == tag,
+            )
+        )
+
+        found_prj = self._pep_db_engine.session_execute(statement).one()
 
         if found_prj:
             _LOGGER.info(
@@ -422,18 +424,17 @@ class PEPDatabaseProject:
         :param tag: project tag
         :return: Returning True if project exist
         """
-        with Session(self._sa_engine) as session:
-            found_prj = session.execute(
-                select(
-                    Projects.id,
-                ).where(
-                    and_(
-                        Projects.namespace == namespace,
-                        Projects.name == name,
-                        Projects.tag == tag,
-                    )
-                )
-            ).all()
+
+        statement = select(Projects.id)
+        statement = statement.where(
+            and_(
+                Projects.namespace == namespace,
+                Projects.name == name,
+                Projects.tag == tag,
+            )
+        )
+        found_prj = self._pep_db_engine.session_execute(statement).all()
+
         if len(found_prj) > 0:
             return True
         else:

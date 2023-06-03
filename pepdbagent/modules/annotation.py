@@ -4,11 +4,10 @@ from typing import List, Union
 from sqlalchemy import Engine, func, select
 from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 from sqlalchemy.sql.selectable import Select
 
 from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET, DEFAULT_TAG
-from pepdbagent.db_utils import Projects
+from pepdbagent.db_utils import Projects, BaseEngine
 from pepdbagent.exceptions import ProjectNotFoundError, RegistryPathError
 from pepdbagent.models import AnnotationList, AnnotationModel
 from pepdbagent.utils import registry_path_converter, tuple_converter
@@ -24,11 +23,12 @@ class PEPDatabaseAnnotation:
     While using this class, user can retrieve all necessary metadata about PEPs
     """
 
-    def __init__(self, engine: Engine):
+    def __init__(self, pep_db_engine: BaseEngine):
         """
-        :param engine: Connection to db represented by sqlalchemy engine
+        :param pep_db_engine: pepdbengine object with sa engine
         """
-        self._sa_engine = engine
+        self._sa_engine = pep_db_engine.engine
+        self._pep_db_engine = pep_db_engine
 
     def get(
         self,
@@ -179,9 +179,7 @@ class PEPDatabaseAnnotation:
                 ),
             )
         )
-
-        with Session(self._sa_engine) as session:
-            query_result = session.execute(statement).first()
+        query_result = self._pep_db_engine.session_execute(statement).first()
 
         if len(query_result) > 0:
             annot = AnnotationModel(
@@ -223,9 +221,7 @@ class PEPDatabaseAnnotation:
         statement = self._add_condition(
             statement, namespace=namespace, search_str=search_str, admin_list=admin
         )
-
-        with Session(self._sa_engine) as session:
-            result = session.execute(statement).first()
+        result = self._pep_db_engine.session_execute(statement).first()
 
         try:
             return result[0]
@@ -279,8 +275,7 @@ class PEPDatabaseAnnotation:
         statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
         statement = statement.limit(limit).offset(offset)
 
-        with Session(self._sa_engine) as session:
-            query_results = session.execute(statement).all()
+        query_results = self._pep_db_engine.session_execute(statement).all()
 
         results_list = []
         for result in query_results:
@@ -390,8 +385,7 @@ class PEPDatabaseAnnotation:
             or_(Projects.private.is_(False), Projects.namespace.in_(admin))
         )
 
-        with Session(self._sa_engine) as session:
-            result = session.execute(statement).first()
+        result = self._pep_db_engine.session_execute(statement).first()
 
         try:
             return result[0]

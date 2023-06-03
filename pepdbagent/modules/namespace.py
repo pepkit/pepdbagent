@@ -1,12 +1,11 @@
 import logging
 from typing import List, Union
 
-from sqlalchemy import Engine, and_, delete, distinct, func, insert, or_, select, update
-from sqlalchemy.orm import Session
+from sqlalchemy import distinct, func, or_, select
 from sqlalchemy.sql.selectable import Select
 
 from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET
-from pepdbagent.db_utils import Projects
+from pepdbagent.db_utils import Projects, BaseEngine
 from pepdbagent.models import Namespace, NamespaceList
 from pepdbagent.utils import tuple_converter
 
@@ -20,11 +19,12 @@ class PEPDatabaseNamespace:
     While using this class, user can retrieve all necessary metadata about PEPs
     """
 
-    def __init__(self, engine: Engine):
+    def __init__(self, pep_db_engine: BaseEngine):
         """
-        :param engine: Connection to db represented by sqlalchemy engine
+        :param pep_db_engine: pepdbengine object with sa engine
         """
-        self._sa_engine = engine
+        self._sa_engine = pep_db_engine.engine
+        self._pep_db_engine = pep_db_engine
 
     def get(
         self,
@@ -96,9 +96,7 @@ class PEPDatabaseNamespace:
             admin_list=admin_nsp,
         )
         statement = statement.limit(limit).offset(offset)
-
-        with Session(self._sa_engine) as session:
-            query_results = session.execute(statement).all()
+        query_results = self._pep_db_engine.session_execute(statement).all()
 
         results_list = []
         for res in query_results:
@@ -127,8 +125,8 @@ class PEPDatabaseNamespace:
             search_str=search_str,
             admin_list=admin_nsp,
         )
-        with Session(self._sa_engine) as session:
-            query_results = session.execute(statement).first()
+
+        query_results = self._pep_db_engine.session_execute(statement).first()
 
         return query_results.number_of_namespaces
 

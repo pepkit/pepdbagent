@@ -30,7 +30,7 @@ class PEPDatabaseAgent(object):
         (e.g. "localhost://username:password@pdp_db:5432")
         """
 
-        sa_engine = BaseEngine(
+        pep_db_engine = BaseEngine(
             host=host,
             port=port,
             database=database,
@@ -39,13 +39,14 @@ class PEPDatabaseAgent(object):
             drivername=drivername,
             dsn=dsn,
             echo=echo,
-        ).engine
+        )
+        sa_engine = pep_db_engine.engine
 
         self.__sa_engine = sa_engine
 
-        self.__project = PEPDatabaseProject(sa_engine)
-        self.__annotation = PEPDatabaseAnnotation(sa_engine)
-        self.__namespace = PEPDatabaseNamespace(sa_engine)
+        self.__project = PEPDatabaseProject(pep_db_engine)
+        self.__annotation = PEPDatabaseAnnotation(pep_db_engine)
+        self.__namespace = PEPDatabaseNamespace(pep_db_engine)
 
         self.__db_name = database
 
