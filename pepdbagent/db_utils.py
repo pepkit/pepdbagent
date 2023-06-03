@@ -137,7 +137,7 @@ class BaseEngine:
         Base.metadata.create_all(engine)
         return None
 
-    def session_execute_first(self, statement: Select) -> Result:
+    def session_execute(self, statement: Select) -> Result:
         """
         Execute statement using sqlalchemy statement
 

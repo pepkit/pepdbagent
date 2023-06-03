@@ -71,7 +71,7 @@ class PEPDatabaseProject:
             )
         )
 
-        found_prj = self._pep_db_engine.session_execute_first(statement).one()
+        found_prj = self._pep_db_engine.session_execute(statement).one()
 
         if found_prj:
             _LOGGER.info(
@@ -433,7 +433,7 @@ class PEPDatabaseProject:
                 Projects.tag == tag,
             )
         )
-        found_prj = self._pep_db_engine.session_execute_first(statement).all()
+        found_prj = self._pep_db_engine.session_execute(statement).all()
 
         if len(found_prj) > 0:
             return True
