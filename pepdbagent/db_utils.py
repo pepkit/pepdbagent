@@ -25,7 +25,7 @@ from sqlalchemy.orm import (
 )
 
 from pepdbagent.const import POSTGRES_DIALECT
-from pepdbagent.exceptions import SchemaError, RecordNotFoundError
+from pepdbagent.exceptions import SchemaError
 
 _LOGGER = logging.getLogger("pepdbagent")
 
@@ -137,7 +137,7 @@ class BaseEngine:
         Base.metadata.create_all(engine)
         return None
 
-    def session_execute(self, statement: Select) -> Result:
+    def session_execute_first(self, statement: Select) -> Result:
         """
         Execute statement using sqlalchemy statement
 
@@ -149,9 +149,6 @@ class BaseEngine:
         with Session(self._engine) as session:
             query_result = session.execute(statement)
 
-        if not query_result.one_or_none():
-            _LOGGER.error(f"Record with provided conditions not found")
-            raise RecordNotFoundError("Record with provided conditions not found")
         return query_result
 
     @property

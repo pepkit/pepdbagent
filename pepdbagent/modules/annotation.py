@@ -179,7 +179,7 @@ class PEPDatabaseAnnotation:
                 ),
             )
         )
-        query_result = self._pep_db_engine.session_execute(statement).first()
+        query_result = self._pep_db_engine.session_execute_first(statement).first()
 
         if len(query_result) > 0:
             annot = AnnotationModel(
@@ -221,7 +221,7 @@ class PEPDatabaseAnnotation:
         statement = self._add_condition(
             statement, namespace=namespace, search_str=search_str, admin_list=admin
         )
-        result = self._pep_db_engine.session_execute(statement).first()
+        result = self._pep_db_engine.session_execute_first(statement).first()
 
         try:
             return result[0]
@@ -275,7 +275,7 @@ class PEPDatabaseAnnotation:
         statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
         statement = statement.limit(limit).offset(offset)
 
-        query_results = self._pep_db_engine.session_execute(statement).all()
+        query_results = self._pep_db_engine.session_execute_first(statement).all()
 
         results_list = []
         for result in query_results:
@@ -385,7 +385,7 @@ class PEPDatabaseAnnotation:
             or_(Projects.private.is_(False), Projects.namespace.in_(admin))
         )
 
-        result = self._pep_db_engine.session_execute(statement).first()
+        result = self._pep_db_engine.session_execute_first(statement).first()
 
         try:
             return result[0]

@@ -96,7 +96,7 @@ class PEPDatabaseNamespace:
             admin_list=admin_nsp,
         )
         statement = statement.limit(limit).offset(offset)
-        query_results = self._pep_db_engine.session_execute(statement).all()
+        query_results = self._pep_db_engine.session_execute_first(statement).all()
 
         results_list = []
         for res in query_results:
@@ -126,7 +126,7 @@ class PEPDatabaseNamespace:
             admin_list=admin_nsp,
         )
 
-        query_results = self._pep_db_engine.session_execute(statement).first()
+        query_results = self._pep_db_engine.session_execute_first(statement).first()
 
         return query_results.number_of_namespaces
 

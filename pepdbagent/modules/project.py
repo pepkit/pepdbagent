@@ -71,7 +71,7 @@ class PEPDatabaseProject:
             )
         )
 
-        found_prj = self._pep_db_engine.session_execute(statement).one()
+        found_prj = self._pep_db_engine.session_execute_first(statement).one()
 
         if found_prj:
             _LOGGER.info(
@@ -130,8 +130,8 @@ class PEPDatabaseProject:
         """
         # name = name.lower()
         namespace = namespace.lower()
-        with self._sa_engine as engine:
-            engine.execute(
+        with self._sa_engine.begin() as conn:
+            conn.execute(
                 delete(Projects).where(
                     and_(
                         Projects.namespace == namespace,
@@ -221,8 +221,8 @@ class PEPDatabaseProject:
             try:
                 _LOGGER.info(f"Uploading {namespace}/{proj_name}:{tag} project...")
 
-                with self._sa_engine.begin() as eng:
-                    eng.execute(
+                with self._sa_engine.begin() as conn:
+                    conn.execute(
                         insert(Projects).values(
                             namespace=namespace,
                             name=proj_name,
@@ -288,8 +288,8 @@ class PEPDatabaseProject:
         namespace = namespace.lower()
         if self.exists(namespace=namespace, name=proj_name, tag=tag):
             _LOGGER.info(f"Updating {proj_name} project...")
-            with self._sa_engine.begin() as engine:
-                engine.execute(
+            with self._sa_engine.begin() as conn:
+                conn.execute(
                     update(Projects)
                     .values(
                         namespace=namespace,
@@ -363,8 +363,8 @@ class PEPDatabaseProject:
                 .values(update_values)
             )
 
-            with self._sa_engine.begin() as engine:
-                engine.execute(update_stmt)
+            with self._sa_engine.begin() as conn:
+                conn.execute(update_stmt)
 
             return None
 
@@ -433,7 +433,7 @@ class PEPDatabaseProject:
                 Projects.tag == tag,
             )
         )
-        found_prj = self._pep_db_engine.session_execute(statement).all()
+        found_prj = self._pep_db_engine.session_execute_first(statement).all()
 
         if len(found_prj) > 0:
             return True
