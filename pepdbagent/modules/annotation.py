@@ -292,7 +292,8 @@ class PEPDatabaseAnnotation:
                     digest=result.digest,
                 )
             )
-
+        if not order_desc:
+            results_list.reverse()
         return results_list
 
     @staticmethod
@@ -346,6 +347,7 @@ class PEPDatabaseAnnotation:
         :param admin_list: list or string of admin rights to namespace
         :return: sqlalchemy representation of a SELECT statement with where clause.
         """
+        admin_list = tuple_converter(admin_list)
         if search_str:
             sql_search_str = f"%{search_str}%"
             search_query = or_(

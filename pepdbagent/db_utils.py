@@ -72,7 +72,7 @@ class Projects(Base):
     number_of_samples: Mapped[int]
     submission_date: Mapped[datetime.datetime]
     last_update_date: Mapped[datetime.datetime]
-    schema: Mapped[Optional[str]]
+    # schema: Mapped[Optional[str]]
 
     __table_args__ = (PrimaryKeyConstraint("namespace", "name", "tag", name="id"),)
 

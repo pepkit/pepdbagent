@@ -130,6 +130,11 @@ class PEPDatabaseProject:
         """
         # name = name.lower()
         namespace = namespace.lower()
+
+        if not self.exists(namespace=namespace, name=name, tag=tag):
+            raise ProjectNotFoundError(
+                f"Can't delete unexciting project: '{namespace}/{name}:{tag}'."
+            )
         with self._sa_engine.begin() as conn:
             conn.execute(
                 delete(Projects).where(
@@ -142,11 +147,6 @@ class PEPDatabaseProject:
             )
 
         _LOGGER.info(f"Project '{namespace}/{name}:{tag} was successfully deleted'")
-
-        if not self.exists(namespace=namespace, name=name, tag=tag):
-            raise ProjectNotFoundError(
-                f"Can't delete unexciting project: '{namespace}/{name}:{tag}'."
-            )
 
     def delete_by_rp(
         self,
@@ -168,6 +168,7 @@ class PEPDatabaseProject:
         name: str = None,
         tag: str = DEFAULT_TAG,
         is_private: bool = False,
+        # schema: str = None,
         overwrite: bool = False,
         update_only: bool = False,
     ) -> None:

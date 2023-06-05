@@ -1,0 +1,48 @@
+name: Test bedstat pipeline
+
+on:
+  push:
+    branches: [master, dev, sqlalchemy_testing]
+  pull_request:
+    branches: [master, dev]
+
+jobs:
+  pytest:
+    strategy:
+      matrix:
+        python-version: [3.11]
+        os: [ubuntu-latest] # can't use macOS when using service containers or container jobs
+        r: [release]
+    runs-on: ${{ matrix.os }}
+    services:
+        postgres:
+          image: postgres
+          env:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: docker
+            POSTGRES_DB: pep-db
+            POSTGRES_HOST: localhost
+          ports:
+          - 5432:5432
+          options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dev dependancies
+      run: if [ -f requirements/requirements-dev.txt ]; then pip install -r requirements/requirements-dev.txt; fi
+
+    - name: Install test dependancies
+      run: if [ -f requirements/requirements-test.txt ]; then pip install -r requirements/requirements-test.txt; fi
+
+    - name: Install package
+      run: python -m pip install .
+
+    - name: Run pytest tests
+      run: pytest tests -x -vv
+
+

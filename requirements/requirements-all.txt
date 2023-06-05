@@ -5,3 +5,4 @@ ubiquerg>=0.6.2
 coloredlogs>=15.0.1
 pytest-mock
 pydantic
+psycopg2
