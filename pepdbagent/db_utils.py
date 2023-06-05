@@ -72,7 +72,7 @@ class Projects(Base):
     number_of_samples: Mapped[int]
     submission_date: Mapped[datetime.datetime]
     last_update_date: Mapped[datetime.datetime]
-    # schema: Mapped[Optional[str]]
+    schema: Mapped[Optional[str]]
 
     __table_args__ = (PrimaryKeyConstraint("namespace", "name", "tag", name="id"),)
 
@@ -118,12 +118,7 @@ class BaseEngine:
 
         self._engine = create_engine(dsn, echo=echo)
         self.create_schema(self._engine)
-
-        session = Session(self._engine)
-        try:
-            session.execute(select(Projects).limit(1)).first()
-        except ProgrammingError:
-            raise SchemaError()
+        self.check_db_connection()
 
     def create_schema(self, engine=None):
         """
@@ -171,24 +166,8 @@ class BaseEngine:
 
         return session
 
-    @staticmethod
-    def _create_dsn_string(
-        host: str = "localhost",
-        port: int = 5432,
-        database: str = "pep-db",
-        user: str = None,
-        password: str = None,
-        dialect: str = POSTGRES_DIALECT,
-    ) -> str:
-        """
-        Using host, port, database, user, and password and dialect
-
-        :param host: database server address e.g., localhost or an IP address.
-        :param port: the port number that defaults to 5432 if it is not provided.
-        :param database: the name of the database that you want to connect.
-        :param user: the username used to authenticate.
-        :param password: password used to authenticate.
-        :param dialect: DB dialect, specific implementation or variant of a database system. [Default: postgresql]
-        :return: sqlalchemy connection string
-        """
-        return f"{dialect}://{user}:{password}@{host}:{port}/{database}"
+    def check_db_connection(self):
+        try:
+            self.session_execute(select(Projects).limit(1))
+        except ProgrammingError:
+            raise SchemaError()
