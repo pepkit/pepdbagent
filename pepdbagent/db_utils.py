@@ -24,22 +24,22 @@ from sqlalchemy.orm import (
     mapped_column,
 )
 
-from pepdbagent.const import POSTGRES_DIALECT
+from pepdbagent.const import POSTGRES_DIALECT, PKG_NAME
 from pepdbagent.exceptions import SchemaError
 
-_LOGGER = logging.getLogger("pepdbagent")
+_LOGGER = logging.getLogger(PKG_NAME)
 
 
 class BIGSERIAL(BigInteger):
     pass
 
 
-@compiles(BIGSERIAL, "postgresql")
+@compiles(BIGSERIAL, POSTGRES_DIALECT)
 def compile_bigserial_pg(type_, compiler, **kw):
     return "BIGSERIAL"
 
 
-@compiles(JSONB, "postgresql")
+@compiles(JSONB, POSTGRES_DIALECT)
 def compile_jsonb_pg(type_, compiler, **kw):
     return "JSONB"
 
@@ -160,7 +160,7 @@ class BaseEngine:
     def _start_session(self):
         session = Session(self.engine)
         try:
-            session.execute(select(Projects)).first()
+            session.execute(select(Projects).limit(1))
         except ProgrammingError:
             raise SchemaError()
 
