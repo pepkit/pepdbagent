@@ -10,6 +10,7 @@ to increase readability, maintainability, and user experience of pepdbagent, whi
 PEPDatabaseAgent is the primary class that you will use. It connects to the database (using **BaseConnection** class).
 
 Example: Instiantiate a PEPDatabaseAgent object and connect to database:
+
 ```python
 
 import pepdbagent
@@ -30,9 +31,12 @@ Example:
 ```python
 import peppy
 
-prj_obj = peppy.Project("/path/to/project_config.yaml")
+prj_obj = peppy.Project("sample_pep/basic/project_config.yaml")
 
 # create a project
+namespace = "demo"
+name = "basic_project"
+tag = None
 agent.project.create(prj_obj, namespace, name, tag)
 
 # updating record in database (project)
