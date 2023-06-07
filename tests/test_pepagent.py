@@ -3,7 +3,6 @@ import peppy
 import os
 from pepdbagent.exceptions import ProjectNotFoundError
 
-from sqlalchemy.exc import NoResultFound
 
 DNS = f"postgresql://postgres:docker@localhost:5432/pep-db"
 
@@ -54,7 +53,7 @@ class TestProject:
         ],
     )
     def test_get_project_error(self, initiate_pepdb_con, namespace, name, tag):
-        with pytest.raises(NoResultFound, match="No row was found"):
+        with pytest.raises(ProjectNotFoundError, match="Project does not exist."):
             kk = initiate_pepdb_con.project.get(namespace=namespace, name=name, tag=tag)
 
     @pytest.mark.parametrize(
@@ -196,9 +195,7 @@ class TestProject:
     def test_delete_project(self, initiate_pepdb_con, namespace, name):
         initiate_pepdb_con.project.delete(namespace=namespace, name=name, tag="default")
 
-        with pytest.raises(
-            NoResultFound, match="No row was found when one was required"
-        ):
+        with pytest.raises(ProjectNotFoundError, match="Project does not exist."):
             kk = initiate_pepdb_con.project.get(
                 namespace=namespace, name=name, tag="default"
             )
