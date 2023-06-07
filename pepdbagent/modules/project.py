@@ -168,7 +168,7 @@ class PEPDatabaseProject:
         name: str = None,
         tag: str = DEFAULT_TAG,
         is_private: bool = False,
-        # schema: str = None,
+        pep_schema: str = None,
         overwrite: bool = False,
         update_only: bool = False,
     ) -> None:
@@ -182,6 +182,7 @@ class PEPDatabaseProject:
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
         :param is_private: boolean value if the project should be visible just for user that creates it.
+        :param pep_schema: assign PEP to a specific schema. [DefaultL: None]
         :param overwrite: if project exists overwrite the project, otherwise upload it.
             [Default: False - project won't be overwritten if it exists in db]
         :param update_only: if project exists overwrite it, otherwise do nothing.  [Default: False]
@@ -216,6 +217,7 @@ class PEPDatabaseProject:
                 project_digest=proj_digest,
                 number_of_samples=number_of_samples,
                 private=is_private,
+                pep_schema=pep_schema,
             )
             return None
         else:
@@ -238,6 +240,7 @@ class PEPDatabaseProject:
                             last_update_date=datetime.datetime.now(
                                 datetime.timezone.utc
                             ),
+                            pep_schema=pep_schema,
                         )
                     )
 
@@ -253,6 +256,7 @@ class PEPDatabaseProject:
                         project_digest=proj_digest,
                         number_of_samples=number_of_samples,
                         private=is_private,
+                        pep_schema=pep_schema,
                     )
                     return None
 
@@ -272,6 +276,7 @@ class PEPDatabaseProject:
         project_digest: str,
         number_of_samples: int,
         private: bool = False,
+        pep_schema: str = None,
     ) -> None:
         """
         Update existing project by providing all necessary information.
@@ -283,6 +288,7 @@ class PEPDatabaseProject:
         :param project_digest: project digest
         :param number_of_samples: number of samples in project
         :param private: boolean value if the project should be visible just for user that creates it.
+        :param pep_schema: assign PEP to a specific schema. [DefaultL: None]
         :return: None
         """
         proj_name = proj_name.lower()
@@ -301,6 +307,7 @@ class PEPDatabaseProject:
                         number_of_samples=number_of_samples,
                         private=private,
                         last_update_date=datetime.datetime.now(datetime.timezone.utc),
+                        pep_schema=pep_schema,
                     )
                     .where(
                         and_(
@@ -410,6 +417,13 @@ class PEPDatabaseProject:
             update_final = UpdateModel(
                 name=update_values.name, **update_final.dict(exclude_unset=True)
             )
+
+        if update_values.pep_schema is not None:
+            update_final = UpdateModel(
+                pep_schema=update_values.pep_schema,
+                **update_final.dict(exclude_unset=True),
+            )
+
         return update_final.dict(exclude_unset=True, exclude_none=True)
 
     def exists(

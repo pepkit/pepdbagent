@@ -20,6 +20,7 @@ class AnnotationModel(BaseModel):
     last_update_date: Optional[str]
     submission_date: Optional[str]
     digest: Optional[str]
+    pep_schema: Optional[str]
 
     class Config:
         allow_population_by_field_name = True
@@ -74,6 +75,7 @@ class UpdateItems(BaseModel):
     tag: Optional[str]
     is_private: Optional[bool]
     name: Optional[str]
+    pep_schema: Optional[str]
 
     class Config:
         arbitrary_types_allowed = True
@@ -94,6 +96,7 @@ class UpdateModel(BaseModel):
     digest: Optional[str]
     last_update_date: Optional[datetime.datetime]
     number_of_samples: Optional[int]
+    pep_schema: Optional[str]
 
     @validator("tag", "name")
     def value_must_not_be_empty(cls, v):

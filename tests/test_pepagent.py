@@ -129,7 +129,7 @@ class TestProject:
             ["namespace2", "imply"],
         ],
     )
-    def test_update_whole_config(self, initiate_pepdb_con, namespace, name):
+    def test_update_whole_project(self, initiate_pepdb_con, namespace, name):
         new_prj = initiate_pepdb_con.project.get(namespace="namespace1", name="basic")
         # update name. If name is different, it will update name too
         new_prj.name = name
@@ -141,6 +141,26 @@ class TestProject:
         )
 
         assert initiate_pepdb_con.project.get(namespace=namespace, name=name) == new_prj
+
+    @pytest.mark.parametrize(
+        "namespace, name, pep_schema",
+        [
+            ["namespace1", "amendments1", "schema1"],
+            ["namespace1", "amendments2", "schema2"],
+            ["namespace2", "derive", "schema3"],
+            ["namespace1", "basic", "schema4"],
+            ["namespace2", "derive", "schema5"],
+        ],
+    )
+    def test_update_pep_schema(self, initiate_pepdb_con, namespace, name, pep_schema):
+        initiate_pepdb_con.project.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            update_dict={"pep_schema": pep_schema},
+        )
+        res = initiate_pepdb_con.annotation.get(namespace, name, "default")
+        assert res.results[0].pep_schema == pep_schema
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -183,10 +203,12 @@ class TestProject:
                 namespace=namespace, name=name, tag="default"
             )
 
+
 class TestAnnotation:
     """
     Test function within annotation class
     """
+
     @pytest.mark.parametrize(
         "namespace, name",
         [
@@ -198,7 +220,11 @@ class TestAnnotation:
         ],
     )
     def test_annotation_of_one_project(self, initiate_pepdb_con, namespace, name):
-        result = initiate_pepdb_con.annotation.get(namespace=namespace, name=name, tag="default",)
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace,
+            name=name,
+            tag="default",
+        )
         assert result.results[0].namespace == namespace
 
     @pytest.mark.parametrize(
@@ -212,7 +238,9 @@ class TestAnnotation:
         ],
     )
     def test_annotation_all(self, initiate_pepdb_con, namespace, n_projects):
-        result = initiate_pepdb_con.annotation.get(namespace=namespace,)
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace,
+        )
         assert result.count == n_projects
         assert len(result.results) == n_projects
 
@@ -227,7 +255,9 @@ class TestAnnotation:
         ],
     )
     @pytest.mark.parametrize("admin", ("private_test", ["private_test", "bbb"]))
-    def test_annotation_all_private(self, initiate_pepdb_con, namespace, n_projects, admin):
+    def test_annotation_all_private(
+        self, initiate_pepdb_con, namespace, n_projects, admin
+    ):
         result = initiate_pepdb_con.annotation.get(namespace=namespace, admin=admin)
         assert result.count == n_projects
         assert len(result.results) == n_projects
@@ -243,8 +273,12 @@ class TestAnnotation:
         ],
     )
     @pytest.mark.parametrize("admin", ("private_test", ["private_test", "bbb"]))
-    def test_annotation_limit(self, initiate_pepdb_con, namespace, limit, admin, n_projects):
-        result = initiate_pepdb_con.annotation.get(namespace=namespace, admin=admin, limit=limit)
+    def test_annotation_limit(
+        self, initiate_pepdb_con, namespace, limit, admin, n_projects
+    ):
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace, admin=admin, limit=limit
+        )
         assert result.count == n_projects
         assert len(result.results) == limit
 
@@ -259,7 +293,9 @@ class TestAnnotation:
     )
     @pytest.mark.parametrize("admin", ["private_test"])
     def test_order_by(self, initiate_pepdb_con, namespace, admin, order_by, first_name):
-        result = initiate_pepdb_con.annotation.get(namespace=namespace, admin=admin, order_by=order_by)
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace, admin=admin, order_by=order_by
+        )
         assert result.results[0].name == first_name
 
     @pytest.mark.parametrize(
@@ -272,8 +308,12 @@ class TestAnnotation:
         ],
     )
     @pytest.mark.parametrize("admin", ["private_test"])
-    def test_order_by_desc(self, initiate_pepdb_con, namespace, admin, order_by, last_name):
-        result = initiate_pepdb_con.annotation.get(namespace=namespace, admin=admin, order_by=order_by, order_desc=True)
+    def test_order_by_desc(
+        self, initiate_pepdb_con, namespace, admin, order_by, last_name
+    ):
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace, admin=admin, order_by=order_by, order_desc=True
+        )
         assert result.results[0].name == last_name
 
     @pytest.mark.parametrize(
@@ -283,7 +323,7 @@ class TestAnnotation:
             ["namespace2", "proj", 2],
             ["namespace3", "ABLE", 6],
             ["private_test", "a", 0],
-            [None, "re", 2]
+            [None, "re", 2],
         ],
     )
     def test_name_search(self, initiate_pepdb_con, namespace, query, found_number):
@@ -297,12 +337,45 @@ class TestAnnotation:
             ["namespace2", "proj", 2],
             ["namespace3", "ABLE", 6],
             ["private_test", "b", 2],
-            [None, "re", 3]
+            [None, "re", 3],
         ],
     )
-    def test_name_search_private(self, initiate_pepdb_con, namespace, query, found_number):
-        result = initiate_pepdb_con.annotation.get(namespace=namespace, query=query, admin="private_test")
+    def test_name_search_private(
+        self, initiate_pepdb_con, namespace, query, found_number
+    ):
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace, query=query, admin="private_test"
+        )
         assert len(result.results) == found_number
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace1", "amendments2"],
+            ["namespace2", "derive"],
+            ["namespace2", "imply"],
+            ["namespace3", "subtable1"],
+        ],
+    )
+    def test_all_annotations_are_returned(self, initiate_pepdb_con, namespace, name):
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace,
+            name=name,
+            tag="default",
+        )
+        assert result.results[0].__fields_set__ == {
+            "is_private",
+            "tag",
+            "namespace",
+            "digest",
+            "description",
+            "number_of_samples",
+            "name",
+            "last_update_date",
+            "submission_date",
+            "pep_schema",
+        }
 
 
 class TestNamespace:

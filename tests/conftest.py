@@ -52,6 +52,7 @@ def initiate_pepdb_con(
                 is_private=private,
                 project=prj,
                 overwrite=True,
+                pep_schema="random_schema_name",
             )
 
     yield pepdb_con

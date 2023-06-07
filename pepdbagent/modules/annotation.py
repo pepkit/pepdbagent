@@ -168,6 +168,7 @@ class PEPDatabaseAnnotation:
             Projects.submission_date,
             Projects.last_update_date,
             Projects.digest,
+            Projects.pep_schema,
         ).where(
             and_(
                 Projects.name == name,
@@ -192,6 +193,7 @@ class PEPDatabaseAnnotation:
                 submission_date=str(query_result.submission_date),
                 last_update_date=str(query_result.last_update_date),
                 digest=query_result.digest,
+                pep_schema=query_result.pep_schema,
             )
             _LOGGER.info(
                 f"Annotation of the project '{namespace}/{name}:{tag}' has been found!"
@@ -267,6 +269,7 @@ class PEPDatabaseAnnotation:
             Projects.submission_date,
             Projects.last_update_date,
             Projects.digest,
+            Projects.pep_schema,
         ).select_from(Projects)
 
         statement = self._add_condition(
@@ -290,6 +293,7 @@ class PEPDatabaseAnnotation:
                     submission_date=str(result.submission_date),
                     last_update_date=str(result.last_update_date),
                     digest=result.digest,
+                    pep_schema=result.pep_schema,
                 )
             )
         if not order_desc:
