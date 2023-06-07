@@ -14,7 +14,7 @@ from pepdbagent.models import UpdateItems, UpdateModel
 from pepdbagent.utils import create_digest, registry_path_converter
 
 
-_LOGGER = logging.getLogger("pepdbagent")
+_LOGGER = logging.getLogger(PKG_NAME)
 
 
 class PEPDatabaseProject:

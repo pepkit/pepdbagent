@@ -6,14 +6,13 @@ from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.selectable import Select
 
-from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET, DEFAULT_TAG
+from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET, DEFAULT_TAG, PKG_NAME
 from pepdbagent.db_utils import Projects, BaseEngine
 from pepdbagent.exceptions import ProjectNotFoundError, RegistryPathError
 from pepdbagent.models import AnnotationList, AnnotationModel
 from pepdbagent.utils import registry_path_converter, tuple_converter
 
-
-_LOGGER = logging.getLogger("pepdbagent")
+_LOGGER = logging.getLogger(PKG_NAME)
 
 
 class PEPDatabaseAnnotation:

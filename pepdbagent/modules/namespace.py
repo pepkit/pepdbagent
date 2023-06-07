@@ -4,12 +4,12 @@ from typing import List, Union
 from sqlalchemy import distinct, func, or_, select
 from sqlalchemy.sql.selectable import Select
 
-from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET
+from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET, PKG_NAME
 from pepdbagent.db_utils import Projects, BaseEngine
 from pepdbagent.models import Namespace, NamespaceList
 from pepdbagent.utils import tuple_converter
 
-_LOGGER = logging.getLogger("pepdbagent")
+_LOGGER = logging.getLogger(PKG_NAME)
 
 
 class PEPDatabaseNamespace:
