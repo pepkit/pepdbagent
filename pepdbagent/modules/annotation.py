@@ -182,7 +182,7 @@ class PEPDatabaseAnnotation:
         )
         query_result = self._pep_db_engine.session_execute(statement).first()
 
-        if len(query_result) > 0:
+        if query_result:
             annot = AnnotationModel(
                 namespace=query_result.namespace,
                 name=query_result.name,

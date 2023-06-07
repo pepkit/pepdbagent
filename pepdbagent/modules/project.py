@@ -5,7 +5,7 @@ from typing import Tuple, Union
 
 import peppy
 from sqlalchemy import Engine, and_, delete, insert, or_, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from pepdbagent.const import *
 from pepdbagent.db_utils import Projects, BaseEngine
@@ -71,7 +71,10 @@ class PEPDatabaseProject:
             )
         )
 
-        found_prj = self._pep_db_engine.session_execute(statement).one()
+        try:
+            found_prj = self._pep_db_engine.session_execute(statement).one()
+        except NoResultFound:
+            raise ProjectNotFoundError
 
         if found_prj:
             _LOGGER.info(
