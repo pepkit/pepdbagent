@@ -2,13 +2,22 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.4.0] -- 2023-06-01
+- Transitioned to SQLAlchemy ORM.
+- Added a pep_schema column to the database.
+- Implemented a new testing approach.
+- Integrated sorting functionality into the annotations module.
+- Temporarily disabled description-based searches to mitigate long processing times and reduce database load.
+- Included timezone support in the database.
+- Standardized namespace and names to lowercase for case-insensitivity.
+- Streamlined the database schema creation process, with tables now created dynamically as needed.
+
 
 ## [0.3.1] -- 2023-03-23
 - Fixed bug with peppy const dependencies
 
 
 ## [0.3.0] -- 2023-01-19
-
 - Restructured pepdbagent: 
   - Renamed `Agent` class to `PEPDatabaseAgent`
   - created subclasses (project, annotation, namespace).

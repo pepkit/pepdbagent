@@ -16,6 +16,7 @@ CREATE TABLE projects (
     number_of_samples int NOT NULL,
     submission_date timestamp NOT NULL,
     last_update_date timestamp NOT NULL,
+    pep_schema TEXT,
     CONSTRAINT id PRIMARY KEY (namespace, name, tag)
 );
 

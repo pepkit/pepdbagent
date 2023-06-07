@@ -101,7 +101,8 @@ AnnotationRetrunModel(count=1,
                                                description=None, 
                                                last_update_date='2022-11-09', 
                                                submission_date='2023-01-09', 
-                                               digest='36bb973f2eca3706ed9852abddd')
+                                               digest='36bb973f2eca3706ed9852abddd',
+                                               pep_schema="bedmake")])
 ```
 
 
@@ -129,3 +130,7 @@ NamespaceReturnModel(count=1,
                      offset=0, 
                      results=[NamespaceResultModel(namespace='databio', number_of_projects=6, number_of_samples=470)])
 ```
+
+
+# Example PEPs
+To populate database with example peps use function written in manual tests: [Manual test](../manual_tests.py)
