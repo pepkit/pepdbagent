@@ -1,8 +1,11 @@
-from collections.abc import Iterable
 import json
+from collections.abc import Iterable
 from hashlib import md5
 from typing import Tuple, Union
+
 import ubiquerg
+from peppy.const import SAMPLE_RAW_DICT_KEY
+
 from .exceptions import RegistryPathError
 
 
@@ -42,12 +45,13 @@ def all_elements_are_strings(iterable: Iterable) -> bool:
 def create_digest(project_dict: dict) -> str:
     """
     Create digest for PEP project
+
     :param project_dict: project dict
     :return: digest string
     """
     sample_digest = md5(
         json.dumps(
-            project_dict["_sample_dict"],
+            project_dict[SAMPLE_RAW_DICT_KEY],
             separators=(",", ":"),
             ensure_ascii=False,
             allow_nan=False,
@@ -60,6 +64,7 @@ def create_digest(project_dict: dict) -> str:
 def registry_path_converter(registry_path: str) -> Tuple[str, str, str]:
     """
     Convert registry path to namespace, name, tag
+
     :param registry_path: registry path that has structure: "namespace/name:tag"
     :return: tuple(namespace, name, tag)
     """
@@ -77,6 +82,7 @@ def tuple_converter(value: Union[tuple, list, str, None]) -> tuple:
     """
     Convert string list or tuple to tuple.
     # is used to create admin tuple.
+
     :param value: Any value that has to be converted to tuple
     :return: tuple of strings
     """

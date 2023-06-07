@@ -1,233 +1,207 @@
-from psycopg2.errors import UniqueViolation
-from pepdbagent.pepdbagent import PEPDatabaseAgent
-from pepdbagent.models import BaseModel
-import json
-import psycopg2
 import pytest
-import datetime
+import peppy
+import os
+from pepdbagent.exceptions import ProjectNotFoundError
+
+from sqlalchemy.exc import NoResultFound
+
+DNS = f"postgresql://postgres:docker@localhost:5432/pep-db"
 
 
-class TestBaseConnection:
-    """
-    Test connections to the database
-    """
+DATA_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "tests",
+    "data",
+)
 
-    def test_connection_initializes_correctly_from_dsn(
-        self, mocker, sql_output_for_check_conn_db, test_dsn
-    ):
-        mocker.patch("psycopg2.connect")
-        mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
-            return_value=sql_output_for_check_conn_db,
-        )
 
-        c = PEPDatabaseAgent(dsn=test_dsn)
-
-        assert c.connection.db_name == "pep-base-sql"
-        assert c.connection.pg_connection.autocommit
-
-    def test_connection_initializes_correctly_without_dsn(
-        self, mocker, sql_output_for_check_conn_db
-    ):
-        mocker.patch("psycopg2.connect")
-        mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
-            return_value=sql_output_for_check_conn_db,
-        )
-
-        c = PEPDatabaseAgent(
-            host="localhost",
-            port="5432",
-            database="pep-base-sql",
-            user="postgres",
-            password="docker",
-        )
-
-        assert c.connection.db_name == "pep-base-sql"
-        assert c.connection.pg_connection.autocommit
+def get_path_to_example_file(namespace, project_name):
+    return os.path.join(DATA_PATH, namespace, project_name, "project_config.yaml")
 
 
 class TestProject:
-    def test_upload_project_success(
-        selfm, mocker, sql_output_for_check_conn_db, test_dsn, test_peppy_project
+    """
+    Test project C
+    """
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace1", "amendments2"],
+            ["namespace1", "basic"],
+            ["namespace2", "derive"],
+            ["namespace2", "imply"],
+            ["namespace3", "piface"],
+            ["namespace3", "subtable2"],
+        ],
+    )
+    def test_get_project(self, initiate_pepdb_con, namespace, name):
+        kk = initiate_pepdb_con.project.get(
+            namespace=namespace, name=name, tag="default"
+        )
+        ff = peppy.Project(get_path_to_example_file(namespace, name))
+        assert kk == ff
+
+    @pytest.mark.parametrize(
+        "namespace, name,tag",
+        [
+            ["incorrect_namespace", "amendments1", "default"],
+            ["namespace1", "subtable2", "default"],
+            ["namespace3", "basic", "default"],
+            ["namespace3", "subtable2", "incorrect_tag"],
+            ["namespace1", "incorrect_name", "default"],
+        ],
+    )
+    def test_get_project_error(self, initiate_pepdb_con, namespace, name, tag):
+        with pytest.raises(NoResultFound, match="No row was found"):
+            kk = initiate_pepdb_con.project.get(namespace=namespace, name=name, tag=tag)
+
+    @pytest.mark.parametrize(
+        "namespace, name,new_name",
+        [
+            ["namespace1", "amendments1", "name1"],
+            ["namespace1", "amendments2", "name2"],
+            ["namespace2", "derive", "name3"],
+            ["namespace1", "basic", "name4"],
+            ["namespace2", "derive", "name5"],
+        ],
+    )
+    def test_update_project_name(self, initiate_pepdb_con, namespace, name, new_name):
+        initiate_pepdb_con.project.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            update_dict={"name": new_name},
+        )
+        assert initiate_pepdb_con.project.exists(
+            namespace=namespace, name=new_name, tag="default"
+        )
+
+    @pytest.mark.parametrize(
+        "namespace, name, new_tag",
+        [
+            ["namespace1", "amendments1", "tag1"],
+            ["namespace1", "amendments2", "tag2"],
+            ["namespace2", "derive", "tag3"],
+            ["namespace1", "basic", "tag4"],
+            ["namespace2", "derive", "tag5"],
+        ],
+    )
+    def test_update_project_tag(self, initiate_pepdb_con, namespace, name, new_tag):
+        initiate_pepdb_con.project.update(
+            namespace=namespace, name=name, tag="default", update_dict={"tag": new_tag}
+        )
+        assert initiate_pepdb_con.project.exists(
+            namespace=namespace, name=name, tag=new_tag
+        )
+
+    @pytest.mark.parametrize(
+        "namespace, name, new_description",
+        [
+            ["namespace1", "amendments1", "desc1 f"],
+            ["namespace1", "amendments2", "desc2 f"],
+            ["namespace2", "derive", "desc3 f"],
+            ["namespace1", "basic", "desc4 f"],
+            ["namespace2", "derive", "desc5 f"],
+        ],
+    )
+    def test_update_project_description(
+        self, initiate_pepdb_con, namespace, name, new_description
     ):
-        database_commit_mock = mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.commit_to_database"
-        )
-        mocker.patch("psycopg2.connect")
-        mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
-            return_value=sql_output_for_check_conn_db,
-        )
-        c = PEPDatabaseAgent(dsn=test_dsn)
-
-        test_namespace = "test"
-
-        c.project.create(test_peppy_project, test_namespace)
-
-        assert database_commit_mock.called
-
-    def test_upload_project_updates_after_raising_unique_violation_error(
-        self, mocker, sql_output_for_check_conn_db, test_dsn, test_peppy_project
-    ):
-        update_project_mock = mocker.patch(
-            "pepdbagent.pepdbagent.PEPDatabaseProject._overwrite"
-        )
-        mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
-            return_value=sql_output_for_check_conn_db,
-        )
-        mocker.patch("psycopg2.connect")
-
-        mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.commit_to_database",
-            side_effect=UniqueViolation(),
+        prj = initiate_pepdb_con.project.get(namespace=namespace, name=name)
+        prj.description = new_description
+        initiate_pepdb_con.project.update(
+            namespace=namespace, name=name, tag="default", update_dict={"project": prj}
         )
 
-        c = PEPDatabaseAgent(dsn=test_dsn)
-        test_namespace = "test"
-        c.project._overwrite(test_peppy_project, test_namespace, overwrite=True)
-
-        assert update_project_mock.called
-
-    def test_update_project(
-        self, mocker, test_dsn, test_peppy_project, sql_output_for_check_conn_db
-    ):
-        mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
-            return_value=sql_output_for_check_conn_db,
-        )
-        mocker.patch(
-            "pepdbagent.pepdbagent.PEPDatabaseProject.exists",
-            return_value=True,
-        )
-        database_commit_mock = mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.commit_to_database"
-        )
-        mocker.patch("psycopg2.connect")
-
-        c = PEPDatabaseAgent(dsn=test_dsn)
-
-        test_proj_dict = test_peppy_project.to_dict(extended=True)
-        test_proj_dict = json.dumps(test_proj_dict)
-
-        c.project._overwrite(
-            test_proj_dict,
-            namespace="test",
-            proj_name="test",
-            tag="test",
-            project_digest="aaa",
-            number_of_samples=5,
+        assert (
+            initiate_pepdb_con.project.get(namespace=namespace, name=name).description
+            == new_description
         )
 
-        assert database_commit_mock.called
-
-    def test_update_item(
-        self, mocker, test_dsn, test_peppy_project, sql_output_for_check_conn_db
-    ):
-        mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
-            return_value=sql_output_for_check_conn_db,
-        )
-        mocker.patch(
-            "pepdbagent.pepdbagent.PEPDatabaseProject.exists",
-            return_value=True,
-        )
-        database_commit_mock = mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.commit_to_database"
-        )
-        mocker.patch("psycopg2.connect")
-
-        c = PEPDatabaseAgent(dsn=test_dsn)
-
-        test_peppy_project.description = "This is test description"
-
-        c.project.update(
-            update_dict={
-                "tag": "new_tag",
-                "is_private": True,
-                "project": test_peppy_project,
-            },
-            namespace="test",
-            name="test",
-            tag="tag",
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace1", "amendments2"],
+            ["namespace2", "derive"],
+            ["namespace2", "imply"],
+        ],
+    )
+    def test_update_whole_project(self, initiate_pepdb_con, namespace, name):
+        new_prj = initiate_pepdb_con.project.get(namespace="namespace1", name="basic")
+        # update name. If name is different, it will update name too
+        new_prj.name = name
+        initiate_pepdb_con.project.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            update_dict={"project": new_prj},
         )
 
-        assert database_commit_mock.called
+        assert initiate_pepdb_con.project.get(namespace=namespace, name=name) == new_prj
 
-    def test_delete_project(self, mocker, test_dsn, sql_output_for_check_conn_db):
-        mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
-            return_value=sql_output_for_check_conn_db,
+    @pytest.mark.parametrize(
+        "namespace, name, pep_schema",
+        [
+            ["namespace1", "amendments1", "schema1"],
+            ["namespace1", "amendments2", "schema2"],
+            ["namespace2", "derive", "schema3"],
+            ["namespace1", "basic", "schema4"],
+            ["namespace2", "derive", "schema5"],
+        ],
+    )
+    def test_update_pep_schema(self, initiate_pepdb_con, namespace, name, pep_schema):
+        initiate_pepdb_con.project.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            update_dict={"pep_schema": pep_schema},
         )
-        mocker.patch(
-            "pepdbagent.pepdbagent.PEPDatabaseProject.exists",
-            return_value=True,
-        )
+        res = initiate_pepdb_con.annotation.get(namespace, name, "default")
+        assert res.results[0].pep_schema == pep_schema
 
-        database_commit_mock = mocker.patch("psycopg2.connect")
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace1", "amendments2"],
+            ["namespace2", "derive"],
+            ["namespace2", "imply"],
+        ],
+    )
+    def test_overwrite_project(self, initiate_pepdb_con, namespace, name):
+        new_prj = initiate_pepdb_con.project.get(namespace="namespace1", name="basic")
 
-        mocker.patch("psycopg2.connect")
-
-        c = PEPDatabaseAgent(dsn=test_dsn)
-
-        ret = c.project.delete(namespace="test", name="test", tag="test")
-
-        assert ret is None
-
-    def test_get_project_by_registry_path(
-        self, mocker, test_dsn, sql_output_for_check_conn_db
-    ):
-        mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
-            return_value=sql_output_for_check_conn_db,
-        )
-        get_project_mock = mocker.patch(
-            "pepdbagent.pepdbagent.PEPDatabaseProject.get",
-            return_value=sql_output_for_check_conn_db,
-        )
-        mocker.patch("psycopg2.connect")
-
-        c = PEPDatabaseAgent(dsn=test_dsn)
-
-        c.project.get_by_rp("some/project:tag")
-
-        get_project_mock.assert_called_with(
-            namespace="some", name="project", tag="tag", raw=False
-        )
-
-    def test_get_project(
-        self,
-        mocker,
-        test_dsn,
-        sql_output_for_check_conn_db,
-        test_database_project_return,
-    ):
-        mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
-            return_value=sql_output_for_check_conn_db,
-        )
-        mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchone",
-            return_value=test_database_project_return,
-        )
-        mocker.patch("psycopg2.connect")
-
-        c = PEPDatabaseAgent(dsn=test_dsn)
-
-        project = c.project.get(
-            namespace="test_namespace",
-            name="test_name",
-            tag="test_tag",
+        initiate_pepdb_con.project.create(
+            project=new_prj,
+            namespace=namespace,
+            name=name,
+            tag="default",
+            overwrite=True,
         )
 
-        assert project.name == "public_project"
-        assert not project.description
+        assert initiate_pepdb_con.project.get(namespace=namespace, name=name) == new_prj
 
-    def test_project_exists(
-        self,
-    ):
-        pass
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace1", "amendments2"],
+            ["namespace2", "derive"],
+            ["namespace2", "imply"],
+        ],
+    )
+    def test_delete_project(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.project.delete(namespace=namespace, name=name, tag="default")
+
+        with pytest.raises(
+            NoResultFound, match="No row was found when one was required"
+        ):
+            kk = initiate_pepdb_con.project.get(
+                namespace=namespace, name=name, tag="default"
+            )
 
 
 class TestAnnotation:
@@ -235,144 +209,173 @@ class TestAnnotation:
     Test function within annotation class
     """
 
-    @pytest.fixture(scope="function")
-    def initiate_con(
-        self,
-        mocker,
-        test_dsn,
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace1", "amendments2"],
+            ["namespace2", "derive"],
+            ["namespace2", "imply"],
+            ["namespace3", "subtable1"],
+        ],
+    )
+    def test_annotation_of_one_project(self, initiate_pepdb_con, namespace, name):
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace,
+            name=name,
+            tag="default",
+        )
+        assert result.results[0].namespace == namespace
+
+    @pytest.mark.parametrize(
+        "namespace, n_projects",
+        [
+            ["namespace1", 6],
+            ["namespace2", 8],
+            ["namespace3", 10],
+            ["private", 0],
+            ["private_test", 0],
+        ],
+    )
+    def test_annotation_all(self, initiate_pepdb_con, namespace, n_projects):
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace,
+        )
+        assert result.count == n_projects
+        assert len(result.results) == n_projects
+
+    @pytest.mark.parametrize(
+        "namespace, n_projects",
+        [
+            ["namespace1", 6],
+            ["namespace2", 8],
+            ["namespace3", 10],
+            ["private", 0],
+            ["private_test", 6],
+        ],
+    )
+    @pytest.mark.parametrize("admin", ("private_test", ["private_test", "bbb"]))
+    def test_annotation_all_private(
+        self, initiate_pepdb_con, namespace, n_projects, admin
     ):
-        mocker.patch("psycopg2.connect")
-        mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection._check_conn_db",
-            return_value=True,
-        )
-        instance = PEPDatabaseAgent(dsn=test_dsn)
+        result = initiate_pepdb_con.annotation.get(namespace=namespace, admin=admin)
+        assert result.count == n_projects
+        assert len(result.results) == n_projects
 
-        yield instance
-
-    def test_get_anno_by_providing_list(self, initiate_con, mocker):
-        get_single_annot_mock = mocker.patch(
-            "pepdbagent.pepdbagent.PEPDatabaseAnnotation._get_single_annotation",
+    @pytest.mark.parametrize(
+        "namespace, limit, n_projects",
+        [
+            ["namespace1", 3, 6],
+            ["namespace2", 2, 8],
+            ["namespace3", 8, 10],
+            ["private", 0, 0],
+            ["private_test", 5, 6],
+        ],
+    )
+    @pytest.mark.parametrize("admin", ("private_test", ["private_test", "bbb"]))
+    def test_annotation_limit(
+        self, initiate_pepdb_con, namespace, limit, admin, n_projects
+    ):
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace, admin=admin, limit=limit
         )
-        initiate_con.annotation.get_by_rp(["this/is:one", "This/if:two"])
-        assert get_single_annot_mock.called
+        assert result.count == n_projects
+        assert len(result.results) == limit
 
-    def test_get_annotation_of_single_project(self, mocker, initiate_con):
-        run_sql_one_mock = mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchone",
-            return_value=[
-                "1",
-                "2",
-                "3",
-                False,
-                5,
-                6,
-                datetime.datetime.now(),
-                datetime.datetime.now(),
-                "9",
-                "10",
-            ],
+    @pytest.mark.parametrize(
+        "namespace, order_by, first_name",
+        [
+            ["namespace1", "name", "amendments1"],
+            ["namespace2", "name", "biocproject_exceptions"],
+            ["namespace3", "name", "node_alias"],
+            ["private_test", "name", "amendments1"],
+        ],
+    )
+    @pytest.mark.parametrize("admin", ["private_test"])
+    def test_order_by(self, initiate_pepdb_con, namespace, admin, order_by, first_name):
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace, admin=admin, order_by=order_by
         )
-        initiate_con.annotation.get("test", "project", "pr")
-        assert run_sql_one_mock.called
+        assert result.results[0].name == first_name
 
-    def test_get_annotation_of_single_project_by_rp(self, mocker, initiate_con):
-        run_sql_one_mock = mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchone",
-            return_value=[
-                "1",
-                "2",
-                "3",
-                False,
-                5,
-                6,
-                datetime.datetime.now(),
-                datetime.datetime.now(),
-                "9",
-                "10",
-            ],
+    @pytest.mark.parametrize(
+        "namespace, order_by, last_name",
+        [
+            ["namespace1", "name", "biocproject"],
+            ["namespace2", "name", "imports"],
+            ["namespace3", "name", "subtables"],
+            ["private_test", "name", "subtable3"],
+        ],
+    )
+    @pytest.mark.parametrize("admin", ["private_test"])
+    def test_order_by_desc(
+        self, initiate_pepdb_con, namespace, admin, order_by, last_name
+    ):
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace, admin=admin, order_by=order_by, order_desc=True
         )
-        initiate_con.annotation.get_by_rp("test/project:pr")
-        assert run_sql_one_mock.called
+        assert result.results[0].name == last_name
 
-    def test_get_annotation_within_namespace(self, mocker, initiate_con):
-        run_sql_one_mock = mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
-            return_value=[
-                (
-                    "1",
-                    "2",
-                    "3",
-                    6,
-                    "5",
-                    "dgs",
-                    False,
-                    datetime.datetime.now(),
-                    datetime.datetime.now(),
-                ),
-                (
-                    "1",
-                    "5",
-                    "3",
-                    6,
-                    "5",
-                    "dgs",
-                    False,
-                    datetime.datetime.now(),
-                    datetime.datetime.now(),
-                ),
-            ],
-        )
-        count_prj_mock = mocker.patch(
-            "pepdbagent.pepdbagent.PEPDatabaseAnnotation._count_projects",
-            return_value=2,
-        )
-        f = initiate_con.annotation.get(namespace="1")
-        assert f.count == 2
-        assert len(f.results) == 2
+    @pytest.mark.parametrize(
+        "namespace, query, found_number",
+        [
+            ["namespace1", "ame", 2],
+            ["namespace2", "proj", 2],
+            ["namespace3", "ABLE", 6],
+            ["private_test", "a", 0],
+            [None, "re", 2],
+        ],
+    )
+    def test_name_search(self, initiate_pepdb_con, namespace, query, found_number):
+        result = initiate_pepdb_con.annotation.get(namespace=namespace, query=query)
+        assert len(result.results) == found_number
 
-    def test_get_annotation_by_providing_query(self, mocker, initiate_con):
-        run_sql_one_mock = mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
-            return_value=[
-                (
-                    "1",
-                    "2",
-                    "3",
-                    6,
-                    "5",
-                    "dgs",
-                    False,
-                    datetime.datetime.now(),
-                    datetime.datetime.now(),
-                ),
-                (
-                    "1",
-                    "5",
-                    "3",
-                    6,
-                    "5",
-                    "dgs",
-                    False,
-                    datetime.datetime.now(),
-                    datetime.datetime.now(),
-                ),
-            ],
+    @pytest.mark.parametrize(
+        "namespace, query, found_number",
+        [
+            ["namespace1", "ame", 2],
+            ["namespace2", "proj", 2],
+            ["namespace3", "ABLE", 6],
+            ["private_test", "b", 2],
+            [None, "re", 3],
+        ],
+    )
+    def test_name_search_private(
+        self, initiate_pepdb_con, namespace, query, found_number
+    ):
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace, query=query, admin="private_test"
         )
-        count_prj_mock = mocker.patch(
-            "pepdbagent.pepdbagent.PEPDatabaseAnnotation._count_projects",
-            return_value=2,
+        assert len(result.results) == found_number
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace1", "amendments2"],
+            ["namespace2", "derive"],
+            ["namespace2", "imply"],
+            ["namespace3", "subtable1"],
+        ],
+    )
+    def test_all_annotations_are_returned(self, initiate_pepdb_con, namespace, name):
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace,
+            name=name,
+            tag="default",
         )
-        f = initiate_con.annotation.get(query="1")
-        assert f.count == 2
-        assert len(f.results) == 2
-
-    def test_registry_path_exception_pass(self, initiate_con):
-        initiate_con.annotation.get_by_rp(["this/is:one", "This/is/f:two"])
-
-    def test_registry_paths_exception(self, initiate_con):
-        with pytest.raises(Exception):
-            initiate_con.annotation.get_by_rp("This/is/wrong:registry")
+        assert result.results[0].__fields_set__ == {
+            "is_private",
+            "tag",
+            "namespace",
+            "digest",
+            "description",
+            "number_of_samples",
+            "name",
+            "last_update_date",
+            "submission_date",
+            "pep_schema",
+        }
 
 
 class TestNamespace:
@@ -380,41 +383,10 @@ class TestNamespace:
     Test function within namespace class
     """
 
-    @pytest.fixture(scope="function")
-    def initiate_con(
-        self,
-        mocker,
-        test_dsn,
-    ):
-        mocker.patch("psycopg2.connect")
-        mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection._check_conn_db",
-            return_value=True,
-        )
-        instance = PEPDatabaseAgent(dsn=test_dsn)
+    def test_annotation(self, initiate_pepdb_con):
+        result = initiate_pepdb_con.namespace.get()
+        assert len(result.results) == 3
 
-        yield instance
-
-    def test_get_namespace_by_providing_query(self, mocker, initiate_con):
-        run_sql_one_mock = mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
-            return_value=[("names", 2, 3)],
-        )
-        count_prj_mock = mocker.patch(
-            "pepdbagent.pepdbagent.PEPDatabaseNamespace._count_namespace",
-            return_value=2,
-        )
-        f = initiate_con.namespace.get(query="1")
-        assert len(f.results) == 1
-
-    def test_get_all_namespaces(self, mocker, initiate_con):
-        run_sql_one_mock = mocker.patch(
-            "pepdbagent.pepdbagent.BaseConnection.run_sql_fetchall",
-            return_value=[("names", 2, 3)],
-        )
-        count_prj_mock = mocker.patch(
-            "pepdbagent.pepdbagent.PEPDatabaseNamespace._count_namespace",
-            return_value=2,
-        )
-        f = initiate_con.namespace.get()
-        assert len(f.results) == 1
+    def test_annotation_private(self, initiate_pepdb_con):
+        result = initiate_pepdb_con.namespace.get(admin="private_test")
+        assert len(result.results) == 4

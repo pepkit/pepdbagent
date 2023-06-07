@@ -2,8 +2,8 @@
 import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator, Extra
 import peppy
+from pydantic import BaseModel, Extra, Field, validator
 
 
 class AnnotationModel(BaseModel):
@@ -20,6 +20,7 @@ class AnnotationModel(BaseModel):
     last_update_date: Optional[str]
     submission_date: Optional[str]
     digest: Optional[str]
+    pep_schema: Optional[str]
 
     class Config:
         allow_population_by_field_name = True
@@ -74,8 +75,11 @@ class UpdateItems(BaseModel):
     tag: Optional[str]
     is_private: Optional[bool]
     name: Optional[str]
+    pep_schema: Optional[str]
 
-    # class Config:
+    class Config:
+        arbitrary_types_allowed = True
+
     #     extra = Extra.forbid
 
 
@@ -86,12 +90,25 @@ class UpdateModel(BaseModel):
     """
 
     project_value: Optional[dict]
-    name: Optional[str]
-    tag: Optional[str]
+    name: Optional[str] = None
+    tag: Optional[str] = None
     private: Optional[bool] = Field(alias="is_private")
     digest: Optional[str]
     last_update_date: Optional[datetime.datetime]
     number_of_samples: Optional[int]
+    pep_schema: Optional[str]
+
+    @validator("tag", "name")
+    def value_must_not_be_empty(cls, v):
+        if "" == v:
+            return None
+        return v
+
+    @validator("tag", "name")
+    def value_must_be_lowercase(cls, v):
+        if v:
+            return v.lower()
+        return v
 
     class Config:
         extra = Extra.forbid

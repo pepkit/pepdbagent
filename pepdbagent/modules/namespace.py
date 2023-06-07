@@ -1,17 +1,11 @@
-from typing import Union, List
 import logging
+from typing import List, Union
 
-from pepdbagent.base_connection import BaseConnection
-from pepdbagent.const import (
-    DEFAULT_LIMIT,
-    DEFAULT_OFFSET,
-    NAMESPACE_COL,
-    NAME_COL,
-    N_SAMPLES_COL,
-    DB_TABLE_NAME,
-    PRIVATE_COL,
-)
+from sqlalchemy import distinct, func, or_, select
+from sqlalchemy.sql.selectable import Select
 
+from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET
+from pepdbagent.db_utils import Projects, BaseEngine
 from pepdbagent.models import Namespace, NamespaceList
 from pepdbagent.utils import tuple_converter
 
@@ -25,11 +19,12 @@ class PEPDatabaseNamespace:
     While using this class, user can retrieve all necessary metadata about PEPs
     """
 
-    def __init__(self, con: BaseConnection):
+    def __init__(self, pep_db_engine: BaseEngine):
         """
-        :param con: Connection to db represented by BaseConnection class object
+        :param pep_db_engine: pepdbengine object with sa engine
         """
-        self.con = con
+        self._sa_engine = pep_db_engine.engine
+        self._pep_db_engine = pep_db_engine
 
     def get(
         self,
@@ -85,31 +80,31 @@ class PEPDatabaseNamespace:
                 number_of_samples,
             }
         """
-        if search_str:
-            search_str = f"%%{search_str}%%"
-            search_sql_values = (search_str,)
-            search_sql = f"""{NAMESPACE_COL} ILIKE %s and"""
-        else:
-            search_sql_values = tuple()
-            search_sql = ""
-
-        count_sql = f"""
-        select {NAMESPACE_COL}, COUNT({NAME_COL}), SUM({N_SAMPLES_COL})
-            from {DB_TABLE_NAME} where {search_sql}
-                ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s) 
-                    GROUP BY {NAMESPACE_COL}
-                        LIMIT %s OFFSET %s;
-        """
-        results = self.con.run_sql_fetchall(
-            count_sql, *search_sql_values, False, admin_nsp, limit, offset
+        statement = (
+            select(
+                Projects.namespace,
+                func.count(Projects.name).label("number_of_projects"),
+                func.sum(Projects.number_of_samples).label("number_of_samples"),
+            )
+            .group_by(Projects.namespace)
+            .select_from(Projects)
         )
+
+        statement = self._add_condition(
+            statement=statement,
+            search_str=search_str,
+            admin_list=admin_nsp,
+        )
+        statement = statement.limit(limit).offset(offset)
+        query_results = self._pep_db_engine.session_execute(statement).all()
+
         results_list = []
-        for res in results:
+        for res in query_results:
             results_list.append(
                 Namespace(
-                    namespace=res[0],
-                    number_of_projects=res[1],
-                    number_of_samples=res[2],
+                    namespace=res.namespace,
+                    number_of_projects=res.number_of_projects,
+                    number_of_samples=res.number_of_samples,
                 )
             )
         return results_list
@@ -122,23 +117,41 @@ class PEPDatabaseNamespace:
         :param admin_nsp: tuple of namespaces where project can be retrieved if they are privet
         :return: number of found namespaces
         """
-        if search_str:
-            search_str = f"%%{search_str}%%"
-            search_sql_values = (search_str,)
-            search_sql = f"""{NAMESPACE_COL} ILIKE %s and"""
-        else:
-            search_sql_values = tuple()
-            search_sql = ""
-        count_sql = f"""
-        select COUNT(DISTINCT ({NAMESPACE_COL}))
-            from {DB_TABLE_NAME} where {search_sql}
-                ({PRIVATE_COL} is %s or {NAMESPACE_COL} in %s) 
-        """
-        result = self.con.run_sql_fetchall(
-            count_sql, *search_sql_values, False, admin_nsp
+        statement = select(
+            func.count(distinct(Projects.namespace)).label("number_of_namespaces")
+        ).select_from(Projects)
+        statement = self._add_condition(
+            statement=statement,
+            search_str=search_str,
+            admin_list=admin_nsp,
         )
-        try:
-            number_of_prj = result[0][0]
-        except KeyError:
-            number_of_prj = 0
-        return number_of_prj
+
+        query_results = self._pep_db_engine.session_execute(statement).first()
+
+        return query_results.number_of_namespaces
+
+    @staticmethod
+    def _add_condition(
+        statement: Select,
+        search_str: str = None,
+        admin_list: Union[str, List[str]] = None,
+    ) -> Select:
+        """
+        Add where clause to sqlalchemy statement (in namespace search)
+
+        :param statement: sqlalchemy representation of a SELECT statement.
+        :param search_str: search string that has to be found namespace
+        :param admin_list: list or string of admin rights to namespace
+        :return: sqlalchemy representation of a SELECT statement with where clause.
+        """
+        if search_str:
+            sql_search_str = f"%{search_str}%"
+            statement = statement.where(
+                or_(
+                    Projects.namespace.ilike(sql_search_str),
+                )
+            )
+        statement = statement.where(
+            or_(Projects.private.is_(False), Projects.namespace.in_(admin_list))
+        )
+        return statement

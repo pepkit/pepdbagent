@@ -1,7 +1,8 @@
-psycopg2-binary
+sqlalchemy>=2.0.0
 logmuse
-peppy>=0.35.4
+peppy>=0.35.5
 ubiquerg>=0.6.2
 coloredlogs>=15.0.1
 pytest-mock
 pydantic
+psycopg2
