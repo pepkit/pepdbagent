@@ -47,16 +47,17 @@ class PEPDatabaseNamespace:
                 search results
             }
         """
-        _LOGGER.info(
-            f"Getting namespaces annotation with provided info: (query: {query})"
-        )
+        _LOGGER.info(f"Getting namespaces annotation with provided info: (query: {query})")
         admin_tuple = tuple_converter(admin)
         return NamespaceList(
             count=self._count_namespace(search_str=query, admin_nsp=admin_tuple),
             limit=limit,
             offset=offset,
             results=self._get_namespace(
-                search_str=query, admin_nsp=admin_tuple, limit=limit, offset=offset
+                search_str=query,
+                admin_nsp=admin_tuple,
+                limit=limit,
+                offset=offset,
             ),
         )
 

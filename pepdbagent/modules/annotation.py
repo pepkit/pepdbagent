@@ -83,9 +83,7 @@ class PEPDatabaseAnnotation:
         return AnnotationList(
             limit=limit,
             offset=offset,
-            count=self._count_projects(
-                namespace=namespace, search_str=query, admin=admin
-            ),
+            count=self._count_projects(namespace=namespace, search_str=query, admin=admin),
             results=self._get_projects(
                 namespace=namespace,
                 search_str=query,
@@ -121,9 +119,7 @@ class PEPDatabaseAnnotation:
                     _LOGGER.error(str(err), registry_paths)
                     continue
                 try:
-                    single_return = self._get_single_annotation(
-                        namespace, name, tag, admin
-                    )
+                    single_return = self._get_single_annotation(namespace, name, tag, admin)
                     if single_return:
                         anno_results.append(single_return)
                 except ProjectNotFoundError:
@@ -195,14 +191,10 @@ class PEPDatabaseAnnotation:
                 digest=query_result.digest,
                 pep_schema=query_result.pep_schema,
             )
-            _LOGGER.info(
-                f"Annotation of the project '{namespace}/{name}:{tag}' has been found!"
-            )
+            _LOGGER.info(f"Annotation of the project '{namespace}/{name}:{tag}' has been found!")
             return annot
         else:
-            raise ProjectNotFoundError(
-                f"Project '{namespace}/{name}:{tag}' was not found."
-            )
+            raise ProjectNotFoundError(f"Project '{namespace}/{name}:{tag}' was not found.")
 
     def _count_projects(
         self,
@@ -221,7 +213,10 @@ class PEPDatabaseAnnotation:
             admin = []
         statement = select(func.count()).select_from(Projects)
         statement = self._add_condition(
-            statement, namespace=namespace, search_str=search_str, admin_list=admin
+            statement,
+            namespace=namespace,
+            search_str=search_str,
+            admin_list=admin,
         )
         result = self._pep_db_engine.session_execute(statement).first()
 
@@ -253,9 +248,7 @@ class PEPDatabaseAnnotation:
         :param order_desc: Sort the records in descending order. [Default: False]
         :return: list of found projects with their annotations.
         """
-        _LOGGER.info(
-            f"Running annotation search: (namespace: {namespace}, query: {search_str}."
-        )
+        _LOGGER.info(f"Running annotation search: (namespace: {namespace}, query: {search_str}.")
 
         if admin is None:
             admin = []
@@ -273,7 +266,10 @@ class PEPDatabaseAnnotation:
         ).select_from(Projects)
 
         statement = self._add_condition(
-            statement, namespace=namespace, search_str=search_str, admin_list=admin
+            statement,
+            namespace=namespace,
+            search_str=search_str,
+            admin_list=admin,
         )
         statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
         statement = statement.limit(limit).offset(offset)
@@ -383,9 +379,7 @@ class PEPDatabaseAnnotation:
         if admin is None:
             admin = []
         statement = (
-            select(func.count())
-            .select_from(Projects)
-            .where(Projects.namespace == namespace)
+            select(func.count()).select_from(Projects).where(Projects.namespace == namespace)
         )
         statement = statement.where(
             or_(Projects.private.is_(False), Projects.namespace.in_(admin))

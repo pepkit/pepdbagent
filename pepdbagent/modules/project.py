@@ -77,9 +77,7 @@ class PEPDatabaseProject:
             raise ProjectNotFoundError
 
         if found_prj:
-            _LOGGER.info(
-                f"Project has been found: {found_prj.namespace}, {found_prj.name}"
-            )
+            _LOGGER.info(f"Project has been found: {found_prj.namespace}, {found_prj.name}")
             project_value = found_prj.project_value
             is_private = found_prj.private
             if raw:
@@ -201,17 +199,13 @@ class PEPDatabaseProject:
         elif proj_dict["name"]:
             proj_name = proj_dict["name"].lower()
         else:
-            raise ValueError(
-                f"Name of the project wasn't provided. Project will not be uploaded."
-            )
+            raise ValueError(f"Name of the project wasn't provided. Project will not be uploaded.")
 
         proj_digest = create_digest(proj_dict)
         number_of_samples = len(project.samples)
 
         if update_only:
-            _LOGGER.info(
-                f"Update_only argument is set True. Updating project {proj_name} ..."
-            )
+            _LOGGER.info(f"Update_only argument is set True. Updating project {proj_name} ...")
             self._overwrite(
                 project_dict=proj_dict,
                 namespace=namespace,
@@ -237,12 +231,8 @@ class PEPDatabaseProject:
                             project_value=proj_dict,
                             number_of_samples=number_of_samples,
                             private=is_private,
-                            submission_date=datetime.datetime.now(
-                                datetime.timezone.utc
-                            ),
-                            last_update_date=datetime.datetime.now(
-                                datetime.timezone.utc
-                            ),
+                            submission_date=datetime.datetime.now(datetime.timezone.utc),
+                            last_update_date=datetime.datetime.now(datetime.timezone.utc),
                             pep_schema=pep_schema,
                         )
                     )
@@ -321,15 +311,11 @@ class PEPDatabaseProject:
                     )
                 )
 
-            _LOGGER.info(
-                f"Project '{namespace}/{proj_name}:{tag}' has been successfully updated!"
-            )
+            _LOGGER.info(f"Project '{namespace}/{proj_name}:{tag}' has been successfully updated!")
             return None
 
         else:
-            raise ProjectNotFoundError(
-                "Project does not exist! No project will be updated!"
-            )
+            raise ProjectNotFoundError("Project does not exist! No project will be updated!")
 
     def update(
         self,
@@ -398,9 +384,7 @@ class PEPDatabaseProject:
             update_final = UpdateModel(
                 project_value=update_values.project_value.to_dict(extended=True),
                 name=update_values.project_value.name,
-                digest=create_digest(
-                    update_values.project_value.to_dict(extended=True)
-                ),
+                digest=create_digest(update_values.project_value.to_dict(extended=True)),
                 last_update_date=datetime.datetime.now(datetime.timezone.utc),
                 number_of_samples=len(update_values.project_value.samples),
             )
@@ -418,7 +402,8 @@ class PEPDatabaseProject:
 
         if update_values.name is not None:
             update_final = UpdateModel(
-                name=update_values.name, **update_final.dict(exclude_unset=True)
+                name=update_values.name,
+                **update_final.dict(exclude_unset=True),
             )
 
         if update_values.pep_schema is not None:

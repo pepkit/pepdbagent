@@ -36,9 +36,7 @@ class TestProject:
         ],
     )
     def test_get_project(self, initiate_pepdb_con, namespace, name):
-        kk = initiate_pepdb_con.project.get(
-            namespace=namespace, name=name, tag="default"
-        )
+        kk = initiate_pepdb_con.project.get(namespace=namespace, name=name, tag="default")
         ff = peppy.Project(get_path_to_example_file(namespace, name))
         assert kk == ff
 
@@ -73,9 +71,7 @@ class TestProject:
             tag="default",
             update_dict={"name": new_name},
         )
-        assert initiate_pepdb_con.project.exists(
-            namespace=namespace, name=new_name, tag="default"
-        )
+        assert initiate_pepdb_con.project.exists(namespace=namespace, name=new_name, tag="default")
 
     @pytest.mark.parametrize(
         "namespace, name, new_tag",
@@ -89,11 +85,12 @@ class TestProject:
     )
     def test_update_project_tag(self, initiate_pepdb_con, namespace, name, new_tag):
         initiate_pepdb_con.project.update(
-            namespace=namespace, name=name, tag="default", update_dict={"tag": new_tag}
+            namespace=namespace,
+            name=name,
+            tag="default",
+            update_dict={"tag": new_tag},
         )
-        assert initiate_pepdb_con.project.exists(
-            namespace=namespace, name=name, tag=new_tag
-        )
+        assert initiate_pepdb_con.project.exists(namespace=namespace, name=name, tag=new_tag)
 
     @pytest.mark.parametrize(
         "namespace, name, new_description",
@@ -111,7 +108,10 @@ class TestProject:
         prj = initiate_pepdb_con.project.get(namespace=namespace, name=name)
         prj.description = new_description
         initiate_pepdb_con.project.update(
-            namespace=namespace, name=name, tag="default", update_dict={"project": prj}
+            namespace=namespace,
+            name=name,
+            tag="default",
+            update_dict={"project": prj},
         )
 
         assert (
@@ -196,9 +196,7 @@ class TestProject:
         initiate_pepdb_con.project.delete(namespace=namespace, name=name, tag="default")
 
         with pytest.raises(ProjectNotFoundError, match="Project does not exist."):
-            kk = initiate_pepdb_con.project.get(
-                namespace=namespace, name=name, tag="default"
-            )
+            kk = initiate_pepdb_con.project.get(namespace=namespace, name=name, tag="default")
 
 
 class TestAnnotation:
@@ -252,9 +250,7 @@ class TestAnnotation:
         ],
     )
     @pytest.mark.parametrize("admin", ("private_test", ["private_test", "bbb"]))
-    def test_annotation_all_private(
-        self, initiate_pepdb_con, namespace, n_projects, admin
-    ):
+    def test_annotation_all_private(self, initiate_pepdb_con, namespace, n_projects, admin):
         result = initiate_pepdb_con.annotation.get(namespace=namespace, admin=admin)
         assert result.count == n_projects
         assert len(result.results) == n_projects
@@ -270,12 +266,8 @@ class TestAnnotation:
         ],
     )
     @pytest.mark.parametrize("admin", ("private_test", ["private_test", "bbb"]))
-    def test_annotation_limit(
-        self, initiate_pepdb_con, namespace, limit, admin, n_projects
-    ):
-        result = initiate_pepdb_con.annotation.get(
-            namespace=namespace, admin=admin, limit=limit
-        )
+    def test_annotation_limit(self, initiate_pepdb_con, namespace, limit, admin, n_projects):
+        result = initiate_pepdb_con.annotation.get(namespace=namespace, admin=admin, limit=limit)
         assert result.count == n_projects
         assert len(result.results) == limit
 
@@ -305,11 +297,12 @@ class TestAnnotation:
         ],
     )
     @pytest.mark.parametrize("admin", ["private_test"])
-    def test_order_by_desc(
-        self, initiate_pepdb_con, namespace, admin, order_by, last_name
-    ):
+    def test_order_by_desc(self, initiate_pepdb_con, namespace, admin, order_by, last_name):
         result = initiate_pepdb_con.annotation.get(
-            namespace=namespace, admin=admin, order_by=order_by, order_desc=True
+            namespace=namespace,
+            admin=admin,
+            order_by=order_by,
+            order_desc=True,
         )
         assert result.results[0].name == last_name
 
@@ -337,9 +330,7 @@ class TestAnnotation:
             [None, "re", 3],
         ],
     )
-    def test_name_search_private(
-        self, initiate_pepdb_con, namespace, query, found_number
-    ):
+    def test_name_search_private(self, initiate_pepdb_con, namespace, query, found_number):
         result = initiate_pepdb_con.annotation.get(
             namespace=namespace, query=query, admin="private_test"
         )
