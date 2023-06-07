@@ -37,7 +37,7 @@ def initiate_pepdb_con(
     sa_engine = create_engine(DNS)
     with sa_engine.begin() as conn:
         conn.execute(text("DROP table IF EXISTS projects"))
-    pepdb_con = PEPDatabaseAgent(dsn=DNS, echo=True)
+    pepdb_con = PEPDatabaseAgent(dsn=DNS, echo=False)
     for namespace, item in list_of_available_peps.items():
         if namespace == "private_test":
             private = True

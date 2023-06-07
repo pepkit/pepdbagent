@@ -9,7 +9,7 @@ con = pepdbagent.PEPDatabaseAgent(dsn="postgresql://postgres:docker@localhost:54
 ###############
 # # Upload
 prj = peppy.Project(
-    "/home/bnt4me/virginia/repos/pepdbagent/sample_pep/basic/project_config.yaml"
+    "/home/bnt4me/virginia/repos/pepdbagent/tests/data/namespace1/basic/project_config.yaml"
 )
 con.project.create(project=prj, namespace="Khoroshevskyi", name="dupa", tag="test1", overwrite=True)
 
