@@ -1,59 +1,58 @@
 import peppy
 import pytest
+import os
+
+from sqlalchemy import create_engine
+from sqlalchemy import text
+
+DNS = f"postgresql://postgres:docker@localhost:5432/pep-db"
+from pepdbagent import PEPDatabaseAgent
+
+
+DATA_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "tests",
+    "data",
+)
+
+
+def get_path_to_example_file(namespace, project_name):
+    return os.path.join(DATA_PATH, namespace, project_name, "project_config.yaml")
 
 
 @pytest.fixture
-def sql_output_for_check_conn_db():
-    return [
-        (None, None, None, "private"),
-        (None, None, None, "digest"),
-        (None, None, None, "id"),
-        (None, None, None, "name"),
-        (None, None, None, "namespace"),
-        (None, None, None, "project_value"),
-        (None, None, None, "tag"),
-        (None, None, None, "number_of_samples"),
-        (None, None, None, "submission_date"),
-        (None, None, None, "last_update_date"),
-    ]
+def list_of_available_peps():
+    pep_namespaces = os.listdir(DATA_PATH)
+    projects = {}
+    for np in pep_namespaces:
+        pep_name = os.listdir(os.path.join(DATA_PATH, np))
+        projects[np] = {p: get_path_to_example_file(np, p) for p in pep_name}
+    return projects
 
 
-@pytest.fixture
-def test_dsn():
-    return "postgresql://postgres:docker@localhost:5432/pep-base-sql"
+@pytest.fixture(scope="function")
+def initiate_pepdb_con(
+    list_of_available_peps,
+):
+    sa_engine = create_engine(DNS)
+    with sa_engine.begin() as conn:
+        conn.execute(text("DROP table IF EXISTS projects"))
+    pepdb_con = PEPDatabaseAgent(dsn=DNS, echo=False)
+    for namespace, item in list_of_available_peps.items():
+        if namespace == "private_test":
+            private = True
+        else:
+            private = False
+        for name, path in item.items():
+            prj = peppy.Project(path)
+            pepdb_con.project.create(
+                namespace=namespace,
+                name=name,
+                tag="default",
+                is_private=private,
+                project=prj,
+                overwrite=True,
+                pep_schema="random_schema_name",
+            )
 
-
-@pytest.fixture
-def test_peppy_project():
-    return peppy.Project("tests/data/basic_pep/project_config.yaml")
-
-
-@pytest.fixture
-def test_database_project_return():
-    return [
-        15,
-        {
-            "name": "public_project",
-            "_config": {
-                "pep_version": "2.0.0",
-                "sample_table": "/home/cgf8xr/databio/repos/example_peps/example_basic/sample_table.csv",
-            },
-            "description": None,
-            "_sample_dict": {
-                "file": {
-                    "frog_1": "data/frog1_data.txt",
-                    "frog_2": "data/frog2_data.txt",
-                },
-                "protocol": {"frog_1": "anySampleType", "frog_2": "anySampleType"},
-                "sample_name": {"frog_1": "frog_1", "frog_2": "frog_2"},
-            },
-            "_subsample_dict": None,
-        },
-        {
-            "status": "Unknown",
-            "n_samples": 2,
-            "is_private": False,
-            "description": None,
-            "last_update": "2022-10-24 12:24:24.210667",
-        },
-    ]
+    yield pepdb_con

@@ -5,21 +5,25 @@ import pepdbagent
 from peppy import Project
 
 
-con = pepdbagent.PEPDatabaseAgent(dsn="postgresql://postgres:docker@localhost:5432/pep-db")
+con = pepdbagent.PEPDatabaseAgent(dsn="postgresql://postgres:docker@localhost:5432/pep-db", echo=True)
 ###############
-# Upload
+# # Upload
 prj = peppy.Project(
-    "/home/bnt4me/virginia/repos/pepdbagent/sample_pep/basic/project_config.yaml"
+    "/home/bnt4me/virginia/repos/pepdbagent/tests/data/namespace1/basic/project_config.yaml"
 )
 con.project.create(project=prj, namespace="Khoroshevskyi", name="dupa", tag="test1", overwrite=True)
 
-# Project
+con.project.exists(namespace="Khoroshevskyi", name="dupa", tag="test1")
+con.project.update(update_dict={"is_private": False}, namespace="Khoroshevskyi", name="dupa", tag="test1")
+# # Project
 
-prj_dow = con.project.get(namespace="Khoroshevskyi", name="dupa", tag="test1")
+# prj_dow = con.project.get(namespace="Khoroshevskyi", name="dupa", tag="test1")
 
+
+exit(1)
 print(prj_dow.name)
 
-prj_raw = con.project.get(namespace="Khoroshevskyi", name="dupa", tag="test1", raw=True)
+prj_raw = con.project.get(namespace="Khoroshfevskyi", name="dupa", tag="test1", raw=True)
 
 print(prj_raw)
 
@@ -27,7 +31,7 @@ print(prj_raw)
 ###############
 # Annotation
 
-dd_list = con.annotation.get_by_rp(
+dd_list = con.adialectnnotation.get_by_rp(
     [
         "Khoroshevskyi/gse_yaml:default",
         "Khoroshevskyi/gse_yaml:default",

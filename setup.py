@@ -1,5 +1,6 @@
-import sys
 import os
+import sys
+
 from setuptools import find_packages, setup
 
 PACKAGE_NAME = "pepdbagent"
@@ -45,11 +46,12 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     classifiers=[
-        "Development Status :: 1 - Planning",
+        "Development Status :: 3 - Alpha",
         "License :: OSI Approved :: BSD License",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
     keywords="project, metadata, bioinformatics, database",
