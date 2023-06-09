@@ -10,6 +10,7 @@ to increase readability, maintainability, and user experience of pepdbagent, whi
 PEPDatabaseAgent is the primary class that you will use. It connects to the database (using **BaseConnection** class).
 
 Example: Instiantiate a PEPDatabaseAgent object and connect to database:
+
 ```python
 
 import pepdbagent
@@ -30,9 +31,12 @@ Example:
 ```python
 import peppy
 
-prj_obj = peppy.Project("/path/to/project_config.yaml")
+prj_obj = peppy.Project("sample_pep/basic/project_config.yaml")
 
 # create a project
+namespace = "demo"
+name = "basic_project"
+tag = None
 agent.project.create(prj_obj, namespace, name, tag)
 
 # updating record in database (project)
@@ -101,7 +105,8 @@ AnnotationRetrunModel(count=1,
                                                description=None, 
                                                last_update_date='2022-11-09', 
                                                submission_date='2023-01-09', 
-                                               digest='36bb973f2eca3706ed9852abddd')
+                                               digest='36bb973f2eca3706ed9852abddd',
+                                               pep_schema="bedmake")])
 ```
 
 
@@ -129,3 +134,7 @@ NamespaceReturnModel(count=1,
                      offset=0, 
                      results=[NamespaceResultModel(namespace='databio', number_of_projects=6, number_of_samples=470)])
 ```
+
+
+# Example PEPs
+To populate database with example peps use function written in manual tests: [Manual test](../manual_tests.py)

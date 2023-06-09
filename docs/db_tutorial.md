@@ -15,3 +15,7 @@ Now db is installed
 `docker exec -it 65f bash`
 
 `psql -U postgres -d pep-db`
+
+---
+If you have your own database, you can initialize a connection using pepdbagent. 
+The pepdbagent will create a new database schema if it doesn't already exist, or throw an exception if the schema is incorrect.

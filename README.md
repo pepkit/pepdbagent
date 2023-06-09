@@ -1,16 +1,15 @@
 # pepdbagent
 
-pepdbagent is a python library and toolkit that gives a user user-friendly 
+`pepdbagent` is a Python library and toolkit that gives a user-friendly 
 interface to connect, upload, update and retrieve information from pep-db.
 
-**pep-db** is and postgres database created for storing [PEPs](http://pep.databio.org/en/latest/). 
-It is a backend database for PEPhub. database enables storing huge projects and provides fast speed of retrieving them.
+**pep-db** is a postgres database created for storing [PEPs](http://pep.databio.org/en/latest/). 
+It is a backend database for PEPhub. 
 
-Before using pepdbagent, you should install or have access to pep-db.
+Before using pepdbagent, you should install or have access to a pep-db instance.
 
-To install pep-db you can use this tutorial:
+To run a pep-db instance, you can use this tutorial:
 - [pep-db installation](./docs/db_tutorial.md)
 
-
-pepdbagent tutorial is here:
+Then, follow the `pepdbagent` tutorial here:
 - [pedbagent](./docs/README.md)

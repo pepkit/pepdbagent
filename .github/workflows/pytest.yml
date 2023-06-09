@@ -2,18 +2,29 @@ name: Run pytests
 
 on:
   push:
-    branches: [dev]
+    branches: [master, dev]
   pull_request:
     branches: [master, dev]
 
 jobs:
   pytest:
-    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10"]
-        os: [ubuntu-20.04]
-
+        python-version: ["3.8", "3.11"]
+        os: [ubuntu-latest] # can't use macOS when using service containers or container jobs
+        r: [release]
+    runs-on: ${{ matrix.os }}
+    services:
+        postgres:
+          image: postgres
+          env:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: docker
+            POSTGRES_DB: pep-db
+            POSTGRES_HOST: localhost
+          ports:
+          - 5432:5432
+          options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
     - uses: actions/checkout@v2
 

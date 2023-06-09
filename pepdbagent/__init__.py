@@ -1,10 +1,9 @@
 """ Package-level data """
-from .pepdbagent import *
-from ._version import __version__
-
-import logmuse
 import coloredlogs
+import logmuse
 
+from ._version import __version__
+from .pepdbagent import *
 
 _LOGGER = logmuse.init_logger("pepdbagent")
 coloredlogs.install(

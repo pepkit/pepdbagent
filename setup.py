@@ -1,5 +1,6 @@
-import sys
 import os
+import sys
+
 from setuptools import find_packages, setup
 
 PACKAGE_NAME = "pepdbagent"
@@ -16,13 +17,12 @@ with open("requirements/requirements-all.txt", "r") as reqs_file:
 # Additional keyword arguments for setup().
 extra = {"install_requires": DEPENDENCIES}
 
+
 # Additional files to include with package
 def get_static(name, condition=None):
     static = [
         os.path.join(name, f)
-        for f in os.listdir(
-            os.path.join(os.path.dirname(os.path.realpath(__file__)), name)
-        )
+        for f in os.listdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), name))
     ]
     if condition is None:
         return static
@@ -44,11 +44,12 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     classifiers=[
-        "Development Status :: 1 - Planning",
+        "Development Status :: 3 - Alpha",
         "License :: OSI Approved :: BSD License",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
     keywords="project, metadata, bioinformatics, database",
@@ -57,8 +58,6 @@ setup(
     license="BSD2",
     include_package_data=True,
     # tests_require=(["pytest"]),
-    setup_requires=(
-        ["pytest-runner"] if {"test", "pytest", "ptr"} & set(sys.argv) else []
-    ),
+    setup_requires=(["pytest-runner"] if {"test", "pytest", "ptr"} & set(sys.argv) else []),
     **extra,
 )
