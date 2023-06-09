@@ -291,8 +291,6 @@ class PEPDatabaseAnnotation:
                     pep_schema=result.pep_schema,
                 )
             )
-        if not order_desc:
-            results_list.reverse()
         return results_list
 
     @staticmethod
@@ -324,9 +322,8 @@ class PEPDatabaseAnnotation:
         if desc and by == "name":
             order_by_obj = order_by_obj.desc()
 
-        else:
-            if not desc:
-                order_by_obj = order_by_obj.desc()
+        elif by != "name" and not desc:
+            order_by_obj = order_by_obj.desc()
 
         return statement.order_by(order_by_obj)
 
