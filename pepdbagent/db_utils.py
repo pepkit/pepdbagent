@@ -13,7 +13,7 @@ from sqlalchemy import (
     select,
     TIMESTAMP,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, create_engine
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.compiler import compiles
@@ -39,9 +39,9 @@ def compile_bigserial_pg(type_, compiler, **kw):
     return "BIGSERIAL"
 
 
-@compiles(JSONB, POSTGRES_DIALECT)
+@compiles(JSON, POSTGRES_DIALECT)
 def compile_jsonb_pg(type_, compiler, **kw):
-    return "JSONB"
+    return "JSON"
 
 
 class Base(DeclarativeBase):
@@ -67,7 +67,7 @@ class Projects(Base):
     name: Mapped[str] = mapped_column(primary_key=True)
     tag: Mapped[str] = mapped_column(primary_key=True)
     digest: Mapped[str] = mapped_column(String(32))
-    project_value: Mapped[dict] = mapped_column(JSONB, server_default=FetchedValue())
+    project_value: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     private: Mapped[bool]
     number_of_samples: Mapped[int]
     submission_date: Mapped[datetime.datetime]
