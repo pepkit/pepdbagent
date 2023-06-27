@@ -59,7 +59,7 @@ prj = peppy.Project(
     "/home/bnt4me/virginia/repos/pepdbagent/tests/data/namespace1/basic/project_config.yaml"
 )
 fgf = prj.to_dict()
-rr = prj.to_dict(extended=True)
+rr = prj.to_dict(extended=True, orient="records")
 con.project.create(project=prj, namespace="dog_namespace", name="testttt", tag="test1", overwrite=True)
 
 

@@ -189,7 +189,7 @@ class PEPDatabaseProject:
         :param update_only: if project exists overwrite it, otherwise do nothing.  [Default: False]
         :return: None
         """
-        proj_dict = project.to_dict(extended=True)
+        proj_dict = project.to_dict(extended=True, orient="records")
         proj_dict["_config"]["description"] = project.description
 
         namespace = namespace.lower()
@@ -383,13 +383,13 @@ class PEPDatabaseProject:
         update_final = UpdateModel()
 
         if update_values.project_value is not None:
-            proj_dict = update_values.project_value.to_dict(extended=True)
+            proj_dict = update_values.project_value.to_dict(extended=True, orient="records")
             proj_dict["_config"]["description"] = proj_dict["description"]
             proj_dict["_config"]["name"] = proj_dict["name"]
             update_final = UpdateModel(
                 project_value=proj_dict,
                 name=update_values.project_value.name,
-                digest=create_digest(update_values.project_value.to_dict(extended=True)),
+                digest=create_digest(update_values.project_value.to_dict(extended=True, orient="records")),
                 last_update_date=datetime.datetime.now(datetime.timezone.utc),
                 number_of_samples=len(update_values.project_value.samples),
             )
