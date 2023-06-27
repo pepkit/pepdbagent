@@ -110,6 +110,12 @@ class UpdateModel(BaseModel):
             return v.lower()
         return v
 
+    @validator("tag", "name")
+    def value_should_not_contain_question(cls, v):
+        if "?" in v:
+            return ValueError("Question mark (?) is prohibited in name and tag.")
+        return v
+
     class Config:
         extra = Extra.forbid
         allow_population_by_field_name = True

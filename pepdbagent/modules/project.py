@@ -190,12 +190,14 @@ class PEPDatabaseProject:
         :return: None
         """
         proj_dict = project.to_dict(extended=True)
+        proj_dict["_config"]["description"] = project.description
 
         namespace = namespace.lower()
         if name:
             name = name.lower()
             proj_name = name
             proj_dict["name"] = name
+            proj_dict["_config"]["name"] = project.name
         elif proj_dict["name"]:
             proj_name = proj_dict["name"].lower()
         else:
@@ -381,8 +383,11 @@ class PEPDatabaseProject:
         update_final = UpdateModel()
 
         if update_values.project_value is not None:
+            proj_dict = update_values.project_value.to_dict(extended=True)
+            proj_dict["_config"]["description"] = proj_dict["description"]
+            proj_dict["_config"]["name"] = proj_dict["name"]
             update_final = UpdateModel(
-                project_value=update_values.project_value.to_dict(extended=True),
+                project_value=proj_dict,
                 name=update_values.project_value.name,
                 digest=create_digest(update_values.project_value.to_dict(extended=True)),
                 last_update_date=datetime.datetime.now(datetime.timezone.utc),

@@ -58,8 +58,13 @@ upload_sample_pep_to_db(con)
 prj = peppy.Project(
     "/home/bnt4me/virginia/repos/pepdbagent/tests/data/namespace1/basic/project_config.yaml"
 )
+fgf = prj.to_dict()
+rr = prj.to_dict(extended=True)
 con.project.create(project=prj, namespace="dog_namespace", name="testttt", tag="test1", overwrite=True)
 
+
+pr = con.project.get(namespace="dog_namespace", name="testttt", tag="test1", raw=True)
+pr
 con.project.exists(namespace="dog_namespace", name="testttt", tag="test1")
 
 
@@ -115,3 +120,6 @@ print(ff)
 con.project.update(update_dict={"is_private": False}, namespace="dog_namespace", name="testttt", tag="test1")
 
 dell = con.project.delete(namespace="dog_namespace", name="testttt", tag="test1")
+
+
+from pydantic import BaseModel
