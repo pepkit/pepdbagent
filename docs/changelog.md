@@ -5,6 +5,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [0.4.2] -- 2023-06-27
 - Added validation of question mark in name and tag
 - Fixed description and name in config file
+- Fixed preserving order of columns in database
 
 ## [0.4.1] -- 2023-06-09
 - Fixed project.update function
