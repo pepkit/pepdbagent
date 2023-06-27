@@ -113,7 +113,7 @@ class UpdateModel(BaseModel):
     @validator("tag", "name")
     def value_should_not_contain_question(cls, v):
         if "?" in v:
-            return ValueError("Question mark is prohibited in name and tag")
+            return ValueError("Question mark (?) is prohibited in name and tag.")
         return v
 
     class Config:
