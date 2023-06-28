@@ -5,7 +5,7 @@ DEFAULT_TAG = "default"
 
 DESCRIPTION_KEY = "description"
 
-from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_DICT_KEY
+from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_LIST_KEY
 
 DEFAULT_OFFSET = 0
 DEFAULT_LIMIT = 100

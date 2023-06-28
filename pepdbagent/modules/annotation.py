@@ -158,7 +158,7 @@ class PEPDatabaseAnnotation:
             Projects.name,
             Projects.tag,
             Projects.private,
-            Projects.project_value["description"].astext.label("description"),
+            Projects.description,
             Projects.number_of_samples,
             Projects.submission_date,
             Projects.last_update_date,

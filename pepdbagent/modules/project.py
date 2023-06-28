@@ -168,6 +168,7 @@ class PEPDatabaseProject:
         namespace: str,
         name: str = None,
         tag: str = DEFAULT_TAG,
+        description: str = None,
         is_private: bool = False,
         pep_schema: str = None,
         overwrite: bool = False,
@@ -187,19 +188,21 @@ class PEPDatabaseProject:
         :param overwrite: if project exists overwrite the project, otherwise upload it.
             [Default: False - project won't be overwritten if it exists in db]
         :param update_only: if project exists overwrite it, otherwise do nothing.  [Default: False]
+        :param description: description of the project
         :return: None
         """
         proj_dict = project.to_dict(extended=True, orient="records")
-        proj_dict["_config"]["description"] = project.description
+        if not description:
+            description = project.description
+        proj_dict["_config"]["description"] = description
 
         namespace = namespace.lower()
         if name:
             name = name.lower()
             proj_name = name
-            proj_dict["name"] = name
             proj_dict["_config"]["name"] = project.name
-        elif proj_dict["name"]:
-            proj_name = proj_dict["name"].lower()
+        elif proj_dict["_config"]["name"]:
+            proj_name = proj_dict["_config"]["name"].lower()
         else:
             raise ValueError(f"Name of the project wasn't provided. Project will not be uploaded.")
 
@@ -217,6 +220,7 @@ class PEPDatabaseProject:
                 number_of_samples=number_of_samples,
                 private=is_private,
                 pep_schema=pep_schema,
+                description=description
             )
             return None
         else:
@@ -236,6 +240,7 @@ class PEPDatabaseProject:
                             submission_date=datetime.datetime.now(datetime.timezone.utc),
                             last_update_date=datetime.datetime.now(datetime.timezone.utc),
                             pep_schema=pep_schema,
+                            description=description,
                         )
                     )
 
@@ -272,6 +277,7 @@ class PEPDatabaseProject:
         number_of_samples: int,
         private: bool = False,
         pep_schema: str = None,
+        description: str = "",
     ) -> None:
         """
         Update existing project by providing all necessary information.
@@ -284,6 +290,7 @@ class PEPDatabaseProject:
         :param number_of_samples: number of samples in project
         :param private: boolean value if the project should be visible just for user that creates it.
         :param pep_schema: assign PEP to a specific schema. [DefaultL: None]
+        :param description: project description
         :return: None
         """
         proj_name = proj_name.lower()
@@ -303,6 +310,7 @@ class PEPDatabaseProject:
                         private=private,
                         last_update_date=datetime.datetime.now(datetime.timezone.utc),
                         pep_schema=pep_schema,
+                        description=description,
                     )
                     .where(
                         and_(
@@ -384,14 +392,13 @@ class PEPDatabaseProject:
 
         if update_values.project_value is not None:
             proj_dict = update_values.project_value.to_dict(extended=True, orient="records")
-            proj_dict["_config"]["description"] = proj_dict["description"]
-            proj_dict["_config"]["name"] = proj_dict["name"]
             update_final = UpdateModel(
                 project_value=proj_dict,
                 name=update_values.project_value.name,
                 digest=create_digest(update_values.project_value.to_dict(extended=True, orient="records")),
                 last_update_date=datetime.datetime.now(datetime.timezone.utc),
                 number_of_samples=len(update_values.project_value.samples),
+                description=proj_dict["_config"]["description"],
             )
 
         if update_values.tag is not None:
