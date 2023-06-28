@@ -220,7 +220,7 @@ class PEPDatabaseProject:
                 number_of_samples=number_of_samples,
                 private=is_private,
                 pep_schema=pep_schema,
-                description=description
+                description=description,
             )
             return None
         else:
@@ -395,7 +395,9 @@ class PEPDatabaseProject:
             update_final = UpdateModel(
                 project_value=proj_dict,
                 name=update_values.project_value.name,
-                digest=create_digest(update_values.project_value.to_dict(extended=True, orient="records")),
+                digest=create_digest(
+                    update_values.project_value.to_dict(extended=True, orient="records")
+                ),
                 last_update_date=datetime.datetime.now(datetime.timezone.utc),
                 number_of_samples=len(update_values.project_value.samples),
                 description=proj_dict["_config"]["description"],
