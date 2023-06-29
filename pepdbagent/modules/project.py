@@ -220,7 +220,6 @@ class PEPDatabaseProject:
                 number_of_samples=number_of_samples,
                 private=is_private,
                 pep_schema=pep_schema,
-                description=description,
             )
             return None
         else:
@@ -240,7 +239,6 @@ class PEPDatabaseProject:
                             submission_date=datetime.datetime.now(datetime.timezone.utc),
                             last_update_date=datetime.datetime.now(datetime.timezone.utc),
                             pep_schema=pep_schema,
-                            description=description,
                         )
                     )
 
@@ -277,7 +275,6 @@ class PEPDatabaseProject:
         number_of_samples: int,
         private: bool = False,
         pep_schema: str = None,
-        description: str = "",
     ) -> None:
         """
         Update existing project by providing all necessary information.
@@ -290,7 +287,6 @@ class PEPDatabaseProject:
         :param number_of_samples: number of samples in project
         :param private: boolean value if the project should be visible just for user that creates it.
         :param pep_schema: assign PEP to a specific schema. [DefaultL: None]
-        :param description: project description
         :return: None
         """
         proj_name = proj_name.lower()
@@ -310,7 +306,6 @@ class PEPDatabaseProject:
                         private=private,
                         last_update_date=datetime.datetime.now(datetime.timezone.utc),
                         pep_schema=pep_schema,
-                        description=description,
                     )
                     .where(
                         and_(
@@ -344,7 +339,6 @@ class PEPDatabaseProject:
                     tag: Optional[str]
                     name: Optional[str]
             }
-            *project_value should contain name and description
         :param namespace: project namespace
         :param name: project name
         :param tag: project tag
@@ -400,7 +394,6 @@ class PEPDatabaseProject:
                 ),
                 last_update_date=datetime.datetime.now(datetime.timezone.utc),
                 number_of_samples=len(update_values.project_value.samples),
-                description=proj_dict["_config"]["description"],
             )
 
         if update_values.tag is not None:

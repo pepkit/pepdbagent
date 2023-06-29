@@ -59,6 +59,13 @@ def receive_after_create(target, connection, tables, **kw):
         _LOGGER.info("A table was not created")
 
 
+def deliver_description(context):
+    try:
+        return context.get_current_parameters()["project_value"]["_config"]["description"]
+    except KeyError:
+        return ""
+
+
 class Projects(Base):
     __tablename__ = "projects"
 
@@ -67,7 +74,9 @@ class Projects(Base):
     name: Mapped[str] = mapped_column(primary_key=True)
     tag: Mapped[str] = mapped_column(primary_key=True)
     digest: Mapped[str] = mapped_column(String(32))
-    description: Mapped[Optional[str]] = mapped_column(default="")
+    description: Mapped[Optional[str]] = mapped_column(
+        default=deliver_description, onupdate=deliver_description
+    )
     project_value: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     private: Mapped[bool]
     number_of_samples: Mapped[int]

@@ -12,6 +12,7 @@ CREATE TABLE projects (
     tag TEXT NOT NULL,
     digest TEXT NOT NULL,  -- should be changed to CHARACTER
     project_value jsonb NOT NULL,
+    description TEXT,
     private bool NOT NULL,
     number_of_samples int NOT NULL,
     submission_date timestamp NOT NULL,
