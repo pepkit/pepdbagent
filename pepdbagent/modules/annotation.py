@@ -158,7 +158,7 @@ class PEPDatabaseAnnotation:
             Projects.name,
             Projects.tag,
             Projects.private,
-            Projects.project_value["description"].astext.label("description"),
+            Projects.description,
             Projects.number_of_samples,
             Projects.submission_date,
             Projects.last_update_date,
@@ -256,7 +256,7 @@ class PEPDatabaseAnnotation:
             Projects.name,
             Projects.tag,
             Projects.private,
-            Projects.project_value["description"].astext.label("description"),
+            Projects.description,
             Projects.number_of_samples,
             Projects.submission_date,
             Projects.last_update_date,
@@ -349,6 +349,7 @@ class PEPDatabaseAnnotation:
             search_query = or_(
                 Projects.name.ilike(sql_search_str),
                 Projects.tag.ilike(sql_search_str),
+                Projects.description.ilike(sql_search_str),
             )
             statement = statement.where(search_query)
         if namespace:

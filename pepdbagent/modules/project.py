@@ -168,6 +168,7 @@ class PEPDatabaseProject:
         namespace: str,
         name: str = None,
         tag: str = DEFAULT_TAG,
+        description: str = None,
         is_private: bool = False,
         pep_schema: str = None,
         overwrite: bool = False,
@@ -187,19 +188,21 @@ class PEPDatabaseProject:
         :param overwrite: if project exists overwrite the project, otherwise upload it.
             [Default: False - project won't be overwritten if it exists in db]
         :param update_only: if project exists overwrite it, otherwise do nothing.  [Default: False]
+        :param description: description of the project
         :return: None
         """
-        proj_dict = project.to_dict(extended=True)
-        proj_dict["_config"]["description"] = project.description
+        proj_dict = project.to_dict(extended=True, orient="records")
+        if not description:
+            description = project.description
+        proj_dict["_config"]["description"] = description
 
         namespace = namespace.lower()
         if name:
             name = name.lower()
             proj_name = name
-            proj_dict["name"] = name
             proj_dict["_config"]["name"] = project.name
-        elif proj_dict["name"]:
-            proj_name = proj_dict["name"].lower()
+        elif proj_dict["_config"]["name"]:
+            proj_name = proj_dict["_config"]["name"].lower()
         else:
             raise ValueError(f"Name of the project wasn't provided. Project will not be uploaded.")
 
@@ -336,7 +339,6 @@ class PEPDatabaseProject:
                     tag: Optional[str]
                     name: Optional[str]
             }
-            *project_value should contain name and description
         :param namespace: project namespace
         :param name: project name
         :param tag: project tag
@@ -383,13 +385,13 @@ class PEPDatabaseProject:
         update_final = UpdateModel()
 
         if update_values.project_value is not None:
-            proj_dict = update_values.project_value.to_dict(extended=True)
-            proj_dict["_config"]["description"] = proj_dict["description"]
-            proj_dict["_config"]["name"] = proj_dict["name"]
+            proj_dict = update_values.project_value.to_dict(extended=True, orient="records")
             update_final = UpdateModel(
                 project_value=proj_dict,
                 name=update_values.project_value.name,
-                digest=create_digest(update_values.project_value.to_dict(extended=True)),
+                digest=create_digest(
+                    update_values.project_value.to_dict(extended=True, orient="records")
+                ),
                 last_update_date=datetime.datetime.now(datetime.timezone.utc),
                 number_of_samples=len(update_values.project_value.samples),
             )
