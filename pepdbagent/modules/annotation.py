@@ -349,7 +349,7 @@ class PEPDatabaseAnnotation:
             search_query = or_(
                 Projects.name.ilike(sql_search_str),
                 Projects.tag.ilike(sql_search_str),
-                # Projects.description.ilike(sql_search_str),
+                Projects.description.ilike(sql_search_str),
             )
             statement = statement.where(search_query)
         if namespace:
