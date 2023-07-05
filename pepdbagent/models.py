@@ -97,6 +97,7 @@ class UpdateModel(BaseModel):
     last_update_date: Optional[datetime.datetime]
     number_of_samples: Optional[int]
     pep_schema: Optional[str]
+    description: Optional[str]
 
     @validator("tag", "name")
     def value_must_not_be_empty(cls, v):

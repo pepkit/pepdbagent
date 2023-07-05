@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import Any, Optional, List
+from typing import Any, Optional
 
 from sqlalchemy import (
     BigInteger,
@@ -63,6 +63,13 @@ def receive_after_create(target, connection, tables, **kw):
         _LOGGER.info("A table was not created")
 
 
+def deliver_description(context):
+    try:
+        return context.get_current_parameters()["project_value"]["_config"]["description"]
+    except KeyError:
+        return ""
+
+
 class Projects(Base):
     __tablename__ = "projects"
 
@@ -71,6 +78,10 @@ class Projects(Base):
     name: Mapped[str] = mapped_column()
     tag: Mapped[str] = mapped_column()
     digest: Mapped[str] = mapped_column(String(32))
+    description: Mapped[Optional[str]] = mapped_column(
+        default=deliver_description, onupdate=deliver_description
+    )
+    # project_value: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     config: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     private: Mapped[bool]
     number_of_samples: Mapped[int]
@@ -98,13 +109,6 @@ class Subsamples(Base):
     subsample_number: Mapped[int]
     project_id = mapped_column(ForeignKey("projects.id"))
     subsample_mapping: Mapped["Projects"] = relationship(back_populates="subsamples_mapping")
-
-
-# class ProjectToSample(Base):
-#     __tablename__ = "project_to_sample"
-#
-#     id: Mapped[int] = mapped_column(BIGSERIAL, server_default=FetchedValue(), primary_key=True)
-#     projects_id = mapped_column(ForeignKey("projects.id"))
 
 
 
