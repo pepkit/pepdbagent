@@ -6,9 +6,12 @@ from typing import Tuple, Union
 import peppy
 from sqlalchemy import Engine, and_, delete, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError, NoResultFound
+from sqlalchemy.orm import Session
+
+from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_LIST_KEY, CONFIG_KEY
 
 from pepdbagent.const import *
-from pepdbagent.db_utils import Projects, BaseEngine
+from pepdbagent.db_utils import Projects, Samples, Subsamples, BaseEngine
 from pepdbagent.exceptions import ProjectNotFoundError, ProjectUniqueNameError
 from pepdbagent.models import UpdateItems, UpdateModel
 from pepdbagent.utils import create_digest, registry_path_converter
@@ -57,10 +60,7 @@ class PEPDatabaseProject:
         # name = name.lower()
         namespace = namespace.lower()
         statement = select(
-            Projects.namespace,
-            Projects.name,
-            Projects.project_value,
-            Projects.private,
+            Projects
         )
 
         statement = statement.where(
@@ -72,26 +72,44 @@ class PEPDatabaseProject:
         )
 
         try:
-            found_prj = self._pep_db_engine.session_execute(statement).one()
+            with Session(self._sa_engine) as session:
+                found_prj = session.scalars(statement).one()
+            # found_prj = self._pep_db_engine.session_execute(statement).one()
+            # found_prj = self._pep_db_engine.session_execute(statement).all()
+
+                if found_prj:
+                    _LOGGER.info(f"Project has been found: {found_prj.namespace}, {found_prj.name}")
+                    subsample_dict = {}
+                    if found_prj.subsamples_mapping:
+                        for subsample in found_prj.subsamples_mapping:
+                            if subsample.subsample_number not in subsample_dict.keys():
+                                subsample_dict[subsample.subsample_number] = []
+                            subsample_dict[subsample.subsample_number].append(subsample.subsample)
+                        subsample_list = list(subsample_dict.values())
+                    else:
+                        subsample_list = []
+                    project_value = {
+                        CONFIG_KEY: found_prj.config,
+                        SAMPLE_RAW_DICT_KEY: [sample_sa.sample for sample_sa in found_prj.samples_mapping],
+                        SUBSAMPLE_RAW_LIST_KEY: subsample_list,
+                    }
+                    # project_value = found_prj.project_value
+                    is_private = found_prj.private
+                    if raw:
+                        return project_value
+                    else:
+                        project_obj = peppy.Project().from_dict(project_value)
+                        project_obj.is_private = is_private
+                        return project_obj
+
+                else:
+                    raise ProjectNotFoundError(
+                        f"No project found for supplied input: '{namespace}/{name}:{tag}'. "
+                        f"Did you supply a valid namespace and project?"
+                    )
+
         except NoResultFound:
             raise ProjectNotFoundError
-
-        if found_prj:
-            _LOGGER.info(f"Project has been found: {found_prj.namespace}, {found_prj.name}")
-            project_value = found_prj.project_value
-            is_private = found_prj.private
-            if raw:
-                return project_value
-            else:
-                project_obj = peppy.Project().from_dict(project_value)
-                project_obj.is_private = is_private
-                return project_obj
-
-        else:
-            raise ProjectNotFoundError(
-                f"No project found for supplied input: '{namespace}/{name}:{tag}'. "
-                f"Did you supply a valid namespace and project?"
-            )
 
     def get_by_rp(
         self,
@@ -222,22 +240,30 @@ class PEPDatabaseProject:
         else:
             try:
                 _LOGGER.info(f"Uploading {namespace}/{proj_name}:{tag} project...")
+                new_prj = Projects(
+                    namespace=namespace,
+                    name=proj_name,
+                    tag=tag,
+                    digest=proj_digest,
+                    config=proj_dict[CONFIG_KEY],
+                    number_of_samples=number_of_samples,
+                    private=is_private,
+                    submission_date=datetime.datetime.now(datetime.timezone.utc),
+                    last_update_date=datetime.datetime.now(datetime.timezone.utc),
+                    pep_schema=pep_schema,
 
-                with self._sa_engine.begin() as conn:
-                    conn.execute(
-                        insert(Projects).values(
-                            namespace=namespace,
-                            name=proj_name,
-                            tag=tag,
-                            digest=proj_digest,
-                            project_value=proj_dict,
-                            number_of_samples=number_of_samples,
-                            private=is_private,
-                            submission_date=datetime.datetime.now(datetime.timezone.utc),
-                            last_update_date=datetime.datetime.now(datetime.timezone.utc),
-                            pep_schema=pep_schema,
-                        )
-                    )
+                )
+                for sample in proj_dict[SAMPLE_RAW_DICT_KEY]:
+                    new_prj.samples_mapping.append(Samples(sample=sample))
+
+                if proj_dict[SUBSAMPLE_RAW_LIST_KEY]:
+                    for i, subs in enumerate(proj_dict[SUBSAMPLE_RAW_LIST_KEY]):
+                        for sub_item in subs:
+                            new_prj.subsamples_mapping.append(Subsamples(subsample=sub_item, subsample_number=i))
+
+                with Session(self._sa_engine) as session:
+                    session.add(new_prj)
+                    session.commit()
 
                 return None
 

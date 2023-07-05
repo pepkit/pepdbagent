@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, List
 
 from sqlalchemy import (
     BigInteger,
@@ -12,6 +12,9 @@ from sqlalchemy import (
     event,
     select,
     TIMESTAMP,
+    ForeignKey,
+    ForeignKeyConstraint,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, create_engine
@@ -22,6 +25,7 @@ from sqlalchemy.orm import (
     Mapped,
     Session,
     mapped_column,
+    relationship,
 )
 
 from pepdbagent.const import POSTGRES_DIALECT, PKG_NAME
@@ -62,19 +66,46 @@ def receive_after_create(target, connection, tables, **kw):
 class Projects(Base):
     __tablename__ = "projects"
 
-    id: Mapped[int] = mapped_column(BIGSERIAL, server_default=FetchedValue())
-    namespace: Mapped[str] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(primary_key=True)
-    tag: Mapped[str] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    namespace: Mapped[str] = mapped_column()
+    name: Mapped[str] = mapped_column()
+    tag: Mapped[str] = mapped_column()
     digest: Mapped[str] = mapped_column(String(32))
-    project_value: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
+    config: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     private: Mapped[bool]
     number_of_samples: Mapped[int]
     submission_date: Mapped[datetime.datetime]
     last_update_date: Mapped[datetime.datetime]
     pep_schema: Mapped[Optional[str]]
+    samples_mapping: Mapped[List["Samples"]] = relationship(back_populates="sample_mapping")
+    subsamples_mapping: Mapped[List["Subsamples"]] = relationship(back_populates="subsample_mapping")
 
-    __table_args__ = (PrimaryKeyConstraint("namespace", "name", "tag", name="id"),)
+    __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
+
+class Samples(Base):
+    __tablename__ = "samples"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
+    project_id = mapped_column(ForeignKey("projects.id"))
+    sample_mapping: Mapped["Projects"] = relationship(back_populates="samples_mapping")
+
+class Subsamples(Base):
+    __tablename__ = "subsamples"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    subsample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
+    subsample_number: Mapped[int]
+    project_id = mapped_column(ForeignKey("projects.id"))
+    subsample_mapping: Mapped["Projects"] = relationship(back_populates="subsamples_mapping")
+
+
+# class ProjectToSample(Base):
+#     __tablename__ = "project_to_sample"
+#
+#     id: Mapped[int] = mapped_column(BIGSERIAL, server_default=FetchedValue(), primary_key=True)
+#     projects_id = mapped_column(ForeignKey("projects.id"))
+
 
 
 class BaseEngine:
