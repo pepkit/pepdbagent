@@ -307,7 +307,6 @@ class PEPDatabaseProject:
         for position, sample in enumerate(samples):
             projects_sa.samples_mapping.append(Samples(sample=sample, position=position))
 
-
     @staticmethod
     def _add_subsamples_to_projects(projects_sa: Projects, subsamples: List[List[dict]]):
         for i, subs in enumerate(subsamples):
