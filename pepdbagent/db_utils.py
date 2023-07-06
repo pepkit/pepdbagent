@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, List
 
 from sqlalchemy import (
     BigInteger,
@@ -81,25 +81,26 @@ class Projects(Base):
     description: Mapped[Optional[str]] = mapped_column(
         default=deliver_description, onupdate=deliver_description
     )
-    # project_value: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     config: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     private: Mapped[bool]
     number_of_samples: Mapped[int]
     submission_date: Mapped[datetime.datetime]
     last_update_date: Mapped[datetime.datetime]
     pep_schema: Mapped[Optional[str]]
-    samples_mapping: Mapped[List["Samples"]] = relationship(back_populates="sample_mapping")
-    subsamples_mapping: Mapped[List["Subsamples"]] = relationship(back_populates="subsample_mapping")
+    samples_mapping: Mapped[List["Samples"]] = relationship(back_populates="sample_mapping", cascade="all, delete-orphan")
+    subsamples_mapping: Mapped[List["Subsamples"]] = relationship(back_populates="subsample_mapping", cascade="all, delete-orphan")
 
     __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
+
 
 class Samples(Base):
     __tablename__ = "samples"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     sample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
-    project_id = mapped_column(ForeignKey("projects.id"))
+    project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     sample_mapping: Mapped["Projects"] = relationship(back_populates="samples_mapping")
+
 
 class Subsamples(Base):
     __tablename__ = "subsamples"
@@ -107,9 +108,8 @@ class Subsamples(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     subsample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     subsample_number: Mapped[int]
-    project_id = mapped_column(ForeignKey("projects.id"))
+    project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     subsample_mapping: Mapped["Projects"] = relationship(back_populates="subsamples_mapping")
-
 
 
 class BaseEngine:

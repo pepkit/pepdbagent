@@ -4,9 +4,11 @@ import logging
 from typing import Tuple, Union
 
 import peppy
+import sqlalchemy
 from sqlalchemy import Engine, and_, delete, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
+from sqlalchemy import Select
 
 from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_LIST_KEY, CONFIG_KEY
 
@@ -59,23 +61,11 @@ class PEPDatabaseProject:
         """
         # name = name.lower()
         namespace = namespace.lower()
-        statement = select(
-            Projects
-        )
-
-        statement = statement.where(
-            and_(
-                Projects.namespace == namespace,
-                Projects.name == name,
-                Projects.tag == tag,
-            )
-        )
+        statement = self._create_select_statement(name, namespace, tag)
 
         try:
             with Session(self._sa_engine) as session:
                 found_prj = session.scalars(statement).one()
-            # found_prj = self._pep_db_engine.session_execute(statement).one()
-            # found_prj = self._pep_db_engine.session_execute(statement).all()
 
                 if found_prj:
                     _LOGGER.info(f"Project has been found: {found_prj.namespace}, {found_prj.name}")
@@ -110,6 +100,27 @@ class PEPDatabaseProject:
 
         except NoResultFound:
             raise ProjectNotFoundError
+
+    @staticmethod
+    def _create_select_statement(name: str, namespace: str, tag: str = DEFAULT_TAG) -> Select:
+        """
+
+        :param name:
+        :param namespace:
+        :param tag:
+        :return:
+        """
+        statement = select(
+            Projects
+        )
+        statement = statement.where(
+            and_(
+                Projects.namespace == namespace,
+                Projects.name == name,
+                Projects.tag == tag,
+            )
+        )
+        return statement
 
     def get_by_rp(
         self,
@@ -254,7 +265,6 @@ class PEPDatabaseProject:
                     submission_date=datetime.datetime.now(datetime.timezone.utc),
                     last_update_date=datetime.datetime.now(datetime.timezone.utc),
                     pep_schema=pep_schema,
-
                 )
                 for sample in proj_dict[SAMPLE_RAW_DICT_KEY]:
                     new_prj.samples_mapping.append(Samples(sample=sample))
@@ -319,28 +329,40 @@ class PEPDatabaseProject:
         namespace = namespace.lower()
         if self.exists(namespace=namespace, name=proj_name, tag=tag):
             _LOGGER.info(f"Updating {proj_name} project...")
-            with self._sa_engine.begin() as conn:
-                conn.execute(
-                    update(Projects)
-                    .values(
-                        namespace=namespace,
-                        name=proj_name,
-                        tag=tag,
-                        digest=project_digest,
-                        project_value=project_dict,
-                        number_of_samples=number_of_samples,
-                        private=private,
-                        last_update_date=datetime.datetime.now(datetime.timezone.utc),
-                        pep_schema=pep_schema,
-                    )
-                    .where(
-                        and_(
-                            Projects.namespace == namespace,
-                            Projects.name == proj_name,
-                            Projects.tag == tag,
-                        )
-                    )
-                )
+            statement = self._create_select_statement(proj_name, namespace, tag)
+            with Session(self._sa_engine) as session:
+                found_prj = session.scalars(statement).one()
+
+                if found_prj:
+                    _LOGGER.debug(f"Project has been found: {found_prj.namespace}, {found_prj.name}")
+
+                    found_prj.digest = project_digest
+                    found_prj.number_of_samples = number_of_samples
+                    found_prj.private = private
+                    found_prj.pep_schema = pep_schema
+
+                    # Deleting old samples and subsamples
+                    if found_prj.samples_mapping:
+                        for sample in found_prj.samples_mapping:
+                            print(f"deleting samples: {str(sample)}")
+                            session.delete(sample)
+
+                    if found_prj.subsamples_mapping:
+                        for subsample in found_prj.subsamples_mapping:
+                            print(f"deleting subsamples: {str(subsample)}")
+                            session.delete(subsample)
+
+                # Adding new samples and subsamples
+                for sample in project_dict[SAMPLE_RAW_DICT_KEY]:
+                    found_prj.samples_mapping.append(Samples(sample=sample))
+
+                if project_dict[SUBSAMPLE_RAW_LIST_KEY]:
+                    for i, subs in enumerate(project_dict[SUBSAMPLE_RAW_LIST_KEY]):
+                        for sub_item in subs:
+                            found_prj.subsamples_mapping.append(Subsamples(subsample=sub_item, subsample_number=i))
+
+                session.commit()
+
 
             _LOGGER.info(f"Project '{namespace}/{proj_name}:{tag}' has been successfully updated!")
             return None
@@ -475,3 +497,11 @@ class PEPDatabaseProject:
             return True
         else:
             return False
+
+    def _delete_samples(self, project_id: int) -> None:
+        """
+
+        :param project_id:
+        :return:
+        """
+        pass
