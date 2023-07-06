@@ -65,7 +65,7 @@ def receive_after_create(target, connection, tables, **kw):
 
 def deliver_description(context):
     try:
-        return context.get_current_parameters()["project_value"]["_config"]["description"]
+        return context.get_current_parameters()["config"]["description"]
     except KeyError:
         return ""
 
@@ -87,8 +87,12 @@ class Projects(Base):
     submission_date: Mapped[datetime.datetime]
     last_update_date: Mapped[datetime.datetime]
     pep_schema: Mapped[Optional[str]]
-    samples_mapping: Mapped[List["Samples"]] = relationship(back_populates="sample_mapping", cascade="all, delete-orphan")
-    subsamples_mapping: Mapped[List["Subsamples"]] = relationship(back_populates="subsample_mapping", cascade="all, delete-orphan")
+    samples_mapping: Mapped[List["Samples"]] = relationship(
+        back_populates="sample_mapping", cascade="all, delete-orphan"
+    )
+    subsamples_mapping: Mapped[List["Subsamples"]] = relationship(
+        back_populates="subsample_mapping", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
 
@@ -98,6 +102,7 @@ class Samples(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     sample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
+    position: Mapped[int]
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     sample_mapping: Mapped["Projects"] = relationship(back_populates="samples_mapping")
 
@@ -108,6 +113,7 @@ class Subsamples(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     subsample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     subsample_number: Mapped[int]
+    position: Mapped[int]
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     subsample_mapping: Mapped["Projects"] = relationship(back_populates="subsamples_mapping")
 
