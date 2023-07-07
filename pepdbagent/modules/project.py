@@ -1,7 +1,7 @@
 import datetime
 import json
 import logging
-from typing import Tuple, Union, List
+from typing import Union, List, NoReturn
 
 import peppy
 import sqlalchemy
@@ -273,7 +273,7 @@ class PEPDatabaseProject:
 
                 if proj_dict[SUBSAMPLE_RAW_LIST_KEY]:
                     subsamples = proj_dict[SUBSAMPLE_RAW_LIST_KEY]
-                    self._add_subsamples_to_projects(new_prj, subsamples)
+                    self._add_subsamples_to_project(new_prj, subsamples)
 
                 with Session(self._sa_engine) as session:
                     session.add(new_prj)
@@ -301,19 +301,6 @@ class PEPDatabaseProject:
                         f"uploaded. Solution: Set overwrite value as True"
                         f" (project will be overwritten), or change tag!"
                     )
-
-    @staticmethod
-    def _add_samples_to_project(projects_sa: Projects, samples: List[dict]):
-        for position, sample in enumerate(samples):
-            projects_sa.samples_mapping.append(Samples(sample=sample, position=position))
-
-    @staticmethod
-    def _add_subsamples_to_projects(projects_sa: Projects, subsamples: List[List[dict]]):
-        for i, subs in enumerate(subsamples):
-            for position, sub_item in enumerate(subs):
-                projects_sa.subsamples_mapping.append(
-                    Subsamples(subsample=sub_item, subsample_number=i, position=position)
-                )
 
     def _overwrite(
         self,
@@ -372,7 +359,7 @@ class PEPDatabaseProject:
                 self._add_samples_to_project(found_prj, project_dict[SAMPLE_RAW_DICT_KEY])
 
                 if project_dict[SUBSAMPLE_RAW_LIST_KEY]:
-                    self._add_subsamples_to_projects(
+                    self._add_subsamples_to_project(
                         found_prj, project_dict[SUBSAMPLE_RAW_LIST_KEY]
                     )
 
@@ -459,7 +446,7 @@ class PEPDatabaseProject:
 
                         # Adding new subsamples
                         if update_dict["subsamples"]:
-                            self._add_subsamples_to_projects(found_prj, update_dict["subsamples"])
+                            self._add_subsamples_to_project(found_prj, update_dict["subsamples"])
 
                     session.commit()
 
@@ -548,3 +535,30 @@ class PEPDatabaseProject:
             return True
         else:
             return False
+
+    @staticmethod
+    def _add_samples_to_project(projects_sa: Projects, samples: List[dict]) -> NoReturn:
+        """
+        Add samples to the project sa object. (With commit this samples will be added to the 'samples table')
+        :param projects_sa: Projects sa object, in open session
+        :param samples: list of samles to be added to the database
+        :return: NoReturn
+        """
+        for position, sample in enumerate(samples):
+            projects_sa.samples_mapping.append(Samples(sample=sample, position=position))
+
+    @staticmethod
+    def _add_subsamples_to_project(
+        projects_sa: Projects, subsamples: List[List[dict]]
+    ) -> NoReturn:
+        """
+        Add subsamples to the project sa object. (With commit this samples will be added to the 'subsamples table')
+        :param projects_sa: Projects sa object, in open session
+        :param subsamples: list of subsamles to be added to the database
+        :return: NoReturn
+        """
+        for i, subs in enumerate(subsamples):
+            for position, sub_item in enumerate(subs):
+                projects_sa.subsamples_mapping.append(
+                    Subsamples(subsample=sub_item, subsample_number=i, position=position)
+                )
