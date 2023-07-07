@@ -235,7 +235,8 @@ class PEPDatabaseAnnotation:
         order_desc: bool = False,
     ) -> List[AnnotationModel]:
         """
-        Get project by providing search string.
+        Get projects by providing search string.
+
         :param namespace: namespace where to search for a project
         :param search_str: search string that has to be found in the name or tag
         :param admin: True, if user is admin of the namespace [Default: False]
@@ -367,7 +368,7 @@ class PEPDatabaseAnnotation:
         admin: Union[str, List[str]] = None,
     ) -> int:
         """
-        Get project by providing search string.
+        Get number of found projects by providing search string.
 
         :param namespace: namespace where to search for a project
         :param admin: True, if user is admin of the namespace [Default: False]

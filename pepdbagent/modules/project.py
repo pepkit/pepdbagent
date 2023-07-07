@@ -24,9 +24,9 @@ _LOGGER = logging.getLogger(PKG_NAME)
 
 class PEPDatabaseProject:
     """
-    Class that represents Projects in Database.
+    Class that represents Project in Database.
 
-    While using this class, user can retrieve projects from database
+    While using this class, user can create, retrieve, delete, and update projects from database
     """
 
     def __init__(self, pep_db_engine: BaseEngine):
@@ -347,7 +347,7 @@ class PEPDatabaseProject:
                     # Deleting old samples and subsamples
                     if found_prj.samples_mapping:
                         for sample in found_prj.samples_mapping:
-                            _LOGGER.debug(f"deleting samples: {str(sample)}")
+                            _LOGGER.info(f"deleting samples: {str(sample)}")
                             session.delete(sample)
 
                     if found_prj.subsamples_mapping:

@@ -71,6 +71,10 @@ def deliver_description(context):
 
 
 class Projects(Base):
+    """
+    Projects table representation in the database
+    """
+
     __tablename__ = "projects"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -98,6 +102,10 @@ class Projects(Base):
 
 
 class Samples(Base):
+    """
+    Samples table representation in the database
+    """
+
     __tablename__ = "samples"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -108,6 +116,10 @@ class Samples(Base):
 
 
 class Subsamples(Base):
+    """
+    Subsamples table representation in the database
+    """
+
     __tablename__ = "subsamples"
 
     id: Mapped[int] = mapped_column(primary_key=True)

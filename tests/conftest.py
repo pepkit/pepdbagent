@@ -39,7 +39,7 @@ def initiate_pepdb_con(
         conn.execute(text("DROP table IF EXISTS projects CASCADE"))
         conn.execute(text("DROP table IF EXISTS samples CASCADE"))
         conn.execute(text("DROP table IF EXISTS subsamples CASCADE"))
-    pepdb_con = PEPDatabaseAgent(dsn=DNS, echo=False)
+    pepdb_con = PEPDatabaseAgent(dsn=DNS, echo=True)
     for namespace, item in list_of_available_peps.items():
         if namespace == "private_test":
             private = True
