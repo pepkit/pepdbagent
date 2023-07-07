@@ -102,7 +102,7 @@ class Samples(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     sample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
-    position: Mapped[int]
+    row_number: Mapped[int]
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     sample_mapping: Mapped["Projects"] = relationship(back_populates="samples_mapping")
 
@@ -113,7 +113,7 @@ class Subsamples(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     subsample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     subsample_number: Mapped[int]
-    position: Mapped[int]
+    row_number: Mapped[int]
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     subsample_mapping: Mapped["Projects"] = relationship(back_populates="subsamples_mapping")
 

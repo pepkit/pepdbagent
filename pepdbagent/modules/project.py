@@ -544,8 +544,8 @@ class PEPDatabaseProject:
         :param samples: list of samles to be added to the database
         :return: NoReturn
         """
-        for position, sample in enumerate(samples):
-            projects_sa.samples_mapping.append(Samples(sample=sample, position=position))
+        for row_number, sample in enumerate(samples):
+            projects_sa.samples_mapping.append(Samples(sample=sample, row_number=row_number))
 
     @staticmethod
     def _add_subsamples_to_project(
@@ -558,7 +558,7 @@ class PEPDatabaseProject:
         :return: NoReturn
         """
         for i, subs in enumerate(subsamples):
-            for position, sub_item in enumerate(subs):
+            for row_number, sub_item in enumerate(subs):
                 projects_sa.subsamples_mapping.append(
-                    Subsamples(subsample=sub_item, subsample_number=i, position=position)
+                    Subsamples(subsample=sub_item, subsample_number=i, row_number=row_number)
                 )
