@@ -20,8 +20,12 @@ def get_path_to_example_file(namespace, project_name):
 
 class TestProject:
     """
-    Test project C
+    Test project methods
     """
+    def test_create_project(self, initiate_empty_pepdb_con, list_of_available_peps):
+        prj = peppy.Project(list_of_available_peps["namespace3"]["subtables"])
+        initiate_empty_pepdb_con.project.create(prj, namespace="test", name="imply", overwrite=True)
+        assert True
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -54,6 +58,45 @@ class TestProject:
         with pytest.raises(ProjectNotFoundError, match="Project does not exist."):
             kk = initiate_pepdb_con.project.get(namespace=namespace, name=name, tag=tag)
 
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace1", "amendments2"],
+            ["namespace2", "derive"],
+            ["namespace2", "imply"],
+        ],
+    )
+    def test_overwrite_project(self, initiate_pepdb_con, namespace, name):
+        new_prj = initiate_pepdb_con.project.get(namespace="namespace1", name="basic")
+
+        initiate_pepdb_con.project.create(
+            project=new_prj,
+            namespace=namespace,
+            name=name,
+            tag="default",
+            overwrite=True,
+        )
+
+        assert initiate_pepdb_con.project.get(namespace=namespace, name=name) == new_prj
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace1", "amendments2"],
+            ["namespace2", "derive"],
+            ["namespace2", "imply"],
+        ],
+    )
+    def test_delete_project(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.project.delete(namespace=namespace, name=name, tag="default")
+
+        with pytest.raises(ProjectNotFoundError, match="Project does not exist."):
+            kk = initiate_pepdb_con.project.get(namespace=namespace, name=name, tag="default")
+
+
+class TestProjectUpdate:
     @pytest.mark.parametrize(
         "namespace, name,new_name",
         [
@@ -160,43 +203,6 @@ class TestProject:
         )
         res = initiate_pepdb_con.annotation.get(namespace, name, "default")
         assert res.results[0].pep_schema == pep_schema
-
-    @pytest.mark.parametrize(
-        "namespace, name",
-        [
-            ["namespace1", "amendments1"],
-            ["namespace1", "amendments2"],
-            ["namespace2", "derive"],
-            ["namespace2", "imply"],
-        ],
-    )
-    def test_overwrite_project(self, initiate_pepdb_con, namespace, name):
-        new_prj = initiate_pepdb_con.project.get(namespace="namespace1", name="basic")
-
-        initiate_pepdb_con.project.create(
-            project=new_prj,
-            namespace=namespace,
-            name=name,
-            tag="default",
-            overwrite=True,
-        )
-
-        assert initiate_pepdb_con.project.get(namespace=namespace, name=name) == new_prj
-
-    @pytest.mark.parametrize(
-        "namespace, name",
-        [
-            ["namespace1", "amendments1"],
-            ["namespace1", "amendments2"],
-            ["namespace2", "derive"],
-            ["namespace2", "imply"],
-        ],
-    )
-    def test_delete_project(self, initiate_pepdb_con, namespace, name):
-        initiate_pepdb_con.project.delete(namespace=namespace, name=name, tag="default")
-
-        with pytest.raises(ProjectNotFoundError, match="Project does not exist."):
-            kk = initiate_pepdb_con.project.get(namespace=namespace, name=name, tag="default")
 
 
 class TestAnnotation:
