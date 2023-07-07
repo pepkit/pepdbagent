@@ -22,9 +22,12 @@ class TestProject:
     """
     Test project methods
     """
+
     def test_create_project(self, initiate_empty_pepdb_con, list_of_available_peps):
         prj = peppy.Project(list_of_available_peps["namespace3"]["subtables"])
-        initiate_empty_pepdb_con.project.create(prj, namespace="test", name="imply", overwrite=True)
+        initiate_empty_pepdb_con.project.create(
+            prj, namespace="test", name="imply", overwrite=True
+        )
         assert True
 
     @pytest.mark.parametrize(
