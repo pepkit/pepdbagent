@@ -67,7 +67,7 @@ def initiate_empty_pepdb_con(
     """
     create connection without adding peps to the db
     """
-    sa_engine = create_engine(DNS)
+    # sa_engine = create_engine(DNS)
     # with sa_engine.begin() as conn:
     #     conn.execute(text("DROP table IF EXISTS projects CASCADE"))
     #     conn.execute(text("DROP table IF EXISTS samples CASCADE"))

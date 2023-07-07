@@ -2,6 +2,11 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.5.0] -- 2023-07-07
+- Introduced a new database schema (3 tables: projects, samples, subsamples)
+- Added new tests
+- Fixed the issue of sqlalchemy session already being closed
+
 ## [0.4.3] -- 2023-06-30
 - Changed the orientation of the raw project dictionary to "records" and updated peppy version to 0.35.6.
 - Added description column
