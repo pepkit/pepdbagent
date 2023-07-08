@@ -70,6 +70,10 @@ def deliver_description(context):
         return ""
 
 
+def deliver_update_date(context):
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
 class Projects(Base):
     """
     Projects table representation in the database
@@ -89,7 +93,9 @@ class Projects(Base):
     private: Mapped[bool]
     number_of_samples: Mapped[int]
     submission_date: Mapped[datetime.datetime]
-    last_update_date: Mapped[datetime.datetime]
+    last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
+        onupdate=deliver_update_date,
+    )
     pep_schema: Mapped[Optional[str]]
     samples_mapping: Mapped[List["Samples"]] = relationship(
         back_populates="sample_mapping", cascade="all, delete-orphan"

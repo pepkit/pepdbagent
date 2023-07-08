@@ -105,6 +105,7 @@ class UpdateModel(BaseModel):
     digest: Optional[str]
     number_of_samples: Optional[int]
     pep_schema: Optional[str]
+    # last_update_date: Optional[datetime.datetime] = datetime.datetime.now(datetime.timezone.utc)
 
     @validator("tag", "name")
     def value_must_not_be_empty(cls, v):
@@ -123,10 +124,6 @@ class UpdateModel(BaseModel):
         if "?" in v:
             return ValueError("Question mark (?) is prohibited in name and tag.")
         return v
-
-    @property
-    def last_update_date(self) -> datetime.datetime:
-        return datetime.datetime.now(datetime.timezone.utc)
 
     class Config:
         extra = Extra.forbid

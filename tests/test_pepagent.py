@@ -207,6 +207,29 @@ class TestProjectUpdate:
         res = initiate_pepdb_con.annotation.get(namespace, name, "default")
         assert res.results[0].pep_schema == pep_schema
 
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+        ],
+    )
+    def test_update_project_private(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.project.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            update_dict={"is_private": True},
+        )
+
+        is_private = (
+            initiate_pepdb_con.annotation.get(
+                namespace=namespace, name=name, tag="default", admin=[namespace]
+            )
+            .results[0]
+            .is_private
+        )
+        assert is_private is True
+
 
 class TestAnnotation:
     """
