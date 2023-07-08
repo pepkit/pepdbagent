@@ -1,14 +1,19 @@
 import datetime
 import json
 import logging
-from typing import Tuple, Union
+from typing import Union, List, NoReturn
 
 import peppy
+import sqlalchemy
 from sqlalchemy import Engine, and_, delete, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError, NoResultFound
+from sqlalchemy.orm import Session
+from sqlalchemy import Select
+
+from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_LIST_KEY, CONFIG_KEY
 
 from pepdbagent.const import *
-from pepdbagent.db_utils import Projects, BaseEngine
+from pepdbagent.db_utils import Projects, Samples, Subsamples, BaseEngine
 from pepdbagent.exceptions import ProjectNotFoundError, ProjectUniqueNameError
 from pepdbagent.models import UpdateItems, UpdateModel
 from pepdbagent.utils import create_digest, registry_path_converter
@@ -19,9 +24,9 @@ _LOGGER = logging.getLogger(PKG_NAME)
 
 class PEPDatabaseProject:
     """
-    Class that represents Projects in Database.
+    Class that represents Project in Database.
 
-    While using this class, user can retrieve projects from database
+    While using this class, user can create, retrieve, delete, and update projects from database
     """
 
     def __init__(self, pep_db_engine: BaseEngine):
@@ -56,13 +61,60 @@ class PEPDatabaseProject:
         """
         # name = name.lower()
         namespace = namespace.lower()
-        statement = select(
-            Projects.namespace,
-            Projects.name,
-            Projects.project_value,
-            Projects.private,
-        )
+        statement = self._create_select_statement(name, namespace, tag)
 
+        try:
+            with Session(self._sa_engine) as session:
+                found_prj = session.scalars(statement).one()
+
+                if found_prj:
+                    _LOGGER.info(
+                        f"Project has been found: {found_prj.namespace}, {found_prj.name}"
+                    )
+                    subsample_dict = {}
+                    if found_prj.subsamples_mapping:
+                        for subsample in found_prj.subsamples_mapping:
+                            if subsample.subsample_number not in subsample_dict.keys():
+                                subsample_dict[subsample.subsample_number] = []
+                            subsample_dict[subsample.subsample_number].append(subsample.subsample)
+                        subsample_list = list(subsample_dict.values())
+                    else:
+                        subsample_list = []
+                    project_value = {
+                        CONFIG_KEY: found_prj.config,
+                        SAMPLE_RAW_DICT_KEY: [
+                            sample_sa.sample for sample_sa in found_prj.samples_mapping
+                        ],
+                        SUBSAMPLE_RAW_LIST_KEY: subsample_list,
+                    }
+                    # project_value = found_prj.project_value
+                    is_private = found_prj.private
+                    if raw:
+                        return project_value
+                    else:
+                        project_obj = peppy.Project().from_dict(project_value)
+                        project_obj.is_private = is_private
+                        return project_obj
+
+                else:
+                    raise ProjectNotFoundError(
+                        f"No project found for supplied input: '{namespace}/{name}:{tag}'. "
+                        f"Did you supply a valid namespace and project?"
+                    )
+
+        except NoResultFound:
+            raise ProjectNotFoundError
+
+    @staticmethod
+    def _create_select_statement(name: str, namespace: str, tag: str = DEFAULT_TAG) -> Select:
+        """
+
+        :param name:
+        :param namespace:
+        :param tag:
+        :return:
+        """
+        statement = select(Projects)
         statement = statement.where(
             and_(
                 Projects.namespace == namespace,
@@ -70,28 +122,7 @@ class PEPDatabaseProject:
                 Projects.tag == tag,
             )
         )
-
-        try:
-            found_prj = self._pep_db_engine.session_execute(statement).one()
-        except NoResultFound:
-            raise ProjectNotFoundError
-
-        if found_prj:
-            _LOGGER.info(f"Project has been found: {found_prj.namespace}, {found_prj.name}")
-            project_value = found_prj.project_value
-            is_private = found_prj.private
-            if raw:
-                return project_value
-            else:
-                project_obj = peppy.Project().from_dict(project_value)
-                project_obj.is_private = is_private
-                return project_obj
-
-        else:
-            raise ProjectNotFoundError(
-                f"No project found for supplied input: '{namespace}/{name}:{tag}'. "
-                f"Did you supply a valid namespace and project?"
-            )
+        return statement
 
     def get_by_rp(
         self,
@@ -225,22 +256,28 @@ class PEPDatabaseProject:
         else:
             try:
                 _LOGGER.info(f"Uploading {namespace}/{proj_name}:{tag} project...")
+                new_prj = Projects(
+                    namespace=namespace,
+                    name=proj_name,
+                    tag=tag,
+                    digest=proj_digest,
+                    config=proj_dict[CONFIG_KEY],
+                    number_of_samples=number_of_samples,
+                    private=is_private,
+                    submission_date=datetime.datetime.now(datetime.timezone.utc),
+                    last_update_date=datetime.datetime.now(datetime.timezone.utc),
+                    pep_schema=pep_schema,
+                )
 
-                with self._sa_engine.begin() as conn:
-                    conn.execute(
-                        insert(Projects).values(
-                            namespace=namespace,
-                            name=proj_name,
-                            tag=tag,
-                            digest=proj_digest,
-                            project_value=proj_dict,
-                            number_of_samples=number_of_samples,
-                            private=is_private,
-                            submission_date=datetime.datetime.now(datetime.timezone.utc),
-                            last_update_date=datetime.datetime.now(datetime.timezone.utc),
-                            pep_schema=pep_schema,
-                        )
-                    )
+                self._add_samples_to_project(new_prj, proj_dict[SAMPLE_RAW_DICT_KEY])
+
+                if proj_dict[SUBSAMPLE_RAW_LIST_KEY]:
+                    subsamples = proj_dict[SUBSAMPLE_RAW_LIST_KEY]
+                    self._add_subsamples_to_project(new_prj, subsamples)
+
+                with Session(self._sa_engine) as session:
+                    session.add(new_prj)
+                    session.commit()
 
                 return None
 
@@ -293,28 +330,40 @@ class PEPDatabaseProject:
         namespace = namespace.lower()
         if self.exists(namespace=namespace, name=proj_name, tag=tag):
             _LOGGER.info(f"Updating {proj_name} project...")
-            with self._sa_engine.begin() as conn:
-                conn.execute(
-                    update(Projects)
-                    .values(
-                        namespace=namespace,
-                        name=proj_name,
-                        tag=tag,
-                        digest=project_digest,
-                        project_value=project_dict,
-                        number_of_samples=number_of_samples,
-                        private=private,
-                        last_update_date=datetime.datetime.now(datetime.timezone.utc),
-                        pep_schema=pep_schema,
+            statement = self._create_select_statement(proj_name, namespace, tag)
+            with Session(self._sa_engine) as session:
+                found_prj = session.scalars(statement).one()
+
+                if found_prj:
+                    _LOGGER.debug(
+                        f"Project has been found: {found_prj.namespace}, {found_prj.name}"
                     )
-                    .where(
-                        and_(
-                            Projects.namespace == namespace,
-                            Projects.name == proj_name,
-                            Projects.tag == tag,
-                        )
+
+                    found_prj.digest = project_digest
+                    found_prj.number_of_samples = number_of_samples
+                    found_prj.private = private
+                    found_prj.pep_schema = pep_schema
+
+                    # Deleting old samples and subsamples
+                    if found_prj.samples_mapping:
+                        for sample in found_prj.samples_mapping:
+                            _LOGGER.info(f"deleting samples: {str(sample)}")
+                            session.delete(sample)
+
+                    if found_prj.subsamples_mapping:
+                        for subsample in found_prj.subsamples_mapping:
+                            _LOGGER.debug(f"deleting subsamples: {str(subsample)}")
+                            session.delete(subsample)
+
+                # Adding new samples and subsamples
+                self._add_samples_to_project(found_prj, project_dict[SAMPLE_RAW_DICT_KEY])
+
+                if project_dict[SUBSAMPLE_RAW_LIST_KEY]:
+                    self._add_subsamples_to_project(
+                        found_prj, project_dict[SUBSAMPLE_RAW_LIST_KEY]
                     )
-                )
+
+                session.commit()
 
             _LOGGER.info(f"Project '{namespace}/{proj_name}:{tag}' has been successfully updated!")
             return None
@@ -348,24 +397,58 @@ class PEPDatabaseProject:
             if isinstance(update_dict, UpdateItems):
                 update_values = update_dict
             else:
+                if "project" in update_dict:
+                    project_dict = update_dict.pop("project").to_dict(
+                        extended=True, orient="records"
+                    )
+                    update_dict["config"] = project_dict[CONFIG_KEY]
+                    update_dict["samples"] = project_dict[SAMPLE_RAW_DICT_KEY]
+                    update_dict["subsamples"] = project_dict[SUBSAMPLE_RAW_LIST_KEY]
+
                 update_values = UpdateItems(**update_dict)
 
             update_values = self.__create_update_dict(update_values)
 
-            update_stmt = (
-                update(Projects)
-                .where(
-                    and_(
-                        Projects.namespace == namespace,
-                        Projects.name == name,
-                        Projects.tag == tag,
-                    )
-                )
-                .values(update_values)
-            )
+            statement = self._create_select_statement(name, namespace, tag)
 
-            with self._sa_engine.begin() as conn:
-                conn.execute(update_stmt)
+            with Session(self._sa_engine) as session:
+                found_prj = session.scalars(statement).one()
+
+                if found_prj:
+                    _LOGGER.debug(
+                        f"Project has been found: {found_prj.namespace}, {found_prj.name}"
+                    )
+
+                    for k, v in update_values.items():
+                        setattr(found_prj, k, v)
+
+                        # standardizing project name
+                        if k == "name":
+                            if "config" in update_values:
+                                update_values["config"]["name"] = v
+                            else:
+                                found_prj.config["name"] = v
+                        found_prj.name = found_prj.config["name"]
+
+                    if "samples" in update_dict:
+                        if found_prj.samples_mapping:
+                            for sample in found_prj.samples_mapping:
+                                _LOGGER.debug(f"deleting samples: {str(sample)}")
+                                session.delete(sample)
+
+                        self._add_samples_to_project(found_prj, update_dict["samples"])
+
+                    if "subsamples" in update_dict:
+                        if found_prj.subsamples_mapping:
+                            for subsample in found_prj.subsamples_mapping:
+                                _LOGGER.debug(f"deleting subsamples: {str(subsample)}")
+                                session.delete(subsample)
+
+                        # Adding new subsamples
+                        if update_dict["subsamples"]:
+                            self._add_subsamples_to_project(found_prj, update_dict["subsamples"])
+
+                    session.commit()
 
             return None
 
@@ -384,16 +467,13 @@ class PEPDatabaseProject:
         """
         update_final = UpdateModel()
 
-        if update_values.project_value is not None:
-            proj_dict = update_values.project_value.to_dict(extended=True, orient="records")
+        if update_values.config is not None:
+            if update_values.description is not None:
+                update_values.config["description"] = update_values.description
+            if update_values.name is not None:
+                update_values.config["name"] = update_values.description
             update_final = UpdateModel(
-                project_value=proj_dict,
-                name=update_values.project_value.name,
-                digest=create_digest(
-                    update_values.project_value.to_dict(extended=True, orient="records")
-                ),
-                last_update_date=datetime.datetime.now(datetime.timezone.utc),
-                number_of_samples=len(update_values.project_value.samples),
+                config=update_values.config, **update_final.dict(exclude_unset=True)
             )
 
         if update_values.tag is not None:
@@ -416,6 +496,12 @@ class PEPDatabaseProject:
         if update_values.pep_schema is not None:
             update_final = UpdateModel(
                 pep_schema=update_values.pep_schema,
+                **update_final.dict(exclude_unset=True),
+            )
+
+        if update_values.number_of_samples is not None:
+            update_final = UpdateModel(
+                number_of_samples=update_values.number_of_samples,
                 **update_final.dict(exclude_unset=True),
             )
 
@@ -449,3 +535,30 @@ class PEPDatabaseProject:
             return True
         else:
             return False
+
+    @staticmethod
+    def _add_samples_to_project(projects_sa: Projects, samples: List[dict]) -> NoReturn:
+        """
+        Add samples to the project sa object. (With commit this samples will be added to the 'samples table')
+        :param projects_sa: Projects sa object, in open session
+        :param samples: list of samles to be added to the database
+        :return: NoReturn
+        """
+        for row_number, sample in enumerate(samples):
+            projects_sa.samples_mapping.append(Samples(sample=sample, row_number=row_number))
+
+    @staticmethod
+    def _add_subsamples_to_project(
+        projects_sa: Projects, subsamples: List[List[dict]]
+    ) -> NoReturn:
+        """
+        Add subsamples to the project sa object. (With commit this samples will be added to the 'subsamples table')
+        :param projects_sa: Projects sa object, in open session
+        :param subsamples: list of subsamles to be added to the database
+        :return: NoReturn
+        """
+        for i, subs in enumerate(subsamples):
+            for row_number, sub_item in enumerate(subs):
+                projects_sa.subsamples_mapping.append(
+                    Subsamples(subsample=sub_item, subsample_number=i, row_number=row_number)
+                )

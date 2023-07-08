@@ -3,6 +3,7 @@ from typing import List, Union
 
 from sqlalchemy import distinct, func, or_, select
 from sqlalchemy.sql.selectable import Select
+from sqlalchemy.orm import Session
 
 from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET, PKG_NAME
 from pepdbagent.db_utils import Projects, BaseEngine
@@ -96,8 +97,11 @@ class PEPDatabaseNamespace:
             search_str=search_str,
             admin_list=admin_nsp,
         )
+
         statement = statement.limit(limit).offset(offset)
-        query_results = self._pep_db_engine.session_execute(statement).all()
+
+        with Session(self._sa_engine) as session:
+            query_results = session.execute(statement).all()
 
         results_list = []
         for res in query_results:
@@ -126,8 +130,8 @@ class PEPDatabaseNamespace:
             search_str=search_str,
             admin_list=admin_nsp,
         )
-
-        query_results = self._pep_db_engine.session_execute(statement).first()
+        with Session(self._sa_engine) as session:
+            query_results = session.execute(statement).one()
 
         return query_results.number_of_namespaces
 

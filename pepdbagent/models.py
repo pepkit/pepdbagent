@@ -1,6 +1,6 @@
 # file with pydantic models
 import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import peppy
 from pydantic import BaseModel, Extra, Field, validator
@@ -71,16 +71,25 @@ class UpdateItems(BaseModel):
     Model used for updating individual items in db
     """
 
-    project_value: Optional[peppy.Project] = Field(alias="project")
+    name: Optional[str]
+    description: Optional[str]
     tag: Optional[str]
     is_private: Optional[bool]
-    name: Optional[str]
     pep_schema: Optional[str]
+    digest: Optional[str]
+    config: Optional[dict]
+    samples: Optional[List[dict]]
+    subsamples: Optional[List[List[dict]]]
 
     class Config:
         arbitrary_types_allowed = True
+        extra = Extra.forbid
 
-    #     extra = Extra.forbid
+    @property
+    def number_of_samples(self) -> Union[int, None]:
+        if self.samples:
+            return len(self.samples)
+        return None
 
 
 class UpdateModel(BaseModel):
@@ -89,15 +98,14 @@ class UpdateModel(BaseModel):
     Model used for updating individual items and creating sql string in the code
     """
 
-    project_value: Optional[dict]
+    config: Optional[dict]
     name: Optional[str] = None
     tag: Optional[str] = None
     private: Optional[bool] = Field(alias="is_private")
     digest: Optional[str]
-    last_update_date: Optional[datetime.datetime]
     number_of_samples: Optional[int]
     pep_schema: Optional[str]
-    description: Optional[str]
+    # last_update_date: Optional[datetime.datetime] = datetime.datetime.now(datetime.timezone.utc)
 
     @validator("tag", "name")
     def value_must_not_be_empty(cls, v):

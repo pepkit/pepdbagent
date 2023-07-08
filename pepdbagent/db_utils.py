@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, List
 
 from sqlalchemy import (
     BigInteger,
@@ -12,6 +12,9 @@ from sqlalchemy import (
     event,
     select,
     TIMESTAMP,
+    ForeignKey,
+    ForeignKeyConstraint,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, create_engine
@@ -22,6 +25,7 @@ from sqlalchemy.orm import (
     Mapped,
     Session,
     mapped_column,
+    relationship,
 )
 
 from pepdbagent.const import POSTGRES_DIALECT, PKG_NAME
@@ -61,30 +65,75 @@ def receive_after_create(target, connection, tables, **kw):
 
 def deliver_description(context):
     try:
-        return context.get_current_parameters()["project_value"]["_config"]["description"]
+        return context.get_current_parameters()["config"]["description"]
     except KeyError:
         return ""
 
 
+def deliver_update_date(context):
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
 class Projects(Base):
+    """
+    Projects table representation in the database
+    """
+
     __tablename__ = "projects"
 
-    id: Mapped[int] = mapped_column(BIGSERIAL, server_default=FetchedValue())
-    namespace: Mapped[str] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(primary_key=True)
-    tag: Mapped[str] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    namespace: Mapped[str] = mapped_column()
+    name: Mapped[str] = mapped_column()
+    tag: Mapped[str] = mapped_column()
     digest: Mapped[str] = mapped_column(String(32))
     description: Mapped[Optional[str]] = mapped_column(
         default=deliver_description, onupdate=deliver_description
     )
-    project_value: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
+    config: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     private: Mapped[bool]
     number_of_samples: Mapped[int]
     submission_date: Mapped[datetime.datetime]
-    last_update_date: Mapped[datetime.datetime]
+    last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
+        onupdate=deliver_update_date,
+    )
     pep_schema: Mapped[Optional[str]]
+    samples_mapping: Mapped[List["Samples"]] = relationship(
+        back_populates="sample_mapping", cascade="all, delete-orphan"
+    )
+    subsamples_mapping: Mapped[List["Subsamples"]] = relationship(
+        back_populates="subsample_mapping", cascade="all, delete-orphan"
+    )
 
-    __table_args__ = (PrimaryKeyConstraint("namespace", "name", "tag", name="id"),)
+    __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
+
+
+class Samples(Base):
+    """
+    Samples table representation in the database
+    """
+
+    __tablename__ = "samples"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
+    row_number: Mapped[int]
+    project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    sample_mapping: Mapped["Projects"] = relationship(back_populates="samples_mapping")
+
+
+class Subsamples(Base):
+    """
+    Subsamples table representation in the database
+    """
+
+    __tablename__ = "subsamples"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    subsample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
+    subsample_number: Mapped[int]
+    row_number: Mapped[int]
+    project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    subsample_mapping: Mapped["Projects"] = relationship(back_populates="subsamples_mapping")
 
 
 class BaseEngine:

@@ -36,8 +36,10 @@ def initiate_pepdb_con(
 ):
     sa_engine = create_engine(DNS)
     with sa_engine.begin() as conn:
-        conn.execute(text("DROP table IF EXISTS projects"))
-    pepdb_con = PEPDatabaseAgent(dsn=DNS, echo=False)
+        conn.execute(text("DROP table IF EXISTS projects CASCADE"))
+        conn.execute(text("DROP table IF EXISTS samples CASCADE"))
+        conn.execute(text("DROP table IF EXISTS subsamples CASCADE"))
+    pepdb_con = PEPDatabaseAgent(dsn=DNS, echo=True)
     for namespace, item in list_of_available_peps.items():
         if namespace == "private_test":
             private = True
@@ -54,5 +56,23 @@ def initiate_pepdb_con(
                 overwrite=True,
                 pep_schema="random_schema_name",
             )
+
+    yield pepdb_con
+
+
+@pytest.fixture(scope="function")
+def initiate_empty_pepdb_con(
+    list_of_available_peps,
+):
+    """
+    create connection without adding peps to the db
+    """
+    # sa_engine = create_engine(DNS)
+    # with sa_engine.begin() as conn:
+    #     conn.execute(text("DROP table IF EXISTS projects CASCADE"))
+    #     conn.execute(text("DROP table IF EXISTS samples CASCADE"))
+    #     conn.execute(text("DROP table IF EXISTS subsamples CASCADE"))
+
+    pepdb_con = PEPDatabaseAgent(dsn=DNS, echo=False)
 
     yield pepdb_con
