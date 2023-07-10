@@ -471,7 +471,7 @@ class PEPDatabaseProject:
             if update_values.description is not None:
                 update_values.config["description"] = update_values.description
             if update_values.name is not None:
-                update_values.config["name"] = update_values.description
+                update_values.config["name"] = update_values.name
             update_final = UpdateModel(
                 config=update_values.config, **update_final.dict(exclude_unset=True)
             )
