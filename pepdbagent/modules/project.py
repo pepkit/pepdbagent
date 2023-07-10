@@ -420,15 +420,16 @@ class PEPDatabaseProject:
                     )
 
                     for k, v in update_values.items():
-                        setattr(found_prj, k, v)
+                        if getattr(found_prj, k) != v:
+                            setattr(found_prj, k, v)
 
-                        # standardizing project name
-                        if k == "name":
-                            if "config" in update_values:
-                                update_values["config"]["name"] = v
-                            else:
-                                found_prj.config["name"] = v
-                        found_prj.name = found_prj.config["name"]
+                            # standardizing project name
+                            if k == "name":
+                                if "config" in update_values:
+                                    update_values["config"]["name"] = v
+                                else:
+                                    found_prj.config["name"] = v
+                                found_prj.name = found_prj.config["name"]
 
                     if "samples" in update_dict:
                         if found_prj.samples_mapping:
