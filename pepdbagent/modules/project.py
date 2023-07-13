@@ -224,15 +224,15 @@ class PEPDatabaseProject:
         proj_dict = project.to_dict(extended=True, orient="records")
         if not description:
             description = project.description
-        proj_dict["_config"]["description"] = description
+        proj_dict[CONFIG_KEY]["description"] = description
 
         namespace = namespace.lower()
         if name:
             name = name.lower()
             proj_name = name
-            proj_dict["_config"]["name"] = proj_name
-        elif proj_dict["_config"]["name"]:
-            proj_name = proj_dict["_config"]["name"].lower()
+            proj_dict[CONFIG_KEY]["name"] = proj_name
+        elif proj_dict[CONFIG_KEY]["name"]:
+            proj_name = proj_dict[CONFIG_KEY]["name"].lower()
         else:
             raise ValueError(f"Name of the project wasn't provided. Project will not be uploaded.")
 
@@ -344,7 +344,7 @@ class PEPDatabaseProject:
                     found_prj.private = private
                     found_prj.pep_schema = pep_schema
                     found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
-                    found_prj.description = project_dict["_config"].get("description")
+                    found_prj.description = project_dict[CONFIG_KEY].get("description")
 
                     # Deleting old samples and subsamples
                     if found_prj.samples_mapping:
