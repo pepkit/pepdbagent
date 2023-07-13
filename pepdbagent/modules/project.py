@@ -330,6 +330,7 @@ class PEPDatabaseProject:
         if self.exists(namespace=namespace, name=proj_name, tag=tag):
             _LOGGER.info(f"Updating {proj_name} project...")
             statement = self._create_select_statement(proj_name, namespace, tag)
+
             with Session(self._sa_engine) as session:
                 found_prj = session.scalars(statement).one()
 
@@ -343,6 +344,7 @@ class PEPDatabaseProject:
                     found_prj.private = private
                     found_prj.pep_schema = pep_schema
                     found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
+                    found_prj.description = project_dict['_config'].get("description")
 
                     # Deleting old samples and subsamples
                     if found_prj.samples_mapping:
