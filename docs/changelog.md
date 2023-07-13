@@ -2,6 +2,9 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.5.2] -- 2023-07-13
+- Fixed error in updating date in overwriting function
+
 ## [0.5.1] -- 2023-07-10
 - Fixed errors in updating projects, that caused Unique Constraint violation error
 
