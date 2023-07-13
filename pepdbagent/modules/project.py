@@ -343,6 +343,7 @@ class PEPDatabaseProject:
                     found_prj.number_of_samples = number_of_samples
                     found_prj.private = private
                     found_prj.pep_schema = pep_schema
+                    found_prj.last_update_date=datetime.datetime.now(datetime.timezone.utc)
 
                     # Deleting old samples and subsamples
                     if found_prj.samples_mapping:

@@ -94,7 +94,7 @@ class Projects(Base):
     number_of_samples: Mapped[int]
     submission_date: Mapped[datetime.datetime]
     last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
-        onupdate=deliver_update_date,
+        onupdate=deliver_update_date, default=deliver_update_date
     )
     pep_schema: Mapped[Optional[str]]
     samples_mapping: Mapped[List["Samples"]] = relationship(
