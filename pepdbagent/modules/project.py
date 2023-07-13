@@ -293,6 +293,7 @@ class PEPDatabaseProject:
                         number_of_samples=number_of_samples,
                         private=is_private,
                         pep_schema=pep_schema,
+                        description=description,
                     )
                     return None
 
