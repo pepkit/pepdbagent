@@ -344,7 +344,7 @@ class PEPDatabaseProject:
                     found_prj.private = private
                     found_prj.pep_schema = pep_schema
                     found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
-                    found_prj.description = project_dict['_config'].get("description")
+                    found_prj.description = project_dict["_config"].get("description")
 
                     # Deleting old samples and subsamples
                     if found_prj.samples_mapping:
