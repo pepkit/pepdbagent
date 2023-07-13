@@ -266,6 +266,7 @@ class PEPDatabaseProject:
                     submission_date=datetime.datetime.now(datetime.timezone.utc),
                     last_update_date=datetime.datetime.now(datetime.timezone.utc),
                     pep_schema=pep_schema,
+                    # description=proj_dict[CONFIG_KEY].get("description")
                 )
 
                 self._add_samples_to_project(new_prj, proj_dict[SAMPLE_RAW_DICT_KEY])
@@ -332,7 +333,7 @@ class PEPDatabaseProject:
             statement = self._create_select_statement(proj_name, namespace, tag)
 
             with Session(self._sa_engine) as session:
-                found_prj = session.scalars(statement).one()
+                found_prj = session.scalar(statement)
 
                 if found_prj:
                     _LOGGER.debug(

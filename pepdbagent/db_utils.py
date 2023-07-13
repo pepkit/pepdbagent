@@ -87,14 +87,14 @@ class Projects(Base):
     tag: Mapped[str] = mapped_column()
     digest: Mapped[str] = mapped_column(String(32))
     description: Mapped[Optional[str]] = mapped_column(
-        default=deliver_description, onupdate=deliver_description
+        insert_default=deliver_description, onupdate=deliver_description
     )
     config: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     private: Mapped[bool]
     number_of_samples: Mapped[int]
     submission_date: Mapped[datetime.datetime]
     last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
-        onupdate=deliver_update_date,
+        onupdate=deliver_update_date, insert_default=deliver_update_date
     )
     pep_schema: Mapped[Optional[str]]
     samples_mapping: Mapped[List["Samples"]] = relationship(
