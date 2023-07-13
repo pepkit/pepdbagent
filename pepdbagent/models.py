@@ -80,6 +80,7 @@ class UpdateItems(BaseModel):
     config: Optional[dict]
     samples: Optional[List[dict]]
     subsamples: Optional[List[List[dict]]]
+    description: Optional[str]
 
     class Config:
         arbitrary_types_allowed = True
@@ -105,6 +106,7 @@ class UpdateModel(BaseModel):
     digest: Optional[str]
     number_of_samples: Optional[int]
     pep_schema: Optional[str]
+    description: Optional[str] = ""
     # last_update_date: Optional[datetime.datetime] = datetime.datetime.now(datetime.timezone.utc)
 
     @validator("tag", "name")

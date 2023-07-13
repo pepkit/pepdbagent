@@ -63,11 +63,8 @@ def receive_after_create(target, connection, tables, **kw):
         _LOGGER.info("A table was not created")
 
 
-def deliver_description(context):
-    try:
-        return context.get_current_parameters()["config"]["description"]
-    except KeyError:
-        return ""
+# def deliver_description(context):
+#     return context.get_current_parameters()["config"]["description"]
 
 
 def deliver_update_date(context):
@@ -86,15 +83,13 @@ class Projects(Base):
     name: Mapped[str] = mapped_column()
     tag: Mapped[str] = mapped_column()
     digest: Mapped[str] = mapped_column(String(32))
-    description: Mapped[Optional[str]] = mapped_column(
-        insert_default=deliver_description, onupdate=deliver_description
-    )
+    description: Mapped[Optional[str]]
     config: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     private: Mapped[bool]
     number_of_samples: Mapped[int]
     submission_date: Mapped[datetime.datetime]
     last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
-        onupdate=deliver_update_date, insert_default=deliver_update_date
+        onupdate=deliver_update_date, default=deliver_update_date
     )
     pep_schema: Mapped[Optional[str]]
     samples_mapping: Mapped[List["Samples"]] = relationship(
