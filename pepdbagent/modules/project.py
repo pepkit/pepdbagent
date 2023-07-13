@@ -4,7 +4,6 @@ import logging
 from typing import Union, List, NoReturn
 
 import peppy
-import sqlalchemy
 from sqlalchemy import Engine, and_, delete, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
@@ -231,7 +230,7 @@ class PEPDatabaseProject:
         if name:
             name = name.lower()
             proj_name = name
-            proj_dict["_config"]["name"] = project.name
+            proj_dict["_config"]["name"] = proj_name
         elif proj_dict["_config"]["name"]:
             proj_name = proj_dict["_config"]["name"].lower()
         else:
@@ -343,7 +342,7 @@ class PEPDatabaseProject:
                     found_prj.number_of_samples = number_of_samples
                     found_prj.private = private
                     found_prj.pep_schema = pep_schema
-                    found_prj.last_update_date=datetime.datetime.now(datetime.timezone.utc)
+                    found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
 
                     # Deleting old samples and subsamples
                     if found_prj.samples_mapping:
