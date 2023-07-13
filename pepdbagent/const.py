@@ -4,6 +4,7 @@ DEFAULT_NAMESPACE = "_"
 DEFAULT_TAG = "default"
 
 DESCRIPTION_KEY = "description"
+NAME_KEY = "name"
 
 # from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_LIST_KEY
 

@@ -224,17 +224,17 @@ class PEPDatabaseProject:
         proj_dict = project.to_dict(extended=True, orient="records")
         if not description:
             description = project.description
-        proj_dict[CONFIG_KEY]["description"] = description
+        proj_dict[CONFIG_KEY][DESCRIPTION_KEY] = description
 
         namespace = namespace.lower()
         if name:
             proj_name = name.lower()
-        elif proj_dict[CONFIG_KEY]["name"]:
-            proj_name = proj_dict[CONFIG_KEY]["name"].lower()
+        elif proj_dict[CONFIG_KEY][NAME_KEY]:
+            proj_name = proj_dict[CONFIG_KEY][NAME_KEY].lower()
         else:
             raise ValueError(f"Name of the project wasn't provided. Project will not be uploaded.")
 
-        proj_dict[CONFIG_KEY]["name"] = proj_name
+        proj_dict[CONFIG_KEY][NAME_KEY] = proj_name
 
         proj_digest = create_digest(proj_dict)
         number_of_samples = len(project.samples)
@@ -431,12 +431,12 @@ class PEPDatabaseProject:
                             setattr(found_prj, k, v)
 
                             # standardizing project name
-                            if k == "name":
+                            if k == NAME_KEY:
                                 if "config" in update_values:
-                                    update_values["config"]["name"] = v
+                                    update_values["config"][NAME_KEY] = v
                                 else:
-                                    found_prj.config["name"] = v
-                                found_prj.name = found_prj.config["name"]
+                                    found_prj.config[NAME_KEY] = v
+                                found_prj.name = found_prj.config[NAME_KEY]
 
                     if "samples" in update_dict:
                         if found_prj.samples_mapping:
@@ -479,7 +479,7 @@ class PEPDatabaseProject:
 
         if update_values.name is not None:
             if update_values.config is not None:
-                update_values.config["name"] = update_values.name
+                update_values.config[NAME_KEY] = update_values.name
             update_final = UpdateModel(
                 name=update_values.name,
                 **update_final.dict(exclude_unset=True),
@@ -487,7 +487,7 @@ class PEPDatabaseProject:
 
         if update_values.description is not None:
             if update_values.config is not None:
-                update_values.config["description"] = update_values.description
+                update_values.config[DESCRIPTION_KEY] = update_values.description
             update_final = UpdateModel(
                 description=update_values.description,
                 **update_final.dict(exclude_unset=True),
@@ -496,17 +496,17 @@ class PEPDatabaseProject:
             update_final = UpdateModel(
                 config=update_values.config, **update_final.dict(exclude_unset=True)
             )
-            name = update_values.config.get("name")
-            description = update_values.config.get("description")
+            name = update_values.config.get(NAME_KEY)
+            description = update_values.config.get(DESCRIPTION_KEY)
             if name:
                 update_final = UpdateModel(
                     name=name,
-                    **update_final.dict(exclude_unset=True, exclude={"name"}),
+                    **update_final.dict(exclude_unset=True, exclude={NAME_KEY}),
                 )
             if description:
                 update_final = UpdateModel(
                     description=description,
-                    **update_final.dict(exclude_unset=True, exclude={"description"}),
+                    **update_final.dict(exclude_unset=True, exclude={DESCRIPTION_KEY}),
                 )
 
         if update_values.tag is not None:
