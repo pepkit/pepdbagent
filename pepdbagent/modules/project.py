@@ -266,7 +266,6 @@ class PEPDatabaseProject:
                     submission_date=datetime.datetime.now(datetime.timezone.utc),
                     last_update_date=datetime.datetime.now(datetime.timezone.utc),
                     pep_schema=pep_schema,
-                    # description=proj_dict[CONFIG_KEY].get("description")
                 )
 
                 self._add_samples_to_project(new_prj, proj_dict[SAMPLE_RAW_DICT_KEY])
@@ -451,6 +450,8 @@ class PEPDatabaseProject:
                         # Adding new subsamples
                         if update_dict["subsamples"]:
                             self._add_subsamples_to_project(found_prj, update_dict["subsamples"])
+
+                    found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
 
                     session.commit()
 
