@@ -13,3 +13,5 @@ DEFAULT_LIMIT = 100
 
 # db_dialects
 POSTGRES_DIALECT = "postgresql"
+
+DEFAULT_LIMIT_INFO = 5

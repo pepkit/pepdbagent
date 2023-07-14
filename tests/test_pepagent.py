@@ -410,3 +410,14 @@ class TestNamespace:
     def test_annotation_private(self, initiate_pepdb_con):
         result = initiate_pepdb_con.namespace.get(admin="private_test")
         assert len(result.results) == 4
+
+    def test_namespace_info(self, initiate_pepdb_con):
+        initiate_pepdb_con.project.update(
+            namespace="private_test",
+            name="derive",
+            tag="default",
+            update_dict={"is_private": False},
+        )
+        result = initiate_pepdb_con.namespace.info()
+        assert len(result.results) == 4
+        assert result.results[3].number_of_projects == 1
