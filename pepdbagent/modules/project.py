@@ -355,7 +355,7 @@ class PEPDatabaseProject:
                     # Deleting old samples and subsamples
                     if found_prj.samples_mapping:
                         for sample in found_prj.samples_mapping:
-                            _LOGGER.info(f"deleting samples: {str(sample)}")
+                            _LOGGER.debug(f"deleting samples: {str(sample)}")
                             session.delete(sample)
 
                     if found_prj.subsamples_mapping:
