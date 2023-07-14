@@ -224,17 +224,17 @@ class PEPDatabaseProject:
         proj_dict = project.to_dict(extended=True, orient="records")
         if not description:
             description = project.description
-        proj_dict[CONFIG_KEY]["description"] = description
+        proj_dict[CONFIG_KEY][DESCRIPTION_KEY] = description
 
         namespace = namespace.lower()
         if name:
-            name = name.lower()
-            proj_name = name
-            proj_dict[CONFIG_KEY]["name"] = proj_name
-        elif proj_dict[CONFIG_KEY]["name"]:
-            proj_name = proj_dict[CONFIG_KEY]["name"].lower()
+            proj_name = name.lower()
+        elif proj_dict[CONFIG_KEY][NAME_KEY]:
+            proj_name = proj_dict[CONFIG_KEY][NAME_KEY].lower()
         else:
             raise ValueError(f"Name of the project wasn't provided. Project will not be uploaded.")
+
+        proj_dict[CONFIG_KEY][NAME_KEY] = proj_name
 
         proj_digest = create_digest(proj_dict)
         number_of_samples = len(project.samples)
@@ -250,6 +250,7 @@ class PEPDatabaseProject:
                 number_of_samples=number_of_samples,
                 private=is_private,
                 pep_schema=pep_schema,
+                description=description,
             )
             return None
         else:
@@ -266,6 +267,7 @@ class PEPDatabaseProject:
                     submission_date=datetime.datetime.now(datetime.timezone.utc),
                     last_update_date=datetime.datetime.now(datetime.timezone.utc),
                     pep_schema=pep_schema,
+                    description=description,
                 )
 
                 self._add_samples_to_project(new_prj, proj_dict[SAMPLE_RAW_DICT_KEY])
@@ -291,6 +293,7 @@ class PEPDatabaseProject:
                         number_of_samples=number_of_samples,
                         private=is_private,
                         pep_schema=pep_schema,
+                        description=description,
                     )
                     return None
 
@@ -311,6 +314,7 @@ class PEPDatabaseProject:
         number_of_samples: int,
         private: bool = False,
         pep_schema: str = None,
+        description: str = "",
     ) -> None:
         """
         Update existing project by providing all necessary information.
@@ -323,6 +327,7 @@ class PEPDatabaseProject:
         :param number_of_samples: number of samples in project
         :param private: boolean value if the project should be visible just for user that creates it.
         :param pep_schema: assign PEP to a specific schema. [DefaultL: None]
+        :param description: project description
         :return: None
         """
         proj_name = proj_name.lower()
@@ -332,7 +337,7 @@ class PEPDatabaseProject:
             statement = self._create_select_statement(proj_name, namespace, tag)
 
             with Session(self._sa_engine) as session:
-                found_prj = session.scalars(statement).one()
+                found_prj = session.scalar(statement)
 
                 if found_prj:
                     _LOGGER.debug(
@@ -343,8 +348,8 @@ class PEPDatabaseProject:
                     found_prj.number_of_samples = number_of_samples
                     found_prj.private = private
                     found_prj.pep_schema = pep_schema
-                    found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
-                    found_prj.description = project_dict[CONFIG_KEY].get("description")
+                    found_prj.config = project_dict[CONFIG_KEY]
+                    found_prj.description = description
 
                     # Deleting old samples and subsamples
                     if found_prj.samples_mapping:
@@ -426,12 +431,12 @@ class PEPDatabaseProject:
                             setattr(found_prj, k, v)
 
                             # standardizing project name
-                            if k == "name":
+                            if k == NAME_KEY:
                                 if "config" in update_values:
-                                    update_values["config"]["name"] = v
+                                    update_values["config"][NAME_KEY] = v
                                 else:
-                                    found_prj.config["name"] = v
-                                found_prj.name = found_prj.config["name"]
+                                    found_prj.config[NAME_KEY] = v
+                                found_prj.name = found_prj.config[NAME_KEY]
 
                     if "samples" in update_dict:
                         if found_prj.samples_mapping:
@@ -450,6 +455,8 @@ class PEPDatabaseProject:
                         # Adding new subsamples
                         if update_dict["subsamples"]:
                             self._add_subsamples_to_project(found_prj, update_dict["subsamples"])
+
+                    found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
 
                     session.commit()
 
@@ -470,14 +477,37 @@ class PEPDatabaseProject:
         """
         update_final = UpdateModel()
 
+        if update_values.name is not None:
+            if update_values.config is not None:
+                update_values.config[NAME_KEY] = update_values.name
+            update_final = UpdateModel(
+                name=update_values.name,
+                **update_final.dict(exclude_unset=True),
+            )
+
+        if update_values.description is not None:
+            if update_values.config is not None:
+                update_values.config[DESCRIPTION_KEY] = update_values.description
+            update_final = UpdateModel(
+                description=update_values.description,
+                **update_final.dict(exclude_unset=True),
+            )
         if update_values.config is not None:
-            if update_values.description is not None:
-                update_values.config["description"] = update_values.description
-            if update_values.name is not None:
-                update_values.config["name"] = update_values.name
             update_final = UpdateModel(
                 config=update_values.config, **update_final.dict(exclude_unset=True)
             )
+            name = update_values.config.get(NAME_KEY)
+            description = update_values.config.get(DESCRIPTION_KEY)
+            if name:
+                update_final = UpdateModel(
+                    name=name,
+                    **update_final.dict(exclude_unset=True, exclude={NAME_KEY}),
+                )
+            if description:
+                update_final = UpdateModel(
+                    description=description,
+                    **update_final.dict(exclude_unset=True, exclude={DESCRIPTION_KEY}),
+                )
 
         if update_values.tag is not None:
             update_final = UpdateModel(
@@ -487,12 +517,6 @@ class PEPDatabaseProject:
         if update_values.is_private is not None:
             update_final = UpdateModel(
                 is_private=update_values.is_private,
-                **update_final.dict(exclude_unset=True),
-            )
-
-        if update_values.name is not None:
-            update_final = UpdateModel(
-                name=update_values.name,
                 **update_final.dict(exclude_unset=True),
             )
 
