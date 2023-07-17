@@ -130,3 +130,22 @@ class UpdateModel(BaseModel):
     class Config:
         extra = Extra.forbid
         allow_population_by_field_name = True
+
+
+class NamespaceInfo(BaseModel):
+    """
+    Model with information about namespace
+    """
+
+    namespace: str
+    number_of_projects: int
+
+
+class ListOfNamespaceInfo(BaseModel):
+    """
+    Namespace information response model
+    """
+
+    number_of_namespaces: int
+    limit: int
+    results: List[NamespaceInfo]
