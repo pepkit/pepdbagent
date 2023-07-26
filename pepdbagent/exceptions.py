@@ -26,3 +26,13 @@ class ProjectNotFoundError(PEPDatabaseAgentError):
 class ProjectUniqueNameError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
         super().__init__(f"""{msg}""")
+
+
+class GroupUniqueNameError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""{msg}""")
+
+
+class GroupNotFoundError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Project does not exist. {msg}""")

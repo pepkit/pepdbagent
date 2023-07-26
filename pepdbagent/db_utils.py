@@ -15,6 +15,8 @@ from sqlalchemy import (
     ForeignKey,
     ForeignKeyConstraint,
     UniqueConstraint,
+    Table,
+    Column,
 )
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, create_engine
@@ -71,6 +73,20 @@ def deliver_update_date(context):
     return datetime.datetime.now(datetime.timezone.utc)
 
 
+class GroupProjectAssociation(Base):
+    __tablename__ = "group_project_association"
+
+    group_id: Mapped[int] = mapped_column(
+        ForeignKey("pep_groups.id", ondelete="CASCADE"), primary_key=True
+    )
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
+    )
+    # extra_data: Mapped[Optional[str]]
+    project: Mapped["Projects"] = relationship(back_populates="groups")
+    group: Mapped["PEPGroup"] = relationship(back_populates="projects")
+
+
 class Projects(Base):
     """
     Projects table representation in the database
@@ -97,6 +113,9 @@ class Projects(Base):
     )
     subsamples_mapping: Mapped[List["Subsamples"]] = relationship(
         back_populates="subsample_mapping", cascade="all, delete-orphan"
+    )
+    groups: Mapped[List["GroupProjectAssociation"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
     )
 
     __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
@@ -128,7 +147,29 @@ class Subsamples(Base):
     subsample_number: Mapped[int]
     row_number: Mapped[int]
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
-    subsample_mapping: Mapped["Projects"] = relationship(back_populates="subsamples_mapping")
+    subsample_mapping: Mapped[List["Projects"]] = relationship(back_populates="subsamples_mapping")
+
+
+class PEPGroup(Base):
+    """
+    Group of peps
+    """
+
+    __tablename__ = "pep_groups"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    namespace: Mapped[str]
+    name: Mapped[str]
+    description: Mapped[Optional[str]]
+    private: Mapped[bool]
+    last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
+        onupdate=deliver_update_date, default=deliver_update_date
+    )
+    projects: Mapped[List["GroupProjectAssociation"]] = relationship(
+        back_populates="group", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (UniqueConstraint("namespace", "name"),)
 
 
 class BaseEngine:

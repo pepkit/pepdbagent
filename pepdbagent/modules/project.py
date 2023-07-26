@@ -564,6 +564,25 @@ class PEPDatabaseProject:
         else:
             return False
 
+    def _get_project_id(self, namespace: str, name: str, tag: str) -> Union[int, None]:
+        """
+        Get Project id by providing namespace, name, and tag
+
+        :param namespace: project namespace
+        :param name: project name
+        :param tag: project tag
+        :return: projects id
+        """
+        statement = select(Projects.id).where(
+            and_(Projects.namespace == namespace, Projects.name == name, Projects.tag == tag)
+        )
+        with Session(self._sa_engine) as session:
+            result = session.execute(statement).one_or_none()
+
+        if result:
+            return result[0]
+        return None
+
     @staticmethod
     def _add_samples_to_project(projects_sa: Projects, samples: List[dict]) -> NoReturn:
         """

@@ -62,7 +62,7 @@ class PEPDatabaseAnnotation:
             Options: ["name", "update_date", "submission_date"]
             [Default: update_date]
         :param order_desc: Sort the records in descending order. [Default: False]
-        :return: pydantic model: AnnotationReturnModel
+        :return: pydantic model: AnnotationList
         """
         if all([namespace, name, tag]):
             found_annotation = [

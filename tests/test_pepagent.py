@@ -1,7 +1,7 @@
 import pytest
 import peppy
 import os
-from pepdbagent.exceptions import ProjectNotFoundError
+from pepdbagent.exceptions import ProjectNotFoundError, GroupNotFoundError
 
 
 DNS = f"postgresql://postgres:docker@localhost:5432/pep-db"
@@ -421,3 +421,275 @@ class TestNamespace:
         result = initiate_pepdb_con.namespace.info()
         assert len(result.results) == 4
         assert result.results[3].number_of_projects == 1
+
+
+class TestGroupPEPs:
+    """
+    Test function within namespace class
+    """
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ("databio", "test1"),
+        ],
+    )
+    def test_create_group(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        group_annot = initiate_pepdb_con.group.get(
+            namespace=namespace, name=name, limit=10, offset=0, admin=[]
+        )
+
+        assert group_annot.results[0].number_of_projects == 0
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ("databio", "test1"),
+        ],
+    )
+    def test_get_group_id(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        group_id = initiate_pepdb_con.group._get_group_id(
+            namespace=namespace,
+            name=name,
+        )
+
+        assert isinstance(group_id, int)
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ("databio", "test1"),
+        ],
+    )
+    def test_exists(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        does_exist = initiate_pepdb_con.group.exists(
+            namespace=namespace,
+            name=name,
+        )
+
+        assert does_exist
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ("databio", "test1"),
+        ],
+    )
+    def test_delete(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.add_project(
+            namespace,
+            name,
+            project_name="imply",
+            project_namespace="namespace2",
+            project_tag="default",
+        )
+        initiate_pepdb_con.group.delete(namespace, name)
+        does_exist = initiate_pepdb_con.group.exists(
+            namespace=namespace,
+            name=name,
+        )
+
+        assert does_exist is False
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ("databio", "test1"),
+        ],
+    )
+    def test_delete_exception(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.delete(namespace, name)
+
+        with pytest.raises(GroupNotFoundError, match="Can't delete unexciting"):
+            initiate_pepdb_con.group.delete(namespace, name)
+
+    @pytest.mark.parametrize(
+        "namespace, name, project_name, project_namespace, project_tag",
+        [
+            ("databio", "test1", "imply", "namespace2", "default"),
+        ],
+    )
+    def test_add_project(
+        self, initiate_pepdb_con, namespace, name, project_namespace, project_name, project_tag
+    ):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.add_project(
+            namespace,
+            name,
+            project_name=project_name,
+            project_namespace=project_namespace,
+            project_tag=project_tag,
+        )
+
+        retrieved_group = initiate_pepdb_con.group.get(namespace, name)
+        assert retrieved_group.results[0].namespace == namespace
+        assert retrieved_group.results[0].name == name
+        assert retrieved_group.results[0].number_of_projects == 1
+
+    @pytest.mark.parametrize(
+        "namespace, name, project_name, project_namespace, project_tag",
+        [
+            ("databio", "test1", "imply", "namespace2", "default"),
+        ],
+    )
+    def test_deleted_project_not_in_group(
+        self, initiate_pepdb_con, namespace, name, project_namespace, project_name, project_tag
+    ):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.add_project(
+            namespace,
+            name,
+            project_name=project_name,
+            project_namespace=project_namespace,
+            project_tag=project_tag,
+        )
+
+        retrieved_group = initiate_pepdb_con.group.get(namespace, name)
+        assert retrieved_group.results[0].number_of_projects == 1
+
+        initiate_pepdb_con.project.delete(
+            name=project_name,
+            namespace=project_namespace,
+            tag=project_tag,
+        )
+
+        retrieved_group = initiate_pepdb_con.group.get(namespace, name)
+        assert retrieved_group.results[0].number_of_projects == 0
+
+    @pytest.mark.parametrize(
+        "namespace, name, project_name, project_namespace, project_tag",
+        [
+            ("databio", "test1", "imply", "namespace2", "default"),
+        ],
+    )
+    def test_delete_project_from_the_group(
+        self, initiate_pepdb_con, namespace, name, project_namespace, project_name, project_tag
+    ):
+        """
+        Test if project was deleted from the group
+        """
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.add_project(
+            namespace,
+            name,
+            project_name=project_name,
+            project_namespace=project_namespace,
+            project_tag=project_tag,
+        )
+
+        retrieved_group = initiate_pepdb_con.group.get(namespace, name)
+        assert retrieved_group.results[0].number_of_projects == 1
+
+        initiate_pepdb_con.group.remove_project(
+            namespace,
+            name,
+            project_name=project_name,
+            project_namespace=project_namespace,
+            project_tag=project_tag,
+        )
+
+        retrieved_group = initiate_pepdb_con.group.get(namespace, name)
+        assert retrieved_group.results[0].number_of_projects == 0
+
+    # def test_get_project_list(self, initiate_pepdb_con, create_groups):
+    #     """
+    #     Get list of projects that are in the group
+    #     """
+    #     project_list = initiate_pepdb_con.group.get(
+    #         namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
+    #     ).results.list_of_projects
+    #     assert len(project_list) == 5
+    #
+    # def test_add_project_to_the_group(self, initiate_pepdb_con, create_groups):
+    #     """
+    #     Get list of projects that are in the group where one project was edded
+    #     """
+    #     initiate_pepdb_con.group.add(
+    #         group_namespace=namespace,
+    #         group_name=name,
+    #         project_namespace=project_namespace,
+    #         project_name=project_name,
+    #         project_tag=project_tag,
+    #     )
+    #
+    #     project_list = (
+    #         initiate_pepdb_con.group.get(
+    #             namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
+    #         )
+    #         .results[0]
+    #         .list_of_projects
+    #     )
+    #     assert len(project_list) == 6
+    #
+
+    #
+    #     project_list = (
+    #         initiate_pepdb_con.group.get(
+    #             namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
+    #         )
+    #         .results[0]
+    #         .list_of_projects
+    #     )
+    #     assert len(project_list) == 4
+    #
+    # def test_private_group(self, initiate_pepdb_con, create_groups):
+    #     """
+    #     Test project privacy
+    #     """
+    #     initiate_pepdb_con.group.update(
+    #         namespace=namespace, name=name, update_dict={"private": True}
+    #     )
+    #     project_list = (
+    #         initiate_pepdb_con.group.get(
+    #             namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
+    #         )
+    #         .results[0]
+    #         .list_of_projects
+    #     )
+    #     assert len(project_list) == 0
+    #
+    # def test_private_project_in_group(self, initiate_pepdb_con, create_groups):
+    #     """
+    #     Test if private project show up in the group
+    #       # number of projects in the group shouldn't change
+    #     """
+    #     initiate_pepdb_con.group.add(
+    #         group_namespace=namespace,
+    #         group_name=name,
+    #         project_namespace=project_namespace,
+    #         project_name=project_name,
+    #         project_tag=project_tag,
+    #     )
+    #
+    #     project_list = (
+    #         initiate_pepdb_con.group.get(
+    #             namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
+    #         )
+    #         .results[0]
+    #         .list_of_projects
+    #     )
+    #     assert len(project_list) == 5
+    #
+    # @pytest.skip
+    # def test_get_groups_that_project_belong_to(self, initiate_pepdb_con, create_groups):
+    #     """
+    #     Test get list with groups to which project belongs to
+    #     """
+    #     pass
+    #     # I am not sure if we need this functionality
+    #
+    # def test_get_groups_of_namespace(self, initiate_pepdb_con, create_groups):
+    #     """
+    #     Get all groups in the namespace (search and privacy should be implemented)
+    #     """
+    #     pass
+    #     namespace_group = initiate_pepdb_con.group.get(
+    #         namespace=namespace, limit=10, offset=0, admin_list=[]
+    #     ).results
+    #
+    #     assert len(namespace_group) == 2  # let's say we will have 2 groups

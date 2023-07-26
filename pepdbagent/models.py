@@ -149,3 +149,37 @@ class ListOfNamespaceInfo(BaseModel):
     number_of_namespaces: int
     limit: int
     results: List[NamespaceInfo]
+
+
+class GroupInfo(BaseModel):
+    """
+    Group of Peps model
+    """
+
+    namespace: str
+    name: str
+    is_private: bool = False
+    number_of_projects: int = 0
+    description: Optional[str]
+    last_update_date: datetime.datetime
+
+
+class GroupListInfo(BaseModel):
+    """
+    Group of PEPs return model
+    """
+
+    count: int
+    limit: int
+    offset: int
+    results: List[GroupInfo]
+
+
+class GroupUpdateModel(BaseModel):
+    """
+    Group update model
+    """
+
+    name: Optional[str]
+    description: Optional[str]
+    private: Optional[bool]
