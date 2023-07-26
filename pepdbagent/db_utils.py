@@ -15,6 +15,8 @@ from sqlalchemy import (
     ForeignKey,
     ForeignKeyConstraint,
     UniqueConstraint,
+    Table,
+    Column,
 )
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, create_engine
@@ -71,6 +73,13 @@ def deliver_update_date(context):
     return datetime.datetime.now(datetime.timezone.utc)
 
 
+association_table = Table(
+    "group_project_association",
+    Base.metadata,
+    Column("group_id", ForeignKey("pep_groups.id"), primary_key=True),
+    Column("project_id", ForeignKey("projects.id"), primary_key=True),
+)
+
 class Projects(Base):
     """
     Projects table representation in the database
@@ -97,6 +106,9 @@ class Projects(Base):
     )
     subsamples_mapping: Mapped[List["Subsamples"]] = relationship(
         back_populates="subsample_mapping", cascade="all, delete-orphan"
+    )
+    group_mapping: Mapped[List["PEPGroup"]] = relationship(
+        secondary=association_table, back_populates="project_mapping"
     )
 
     __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
@@ -128,7 +140,22 @@ class Subsamples(Base):
     subsample_number: Mapped[int]
     row_number: Mapped[int]
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
-    subsample_mapping: Mapped["Projects"] = relationship(back_populates="subsamples_mapping")
+    subsample_mapping: Mapped[List["Projects"]] = relationship(back_populates="subsamples_mapping")
+
+
+class PEPGroup(Base):
+    """
+    Group of peps
+    """
+    __tablename__ = "pep_groups"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    namespace: Mapped[str] = mapped_column()
+    description: Mapped[Optional[str]]
+    private: Mapped[bool]
+    project_mapping: Mapped[List["Projects"]] = relationship(
+        secondary=association_table, back_populates="group_mapping"
+    )
 
 
 class BaseEngine:
