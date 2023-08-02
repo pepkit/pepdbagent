@@ -49,8 +49,11 @@ def upload_sample_pep_to_db(connection: pepdbagent.PEPDatabaseAgent):
 
 # populate database with few peps:
 con = pepdbagent.PEPDatabaseAgent(dsn="postgresql://postgres:docker@localhost:5432/pep-db", echo=False)
-upload_sample_pep_to_db(con)
+# upload_sample_pep_to_db(con)
 
+con.group.create(namespace="aaron", name="ayobi", private=True, description="this is description")
+ff123 = con.group.get(namespace="aaron", name="ayobi")
+ff123
 
 ###############
 # # Upload

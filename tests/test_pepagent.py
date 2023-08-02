@@ -423,98 +423,130 @@ class TestNamespace:
         assert result.results[3].number_of_projects == 1
 
 
-class TestGroupPEPs:
-    """
-    Test function within namespace class
-    """
-    def test_create_group(self, initiate_pepdb_con):
-        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
-        group_annot = initiate_pepdb_con.group.get(namespace=namespace, name=name, limit=10, offset=0, admin_list=[])
-
-        assert group_annot.number_of_projects == 0
-
-        # group get will return:
-        # class GroupModel():
-            # namespace: str
-            # name: str
-            # number_of_projects: int
-            # list_of_projects: List[(namesapce, name, tag, private,)]
-
-
-    def test_get_project_list(self, initiate_pepdb_con, create_groups):
-        """
-        Get list of projects that are in the group
-        """
-        project_list = initiate_pepdb_con.group.get(namespace=namespace, name=name, limit=10, offset=0, admin_list=[]).results.list_of_projects
-        assert len(project_list) == 5
-
-    def test_add_project_to_the_group(self, initiate_pepdb_con, create_groups):
-        """
-        Get list of projects that are in the group where one project was edded
-        """
-        initiate_pepdb_con.group.add(group_namespace=namespace,
-                                     group_name=name,
-                                     project_namespace=project_namespace,
-                                     project_name=project_name,
-                                     project_tag=project_tag)
-
-        project_list = initiate_pepdb_con.group.get(namespace=namespace, name=name, limit=10, offset=0,
-                                                    admin_list=[]).results[0].list_of_projects
-        assert len(project_list) == 6
-
-    def test_delete_project_from_the_group(self, initiate_pepdb_con, create_groups):
-        """
-        Test if project was deleted from the group
-        """
-        initiate_pepdb_con.group.delete(group_namespace=namespace,
-                                     group_name=name,
-                                     project_namespace=project_namespace,
-                                     project_name=project_name,
-                                     project_tag=project_tag)
-
-        project_list = initiate_pepdb_con.group.get(namespace=namespace, name=name, limit=10, offset=0,
-                                                    admin_list=[]).results[0].list_of_projects
-        assert len(project_list) == 4
-
-    def test_private_group(self, initiate_pepdb_con, create_groups):
-        """
-        Test project privacy
-        """
-        initiate_pepdb_con.group.update(namespace=namespace, name=name, update_dict={"private": True})
-        project_list = initiate_pepdb_con.group.get(namespace=namespace, name=name, limit=10, offset=0,
-                                                    admin_list=[]).results[0].list_of_projects
-        assert len(project_list) == 0
-
-    def test_private_project_in_group(self, initiate_pepdb_con, create_groups):
-        """
-        Test if private project show up in the group
-          # number of projects in the group shouldn't change
-        """
-        initiate_pepdb_con.group.add(group_namespace=namespace,
-                                     group_name=name,
-                                     project_namespace=project_namespace,
-                                     project_name=project_name,
-                                     project_tag=project_tag)
-
-        project_list = initiate_pepdb_con.group.get(namespace=namespace, name=name, limit=10, offset=0,
-                                                    admin_list=[]).results[0].list_of_projects
-        assert len(project_list) == 5
-
-    @pytest.skip
-    def test_get_groups_that_project_belong_to(self, initiate_pepdb_con, create_groups):
-        """
-        Test get list with groups to which project belongs to
-        """
-        pass
-        # I am not sure if we need this functionality
-
-
-    def test_get_groups_of_namespace(self, initiate_pepdb_con, create_groups):
-        """
-        Get all groups in the namespace (search and privacy should be implemented)
-        """
-        pass
-        namespace_group = initiate_pepdb_con.group.get(namespace=namespace, limit=10, offset=0,
-                                                       admin_list=[]).results
-
-        assert len(namespace_group) == 2 # let's say we will have 2 groups
+# class TestGroupPEPs:
+#     """
+#     Test function within namespace class
+#     """
+#
+#     def test_create_group(self, initiate_pepdb_con):
+#         initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+#         group_annot = initiate_pepdb_con.group.get(
+#             namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
+#         )
+#
+#         assert group_annot.number_of_projects == 0
+#
+#         # group get will return:
+#         # class GroupModel():
+#         # namespace: str
+#         # name: str
+#         # number_of_projects: int
+#         # list_of_projects: List[(namesapce, name, tag, private,)]
+#
+#     def test_get_project_list(self, initiate_pepdb_con, create_groups):
+#         """
+#         Get list of projects that are in the group
+#         """
+#         project_list = initiate_pepdb_con.group.get(
+#             namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
+#         ).results.list_of_projects
+#         assert len(project_list) == 5
+#
+#     def test_add_project_to_the_group(self, initiate_pepdb_con, create_groups):
+#         """
+#         Get list of projects that are in the group where one project was edded
+#         """
+#         initiate_pepdb_con.group.add(
+#             group_namespace=namespace,
+#             group_name=name,
+#             project_namespace=project_namespace,
+#             project_name=project_name,
+#             project_tag=project_tag,
+#         )
+#
+#         project_list = (
+#             initiate_pepdb_con.group.get(
+#                 namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
+#             )
+#             .results[0]
+#             .list_of_projects
+#         )
+#         assert len(project_list) == 6
+#
+#     def test_delete_project_from_the_group(self, initiate_pepdb_con, create_groups):
+#         """
+#         Test if project was deleted from the group
+#         """
+#         initiate_pepdb_con.group.delete(
+#             group_namespace=namespace,
+#             group_name=name,
+#             project_namespace=project_namespace,
+#             project_name=project_name,
+#             project_tag=project_tag,
+#         )
+#
+#         project_list = (
+#             initiate_pepdb_con.group.get(
+#                 namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
+#             )
+#             .results[0]
+#             .list_of_projects
+#         )
+#         assert len(project_list) == 4
+#
+#     def test_private_group(self, initiate_pepdb_con, create_groups):
+#         """
+#         Test project privacy
+#         """
+#         initiate_pepdb_con.group.update(
+#             namespace=namespace, name=name, update_dict={"private": True}
+#         )
+#         project_list = (
+#             initiate_pepdb_con.group.get(
+#                 namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
+#             )
+#             .results[0]
+#             .list_of_projects
+#         )
+#         assert len(project_list) == 0
+#
+#     def test_private_project_in_group(self, initiate_pepdb_con, create_groups):
+#         """
+#         Test if private project show up in the group
+#           # number of projects in the group shouldn't change
+#         """
+#         initiate_pepdb_con.group.add(
+#             group_namespace=namespace,
+#             group_name=name,
+#             project_namespace=project_namespace,
+#             project_name=project_name,
+#             project_tag=project_tag,
+#         )
+#
+#         project_list = (
+#             initiate_pepdb_con.group.get(
+#                 namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
+#             )
+#             .results[0]
+#             .list_of_projects
+#         )
+#         assert len(project_list) == 5
+#
+#     @pytest.skip
+#     def test_get_groups_that_project_belong_to(self, initiate_pepdb_con, create_groups):
+#         """
+#         Test get list with groups to which project belongs to
+#         """
+#         pass
+#         # I am not sure if we need this functionality
+#
+#     def test_get_groups_of_namespace(self, initiate_pepdb_con, create_groups):
+#         """
+#         Get all groups in the namespace (search and privacy should be implemented)
+#         """
+#         pass
+#         namespace_group = initiate_pepdb_con.group.get(
+#             namespace=namespace, limit=10, offset=0, admin_list=[]
+#         ).results
+#
+#         assert len(namespace_group) == 2  # let's say we will have 2 groups

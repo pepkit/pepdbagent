@@ -80,6 +80,7 @@ association_table = Table(
     Column("project_id", ForeignKey("projects.id"), primary_key=True),
 )
 
+
 class Projects(Base):
     """
     Projects table representation in the database
@@ -147,15 +148,22 @@ class PEPGroup(Base):
     """
     Group of peps
     """
+
     __tablename__ = "pep_groups"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    namespace: Mapped[str] = mapped_column()
+    namespace: Mapped[str]
+    name: Mapped[str]
     description: Mapped[Optional[str]]
     private: Mapped[bool]
+    last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
+        onupdate=deliver_update_date, default=deliver_update_date
+    )
     project_mapping: Mapped[List["Projects"]] = relationship(
         secondary=association_table, back_populates="group_mapping"
     )
+
+    __table_args__ = (UniqueConstraint("namespace", "name"),)
 
 
 class BaseEngine:
