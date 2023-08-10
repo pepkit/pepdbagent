@@ -16,6 +16,7 @@ from pepdbagent.db_utils import BaseEngine, PEPGroup
 from pepdbagent.exceptions import GroupUniqueNameError, GroupNotFoundError
 from pepdbagent.models import GroupListInfo, GroupInfo, GroupUpdateModel
 from pepdbagent.utils import create_digest, registry_path_converter
+from pepdbagent.modules.project import PEPDatabaseProject
 
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -83,8 +84,8 @@ class PEPDatabaseGroup:
         return GroupListInfo(
             limit=limit,
             offset=offset,
-            count=self._count_projects(namespace=namespace, search_str=query, admin=admin),
-            results=self._get_projects(
+            count=self._count_groups(namespace=namespace, search_str=query, admin=admin),
+            results=self._get_groups(
                 namespace=namespace,
                 search_str=query,
                 admin=admin,
@@ -119,6 +120,28 @@ class PEPDatabaseGroup:
             description=query_result.description,
             last_update_date=query_result.last_update_date,
         )
+
+    def _get_groups(
+        self,
+        namespace: str = None,
+        search_str: str = None,
+        admin: Union[list, str] = tuple(),
+        offset: int = 0,
+        limit: int = 50,
+    ):
+        ...
+        # 1. Get Groups... what doest it mean? I should rethink this method...
+
+    def _count_groups(
+        self,
+        namespace: str = None,
+        search_str: str = None,
+        admin: Union[list, str] = tuple(),
+        offset: int = 0,
+        limit: int = 50,
+    ) -> int:
+        ...
+        # 1. Get Groups... what doest it mean? I should rethink this method...
 
     def create(
         self, namespace: str, name: str, private: bool, description: Optional[str] = ""
@@ -158,14 +181,21 @@ class PEPDatabaseGroup:
         project_tag: Optional[str] = DEFAULT_TAG,
     ) -> None:
         """
+        Add project to the group
 
-        :param namespace:
-        :param name:
-        :param project_namespace:
-        :param project_name:
-        :param project_tag:
-        :return:
+        :param namespace: group namespace
+        :param name: group name
+        :param project_namespace: project namespace
+        :param project_name: project name
+        :param project_tag: project tag
+        :return: None (If project was added successfully)
         """
+
+        group_id = self._get_group_id(namespace=namespace, name=name)
+        project_id = PEPDatabaseProject(self._pep_db_engine)._get_project_id(
+            project_namespace, project_name, project_tag
+        )
+
         # 1. get project id,
         # 2. get group id,
         # 3. insert id to the association table:D
@@ -180,14 +210,20 @@ class PEPDatabaseGroup:
         project_tag: Optional[str] = DEFAULT_TAG,
     ) -> None:
         """
+        Remove project from the group
 
-        :param namespace:
-        :param name:
-        :param project_namespace:
-        :param project_name:
-        :param project_tag:
-        :return:
+        :param namespace: group namespace
+        :param name: group name
+        :param project_namespace: project namespace
+        :param project_name: project name
+        :param project_tag: project tag
+        :return: None (If project was added successfully)
         """
+
+        group_id = self._get_group_id(namespace=namespace, name=name)
+        project_id = PEPDatabaseProject(self._pep_db_engine)._get_project_id(
+            project_namespace, project_name, project_tag
+        )
         # 1. get project id,
         # 2. get group id,
         # 3. delete from association table
