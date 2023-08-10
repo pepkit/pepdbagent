@@ -13,7 +13,7 @@ from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_LIST_KEY, CONFIG_KEY
 
 from pepdbagent.const import *
 from pepdbagent.db_utils import BaseEngine, PEPGroup
-from pepdbagent.exceptions import GroupUniqueNameError
+from pepdbagent.exceptions import GroupUniqueNameError, GroupNotFoundError
 from pepdbagent.models import GroupListInfo, GroupInfo, GroupUpdateModel
 from pepdbagent.utils import create_digest, registry_path_converter
 
@@ -199,13 +199,26 @@ class PEPDatabaseGroup:
         name: str,
     ) -> None:
         """
+        Delete group with all associations
 
-        :param namespace:
-        :param name:
-        :return:
+        :param namespace: group namespace
+        :param name: group name
+        :return: None
         """
-        # Delete group with all assosciations
-        pass
+        if not self.exists(namespace=namespace, name=name):
+            raise GroupNotFoundError(
+                f"Can't delete unexciting group: namespace : '{namespace}', name: '{name}'."
+            )
+        with self._sa_engine.begin() as conn:
+            conn.execute(
+                delete(PEPGroup).where(
+                    and_(
+                        PEPGroup.namespace == namespace,
+                        PEPGroup.name == name,
+                    )
+                )
+            )
+        return None
 
     def update(self, namespace: str, name: str, update_dict: GroupUpdateModel) -> None:
         """
@@ -216,6 +229,16 @@ class PEPDatabaseGroup:
         :return:
         """
         pass
+
+    def exists(self, namespace: str, name: str) -> bool:
+        """
+        Get group id by providing namespace and name
+
+        :param namespace: Namespace of the group
+        :param name: Name of the group
+        :return: True if project exists
+        """
+        return True if self._get_group_id(namespace, name) else False
 
     def _get_group_id(self, namespace: str, name: str) -> Union[int, None]:
         """
@@ -231,4 +254,6 @@ class PEPDatabaseGroup:
         with Session(self._sa_engine) as session:
             result = session.execute(statement).one_or_none()
 
-        return result[0]
+        if result:
+            return result[0]
+        return None

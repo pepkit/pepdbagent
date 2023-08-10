@@ -1,7 +1,7 @@
 import pytest
 import peppy
 import os
-from pepdbagent.exceptions import ProjectNotFoundError
+from pepdbagent.exceptions import ProjectNotFoundError, GroupNotFoundError
 
 
 DNS = f"postgresql://postgres:docker@localhost:5432/pep-db"
@@ -456,6 +456,50 @@ class TestGroupPEPs:
         )
 
         assert isinstance(group_id, int)
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ("databio", "test1"),
+        ],
+    )
+    def test_exists(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        does_exist = initiate_pepdb_con.group.exists(
+            namespace=namespace,
+            name=name,
+        )
+
+        assert does_exist
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ("databio", "test1"),
+        ],
+    )
+    def test_delete(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.delete(namespace, name)
+        does_exist = initiate_pepdb_con.group.exists(
+            namespace=namespace,
+            name=name,
+        )
+
+        assert does_exist is False
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ("databio", "test1"),
+        ],
+    )
+    def test_delete_exception(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.delete(namespace, name)
+
+        with pytest.raises(GroupNotFoundError, match="Can't delete unexciting"):
+            initiate_pepdb_con.group.delete(namespace, name)
 
     # def test_get_project_list(self, initiate_pepdb_con, create_groups):
     #     """
