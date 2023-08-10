@@ -109,7 +109,7 @@ class PEPDatabaseGroup:
             or_(PEPGroup.private.is_(False), PEPGroup.namespace.in_(admin))
         )
         with Session(self._sa_engine) as session:
-            query_result=session.scalar(statement)
+            query_result = session.scalar(statement)
 
         return GroupInfo(
             namespace=query_result.namespace,
@@ -217,5 +217,18 @@ class PEPDatabaseGroup:
         """
         pass
 
-    def _get_group_id(self, namespace: str, name: str) -> int:
-        ...
+    def _get_group_id(self, namespace: str, name: str) -> Union[int, None]:
+        """
+        Get group id by providing namespace and name
+
+        :param namespace: Namespace of the group
+        :param name: Name of the group
+        :return: groups ID
+        """
+        statement = select(PEPGroup.id).where(
+            and_(PEPGroup.namespace == namespace, PEPGroup.name == name)
+        )
+        with Session(self._sa_engine) as session:
+            result = session.execute(statement).one_or_none()
+
+        return result[0]
