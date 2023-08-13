@@ -73,12 +73,14 @@ def deliver_update_date(context):
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-association_table = Table(
-    "group_project_association",
-    Base.metadata,
-    Column("group_id", ForeignKey("pep_groups.id"), primary_key=True),
-    Column("project_id", ForeignKey("projects.id"), primary_key=True),
-)
+class GroupProjectAssociation(Base):
+    __tablename__ = "group_project_association"
+
+    group_id: Mapped[int] = mapped_column(ForeignKey("pep_groups.id"), primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), primary_key=True)
+    # extra_data: Mapped[Optional[str]]
+    project: Mapped["Projects"] = relationship(back_populates="projects")
+    group: Mapped["PEPGroup"] = relationship(back_populates="groups")
 
 
 class Projects(Base):
@@ -108,9 +110,7 @@ class Projects(Base):
     subsamples_mapping: Mapped[List["Subsamples"]] = relationship(
         back_populates="subsample_mapping", cascade="all, delete-orphan"
     )
-    group_mapping: Mapped[List["PEPGroup"]] = relationship(
-        secondary=association_table, back_populates="project_mapping"
-    )
+    projects: Mapped[List["GroupProjectAssociation"]] = relationship(back_populates="project")
 
     __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
 
@@ -159,9 +159,7 @@ class PEPGroup(Base):
     last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
         onupdate=deliver_update_date, default=deliver_update_date
     )
-    project_mapping: Mapped[List["Projects"]] = relationship(
-        secondary=association_table, back_populates="group_mapping"
-    )
+    groups: Mapped[List["GroupProjectAssociation"]] = relationship(back_populates="group")
 
     __table_args__ = (UniqueConstraint("namespace", "name"),)
 

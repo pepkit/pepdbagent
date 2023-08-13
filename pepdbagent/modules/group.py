@@ -12,7 +12,7 @@ from sqlalchemy import Select
 from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_LIST_KEY, CONFIG_KEY
 
 from pepdbagent.const import *
-from pepdbagent.db_utils import BaseEngine, PEPGroup
+from pepdbagent.db_utils import BaseEngine, PEPGroup, GroupProjectAssociation
 from pepdbagent.exceptions import GroupUniqueNameError, GroupNotFoundError
 from pepdbagent.models import GroupListInfo, GroupInfo, GroupUpdateModel
 from pepdbagent.utils import create_digest, registry_path_converter
@@ -49,14 +49,14 @@ class PEPDatabaseGroup:
         Get group of peps. (* This method doesn't retrieve actual PEPs)
 
         There is 5 scenarios how to get Group of PEPs:
-            - provide namespace and name. Return: project annotations of exact provided PK(namespace, name)
+            - provide namespace and name. Return: groups of exact provided PK(namespace, name)
             - provide only namespace. Return: list of groups in specified namespace
             - Nothing is provided. Return: list of groups in all database
             - provide query. Return: list of groups find in database that have query pattern (search will be done based on name and description)
             - provide query and namespace. Return: list of groups find in specific namespace
                 that have query pattern.
         :param namespace: Namespace
-        :param name: Project name
+        :param name: Group name
         :param query: query (search string): Pattern of name, or description
         :param admin: admin name (namespace), or list of namespaces, where user is admin
         :param limit: return limit
@@ -98,10 +98,11 @@ class PEPDatabaseGroup:
         self, namespace: str, name: str, admin: Union[tuple, list] = tuple([])
     ) -> GroupInfo:
         """
+        Get one group with it's projects
 
-        :param namespace:
-        :param name:
-        :param admin:
+        :param namespace: group namesapce
+        :param name: group name
+        :param admin: admin list [tuple or list]
         :return:
         """
         statement = select(PEPGroup)
@@ -109,17 +110,20 @@ class PEPDatabaseGroup:
         statement = statement.where(
             or_(PEPGroup.private.is_(False), PEPGroup.namespace.in_(admin))
         )
+
+        # TODO: add list of project to return object
         with Session(self._sa_engine) as session:
             query_result = session.scalar(statement)
 
-        return GroupInfo(
-            namespace=query_result.namespace,
-            name=query_result.name,
-            private=query_result.private,
-            number_of_projects=0,
-            description=query_result.description,
-            last_update_date=query_result.last_update_date,
-        )
+            number_of_projects = len([kk.project for kk in query_result.groups])
+            return GroupInfo(
+                namespace=query_result.namespace,
+                name=query_result.name,
+                private=query_result.private,
+                number_of_projects=number_of_projects,
+                description=query_result.description,
+                last_update_date=query_result.last_update_date,
+            )
 
     def _get_groups(
         self,
@@ -129,6 +133,16 @@ class PEPDatabaseGroup:
         offset: int = 0,
         limit: int = 50,
     ):
+        """
+        Get list of groups by providing search string (optional), and specifying namespace (optional)
+
+        :param namespace: Groups namespace
+        :param search_str: Search string that has to be found in the group name or description
+        :param admin: list or tuple of admin rights to namespace
+        :param limit: limit of return results
+        :param offset: number of results off set (that were already showed)
+        :return: ????
+        """
         ...
         # 1. Get Groups... what doest it mean? I should rethink this method...
 
@@ -140,6 +154,14 @@ class PEPDatabaseGroup:
         offset: int = 0,
         limit: int = 50,
     ) -> int:
+        """
+        Count groups using search pattern and namepsace. [This function is related to _find_groups]
+
+        :param namespace: namespace where to search for groups
+        :param search_str: search string. will be searched in name, tag and description information
+        :param admin: string or list of admins [e.g. "Khoroshevskyi", or ["doc_adin","Khoroshevskyi"]]
+        :return: Number of found groups
+        """
         ...
         # 1. Get Groups... what doest it mean? I should rethink this method...
 
@@ -195,7 +217,11 @@ class PEPDatabaseGroup:
         project_id = PEPDatabaseProject(self._pep_db_engine)._get_project_id(
             project_namespace, project_name, project_tag
         )
+        new_assosiation_raw = GroupProjectAssociation(group_id=group_id, project_id=project_id)
 
+        with Session(self._sa_engine) as session:
+            session.add(new_assosiation_raw)
+            session.commit()
         # 1. get project id,
         # 2. get group id,
         # 3. insert id to the association table:D

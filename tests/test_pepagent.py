@@ -501,6 +501,29 @@ class TestGroupPEPs:
         with pytest.raises(GroupNotFoundError, match="Can't delete unexciting"):
             initiate_pepdb_con.group.delete(namespace, name)
 
+    @pytest.mark.parametrize(
+        "namespace, name, project_name, project_namespace, project_tag",
+        [
+            ("databio", "test1", "imply", "namespace2", "default"),
+        ],
+    )
+    def test_add_project(
+        self, initiate_pepdb_con, namespace, name, project_namespace, project_name, project_tag
+    ):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.add_project(
+            namespace,
+            name,
+            project_name=project_name,
+            project_namespace=project_namespace,
+            project_tag=project_tag,
+        )
+
+        retrieved_group = initiate_pepdb_con.group.get(namespace, name)
+        assert retrieved_group.results[0].namespace == namespace
+        assert retrieved_group.results[0].name == name
+        assert retrieved_group.results[0].number_of_projects == 1
+
     # def test_get_project_list(self, initiate_pepdb_con, create_groups):
     #     """
     #     Get list of projects that are in the group
