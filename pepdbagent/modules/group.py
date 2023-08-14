@@ -115,7 +115,7 @@ class PEPDatabaseGroup:
         with Session(self._sa_engine) as session:
             query_result = session.scalar(statement)
 
-            number_of_projects = len([kk.project for kk in query_result.groups])
+            number_of_projects = len([kk.project for kk in query_result.projects])
             return GroupInfo(
                 namespace=query_result.namespace,
                 name=query_result.name,

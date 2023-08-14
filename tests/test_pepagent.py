@@ -480,6 +480,13 @@ class TestGroupPEPs:
     )
     def test_delete(self, initiate_pepdb_con, namespace, name):
         initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.add_project(
+            namespace,
+            name,
+            project_name="imply",
+            project_namespace="namespace2",
+            project_tag="default",
+        )
         initiate_pepdb_con.group.delete(namespace, name)
         does_exist = initiate_pepdb_con.group.exists(
             namespace=namespace,
