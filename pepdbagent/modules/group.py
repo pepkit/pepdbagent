@@ -222,10 +222,8 @@ class PEPDatabaseGroup:
         with Session(self._sa_engine) as session:
             session.add(new_assosiation_raw)
             session.commit()
-        # 1. get project id,
-        # 2. get group id,
-        # 3. insert id to the association table:D
-        pass
+
+        return None
 
     def remove_project(
         self,
@@ -250,10 +248,17 @@ class PEPDatabaseGroup:
         project_id = PEPDatabaseProject(self._pep_db_engine)._get_project_id(
             project_namespace, project_name, project_tag
         )
-        # 1. get project id,
-        # 2. get group id,
-        # 3. delete from association table
-        pass
+        statement = delete(GroupProjectAssociation).where(
+            and_(
+                GroupProjectAssociation.group_id == group_id,
+                GroupProjectAssociation.project_id == project_id,
+            )
+        )
+        with Session(self._sa_engine) as session:
+            session.execute(statement)
+            session.commit()
+
+        return None
 
     def delete(
         self,

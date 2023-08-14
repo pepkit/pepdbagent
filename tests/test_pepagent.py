@@ -531,6 +531,71 @@ class TestGroupPEPs:
         assert retrieved_group.results[0].name == name
         assert retrieved_group.results[0].number_of_projects == 1
 
+    @pytest.mark.parametrize(
+        "namespace, name, project_name, project_namespace, project_tag",
+        [
+            ("databio", "test1", "imply", "namespace2", "default"),
+        ],
+    )
+    def test_deleted_project_not_in_group(
+        self, initiate_pepdb_con, namespace, name, project_namespace, project_name, project_tag
+    ):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.add_project(
+            namespace,
+            name,
+            project_name=project_name,
+            project_namespace=project_namespace,
+            project_tag=project_tag,
+        )
+
+        retrieved_group = initiate_pepdb_con.group.get(namespace, name)
+        assert retrieved_group.results[0].number_of_projects == 1
+
+        initiate_pepdb_con.project.delete(
+            name=project_name,
+            namespace=project_namespace,
+            tag=project_tag,
+        )
+
+        retrieved_group = initiate_pepdb_con.group.get(namespace, name)
+        assert retrieved_group.results[0].number_of_projects == 0
+
+    @pytest.mark.parametrize(
+        "namespace, name, project_name, project_namespace, project_tag",
+        [
+            ("databio", "test1", "imply", "namespace2", "default"),
+        ],
+    )
+    def test_delete_project_from_the_group(
+        self, initiate_pepdb_con, namespace, name, project_namespace, project_name, project_tag
+    ):
+        """
+        Test if project was deleted from the group
+        """
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.add_project(
+            namespace,
+            name,
+            project_name=project_name,
+            project_namespace=project_namespace,
+            project_tag=project_tag,
+        )
+
+        retrieved_group = initiate_pepdb_con.group.get(namespace, name)
+        assert retrieved_group.results[0].number_of_projects == 1
+
+        initiate_pepdb_con.group.remove_project(
+            namespace,
+            name,
+            project_name=project_name,
+            project_namespace=project_namespace,
+            project_tag=project_tag,
+        )
+
+        retrieved_group = initiate_pepdb_con.group.get(namespace, name)
+        assert retrieved_group.results[0].number_of_projects == 0
+
     # def test_get_project_list(self, initiate_pepdb_con, create_groups):
     #     """
     #     Get list of projects that are in the group
@@ -561,17 +626,7 @@ class TestGroupPEPs:
     #     )
     #     assert len(project_list) == 6
     #
-    # def test_delete_project_from_the_group(self, initiate_pepdb_con, create_groups):
-    #     """
-    #     Test if project was deleted from the group
-    #     """
-    #     initiate_pepdb_con.group.delete(
-    #         group_namespace=namespace,
-    #         group_name=name,
-    #         project_namespace=project_namespace,
-    #         project_name=project_name,
-    #         project_tag=project_tag,
-    #     )
+
     #
     #     project_list = (
     #         initiate_pepdb_con.group.get(
