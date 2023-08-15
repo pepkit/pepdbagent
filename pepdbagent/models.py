@@ -151,6 +151,17 @@ class ListOfNamespaceInfo(BaseModel):
     results: List[NamespaceInfo]
 
 
+class ProjectRegistryPath(BaseModel):
+    """
+    Project Namespace
+    """
+
+    namespace: str
+    name: str
+    tag: str
+    private: Optional[bool] = False
+
+
 class GroupInfo(BaseModel):
     """
     Group of Peps model
@@ -158,8 +169,9 @@ class GroupInfo(BaseModel):
 
     namespace: str
     name: str
-    is_private: bool = False
+    private: bool = False
     number_of_projects: int = 0
+    projects: Optional[List[ProjectRegistryPath]]
     description: Optional[str]
     last_update_date: datetime.datetime
 
