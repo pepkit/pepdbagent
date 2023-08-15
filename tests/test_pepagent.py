@@ -596,100 +596,202 @@ class TestGroupPEPs:
         retrieved_group = initiate_pepdb_con.group.get(namespace, name)
         assert retrieved_group.results[0].number_of_projects == 0
 
-    # def test_get_project_list(self, initiate_pepdb_con, create_groups):
-    #     """
-    #     Get list of projects that are in the group
-    #     """
-    #     project_list = initiate_pepdb_con.group.get(
-    #         namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
-    #     ).results.list_of_projects
-    #     assert len(project_list) == 5
-    #
-    # def test_add_project_to_the_group(self, initiate_pepdb_con, create_groups):
-    #     """
-    #     Get list of projects that are in the group where one project was edded
-    #     """
-    #     initiate_pepdb_con.group.add(
-    #         group_namespace=namespace,
-    #         group_name=name,
-    #         project_namespace=project_namespace,
-    #         project_name=project_name,
-    #         project_tag=project_tag,
-    #     )
-    #
-    #     project_list = (
-    #         initiate_pepdb_con.group.get(
-    #             namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
-    #         )
-    #         .results[0]
-    #         .list_of_projects
-    #     )
-    #     assert len(project_list) == 6
-    #
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            (
+                "databio",
+                "test1",
+            ),
+        ],
+    )
+    def test_count_groups_function(
+        self,
+        initiate_pepdb_con,
+        namespace,
+        name,
+    ):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.create(
+            namespace="new_n", name="other_name", private=False, description=name
+        )
+        initiate_pepdb_con.group.create(
+            namespace="new_n", name=f"{name}bbb", private=False, description=name
+        )
 
-    #
-    #     project_list = (
-    #         initiate_pepdb_con.group.get(
-    #             namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
-    #         )
-    #         .results[0]
-    #         .list_of_projects
-    #     )
-    #     assert len(project_list) == 4
-    #
-    # def test_private_group(self, initiate_pepdb_con, create_groups):
-    #     """
-    #     Test project privacy
-    #     """
-    #     initiate_pepdb_con.group.update(
-    #         namespace=namespace, name=name, update_dict={"private": True}
-    #     )
-    #     project_list = (
-    #         initiate_pepdb_con.group.get(
-    #             namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
-    #         )
-    #         .results[0]
-    #         .list_of_projects
-    #     )
-    #     assert len(project_list) == 0
-    #
-    # def test_private_project_in_group(self, initiate_pepdb_con, create_groups):
-    #     """
-    #     Test if private project show up in the group
-    #       # number of projects in the group shouldn't change
-    #     """
-    #     initiate_pepdb_con.group.add(
-    #         group_namespace=namespace,
-    #         group_name=name,
-    #         project_namespace=project_namespace,
-    #         project_name=project_name,
-    #         project_tag=project_tag,
-    #     )
-    #
-    #     project_list = (
-    #         initiate_pepdb_con.group.get(
-    #             namespace=namespace, name=name, limit=10, offset=0, admin_list=[]
-    #         )
-    #         .results[0]
-    #         .list_of_projects
-    #     )
-    #     assert len(project_list) == 5
-    #
-    # @pytest.skip
-    # def test_get_groups_that_project_belong_to(self, initiate_pepdb_con, create_groups):
-    #     """
-    #     Test get list with groups to which project belongs to
-    #     """
-    #     pass
-    #     # I am not sure if we need this functionality
-    #
-    # def test_get_groups_of_namespace(self, initiate_pepdb_con, create_groups):
-    #     """
-    #     Get all groups in the namespace (search and privacy should be implemented)
-    #     """
-    #     pass
-    #     namespace_group = initiate_pepdb_con.group.get(
-    #         namespace=namespace, limit=10, offset=0, admin_list=[]
-    #     ).results
-    #
-    #     assert len(namespace_group) == 2  # let's say we will have 2 groups
+        number_of_find_groups = initiate_pepdb_con.group._count_groups(search_str=name)
+        assert number_of_find_groups == 3
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            (
+                "databio",
+                "test1",
+            ),
+        ],
+    )
+    def test_count_groups_function_with_private(
+        self,
+        initiate_pepdb_con,
+        namespace,
+        name,
+    ):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.create(
+            namespace="new_n", name="other_name", private=False, description=name
+        )
+        initiate_pepdb_con.group.create(namespace="new_n", name=f"{name}bbb", private=True)
+
+        number_of_find_groups = initiate_pepdb_con.group._count_groups(search_str=name)
+        assert number_of_find_groups == 2
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            (
+                "databio",
+                "test1",
+            ),
+        ],
+    )
+    def test_get_groups_with_private(
+        self,
+        initiate_pepdb_con,
+        namespace,
+        name,
+    ):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.create(
+            namespace="new_n", name="other_name", private=False, description=name
+        )
+        initiate_pepdb_con.group.create(namespace="new_n", name=f"{name}bbb", private=True)
+
+        search_result = initiate_pepdb_con.group.get(query=name)
+        assert search_result.count == 2
+        assert len(search_result.results) == 2
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            (
+                "databio",
+                "test1",
+            ),
+        ],
+    )
+    def test_get_groups_with_limit(
+        self,
+        initiate_pepdb_con,
+        namespace,
+        name,
+    ):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.create(
+            namespace="new_n", name="other_name", private=False, description=name
+        )
+        initiate_pepdb_con.group.create(namespace="new_n", name=f"{name}bbb", private=False)
+
+        search_result = initiate_pepdb_con.group.get(query=name, limit=2)
+        assert search_result.count == 3
+        assert len(search_result.results) == 2
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            (
+                "databio",
+                "test1",
+            ),
+        ],
+    )
+    def test_get_groups_with_limit_and_namespace(
+        self,
+        initiate_pepdb_con,
+        namespace,
+        name,
+    ):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.create(
+            namespace=namespace, name="other_name", private=False, description=name
+        )
+        initiate_pepdb_con.group.create(namespace="another", name=f"{name}bbb", private=False)
+
+        search_result = initiate_pepdb_con.group.get(namespace=namespace, query=name, limit=1)
+        assert search_result.count == 2
+        assert len(search_result.results) == 1
+
+    @pytest.mark.parametrize(
+        "namespace, name, project_name, project_namespace, project_tag",
+        [
+            ("databio", "test1", "imply", "namespace2", "default"),
+        ],
+    )
+    def test_update_description(
+        self, initiate_pepdb_con, namespace, name, project_namespace, project_name, project_tag
+    ):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+        initiate_pepdb_con.group.add_project(
+            namespace,
+            name,
+            project_name=project_name,
+            project_namespace=project_namespace,
+            project_tag=project_tag,
+        )
+
+        initiate_pepdb_con.group.update(
+            namespace=namespace, name=name, update_dict={"description": "new description"}
+        )
+        assert (
+            "new description"
+            == initiate_pepdb_con.group.get(namespace=namespace, name=name).results[0].description
+        )
+
+    @pytest.mark.parametrize(
+        "namespace, name, project_name, project_namespace, project_tag",
+        [
+            ("databio", "test1", "imply", "namespace2", "default"),
+        ],
+    )
+    def test_update_name(
+        self, initiate_pepdb_con, namespace, name, project_namespace, project_name, project_tag
+    ):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+
+        initiate_pepdb_con.group.update(
+            namespace=namespace, name=name, update_dict={"name": "new_name"}
+        )
+        assert (
+            "new_name"
+            == initiate_pepdb_con.group.get(
+                namespace=namespace, name="new_name", admin=["databio"]
+            )
+            .results[0]
+            .name
+        )
+
+    @pytest.mark.parametrize(
+        "namespace, name, project_name, project_namespace, project_tag",
+        [
+            ("databio", "test1", "imply", "namespace2", "default"),
+        ],
+    )
+    def test_update_private(
+        self, initiate_pepdb_con, namespace, name, project_namespace, project_name, project_tag
+    ):
+        initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
+
+        assert (
+            not initiate_pepdb_con.group.get(namespace=namespace, name=name, admin=["databio"])
+            .results[0]
+            .private
+        )
+
+        initiate_pepdb_con.group.update(
+            namespace=namespace, name=name, update_dict={"private": True}
+        )
+        assert (
+            initiate_pepdb_con.group.get(namespace=namespace, name=name, admin=["databio"])
+            .results[0]
+            .private
+        )

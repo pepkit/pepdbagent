@@ -1,10 +1,10 @@
 import datetime
 import json
 import logging
-from typing import Union, List, NoReturn, Optional
+from typing import Union, List, NoReturn, Optional, Tuple
 
 import peppy
-from sqlalchemy import Engine, and_, delete, insert, or_, select, update
+from sqlalchemy import Engine, and_, delete, insert, or_, select, update, func
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
 from sqlalchemy import Select
@@ -14,8 +14,8 @@ from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_LIST_KEY, CONFIG_KEY
 from pepdbagent.const import *
 from pepdbagent.db_utils import BaseEngine, PEPGroup, GroupProjectAssociation
 from pepdbagent.exceptions import GroupUniqueNameError, GroupNotFoundError
-from pepdbagent.models import GroupListInfo, GroupInfo, GroupUpdateModel
-from pepdbagent.utils import create_digest, registry_path_converter
+from pepdbagent.models import GroupListInfo, GroupInfo, GroupUpdateModel, ProjectRegistryPath
+from pepdbagent.utils import tuple_converter
 from pepdbagent.modules.project import PEPDatabaseProject
 
 
@@ -41,7 +41,7 @@ class PEPDatabaseGroup:
         namespace: str = None,
         name: str = None,
         query: str = None,
-        admin: Union[List[str], str] = tuple(),
+        admin: Union[List[str], Tuple[str]] = tuple(),
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
     ) -> GroupListInfo:
@@ -111,16 +111,26 @@ class PEPDatabaseGroup:
             or_(PEPGroup.private.is_(False), PEPGroup.namespace.in_(admin))
         )
 
-        # TODO: add list of project to return object
         with Session(self._sa_engine) as session:
             query_result = session.scalar(statement)
 
             number_of_projects = len([kk.project for kk in query_result.projects])
+            project_list = []
+            for prj_list in query_result.projects:
+                project_list.append(
+                    ProjectRegistryPath(
+                        namespace=prj_list.project.namespace,
+                        name=prj_list.project.name,
+                        tag=prj_list.project.tag,
+                        private=prj_list.project.private,
+                    )
+                )
             return GroupInfo(
                 namespace=query_result.namespace,
                 name=query_result.name,
                 private=query_result.private,
                 number_of_projects=number_of_projects,
+                projects=project_list,
                 description=query_result.description,
                 last_update_date=query_result.last_update_date,
             )
@@ -143,16 +153,55 @@ class PEPDatabaseGroup:
         :param offset: number of results off set (that were already showed)
         :return: ????
         """
-        ...
-        # 1. Get Groups... what doest it mean? I should rethink this method...
+        _LOGGER.info(f"Running annotation search: (namespace: {namespace}, query: {search_str}.")
+
+        if admin is None:
+            admin = []
+        statement = select(PEPGroup)
+
+        statement = self._add_condition(
+            statement,
+            namespace=namespace,
+            search_str=search_str,
+            admin_list=admin,
+        )
+        # statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
+        statement = statement.limit(limit).offset(offset)
+
+        # query_results = self._pep_db_engine.session_execute(statement).all()
+        with Session(self._sa_engine) as session:
+            results_list = []
+            for query_result in session.scalars(statement):
+                number_of_projects = len([kk.project for kk in query_result.projects])
+                project_list = []
+                for prj_list in query_result.projects:
+                    project_list.append(
+                        ProjectRegistryPath(
+                            namespace=prj_list.project.namespace,
+                            name=prj_list.project.name,
+                            tag=prj_list.project.tag,
+                            private=prj_list.project.private,
+                        )
+                    )
+
+                results_list.append(
+                    GroupInfo(
+                        namespace=query_result.namespace,
+                        name=query_result.name,
+                        private=query_result.private,
+                        number_of_projects=number_of_projects,
+                        projects=project_list,
+                        description=query_result.description,
+                        last_update_date=query_result.last_update_date,
+                    )
+                )
+            return results_list
 
     def _count_groups(
         self,
         namespace: str = None,
         search_str: str = None,
         admin: Union[list, str] = tuple(),
-        offset: int = 0,
-        limit: int = 50,
     ) -> int:
         """
         Count groups using search pattern and namepsace. [This function is related to _find_groups]
@@ -162,8 +211,21 @@ class PEPDatabaseGroup:
         :param admin: string or list of admins [e.g. "Khoroshevskyi", or ["doc_adin","Khoroshevskyi"]]
         :return: Number of found groups
         """
-        ...
-        # 1. Get Groups... what doest it mean? I should rethink this method...
+        if admin is None:
+            admin = []
+        statement = select(func.count()).select_from(PEPGroup)
+        statement = self._add_condition(
+            statement,
+            namespace=namespace,
+            search_str=search_str,
+            admin_list=admin,
+        )
+        result = self._pep_db_engine.session_execute(statement).first()
+
+        try:
+            return result[0]
+        except IndexError:
+            return 0
 
     def create(
         self, namespace: str, name: str, private: bool, description: Optional[str] = ""
@@ -287,15 +349,41 @@ class PEPDatabaseGroup:
             )
         return None
 
-    def update(self, namespace: str, name: str, update_dict: GroupUpdateModel) -> None:
+    def update(
+        self, namespace: str, name: str, update_dict: Union[GroupUpdateModel, dict]
+    ) -> None:
         """
+        Update partial parts of the group in db
 
-        :param namespace:
-        :param name:
-        :param update_dict:
-        :return:
+        :param update_dict: dict with update key->values. Dict structure:
+            {
+                    private: Optional[bool]
+                    description: Optional[str]
+                    name: Optional[str]
+            }
+        :param namespace: group namespace
+        :param name: group name
+        :return: None
         """
-        pass
+        if isinstance(update_dict, dict):
+            update_dict = GroupUpdateModel(**update_dict)
+        update_final = update_dict.dict(exclude_unset=True, exclude_none=True)
+
+        statement = select(PEPGroup).where(
+            and_(PEPGroup.namespace == namespace, PEPGroup.name == name)
+        )
+
+        with Session(self._sa_engine) as session:
+            found_prj = session.scalars(statement).one()
+
+            if found_prj:
+                _LOGGER.debug(f"Project has been found: {found_prj.namespace}, {found_prj.name}")
+
+                for k, v in update_final.items():
+                    if getattr(found_prj, k) != v:
+                        setattr(found_prj, k, v)
+
+            session.commit()
 
     def exists(self, namespace: str, name: str) -> bool:
         """
@@ -324,3 +412,36 @@ class PEPDatabaseGroup:
         if result:
             return result[0]
         return None
+
+    @staticmethod
+    def _add_condition(
+        statement: Select,
+        namespace: str = None,
+        search_str: str = None,
+        admin_list: Union[str, List[str]] = None,
+    ) -> Select:
+        """
+        Add where clause to sqlalchemy statement (in project search)
+
+        :param statement: sqlalchemy representation of a SELECT statement.
+        :param namespace: project namespace sql:(where namespace = "")
+        :param search_str: search string that has to be found in the name or tag
+        :param admin_list: list or string of admin rights to namespace
+        :return: sqlalchemy representation of a SELECT statement with where clause.
+        """
+        admin_list = tuple_converter(admin_list)
+        if search_str:
+            sql_search_str = f"%{search_str}%"
+            search_query = or_(
+                PEPGroup.name.ilike(sql_search_str),
+                PEPGroup.description.ilike(sql_search_str),
+            )
+            statement = statement.where(search_query)
+        if namespace:
+            statement = statement.where(PEPGroup.namespace == namespace)
+
+        statement = statement.where(
+            or_(PEPGroup.private.is_(False), PEPGroup.namespace.in_(admin_list))
+        )
+
+        return statement
