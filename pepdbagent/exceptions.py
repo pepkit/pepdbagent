@@ -36,3 +36,13 @@ class GroupUniqueNameError(PEPDatabaseAgentError):
 class GroupNotFoundError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
         super().__init__(f"""Project does not exist. {msg}""")
+
+
+class IncorrectDateFormat(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Incorrect date format was provided. {msg}""")
+
+
+class FilterError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""pepdbagent filter error. {msg}""")
