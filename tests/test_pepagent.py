@@ -406,7 +406,7 @@ class TestAnnotation:
             [None, "re", 3],
         ],
     )
-    def test_serach_filter_success(self, initiate_pepdb_con, namespace, query, found_number):
+    def test_search_filter_success(self, initiate_pepdb_con, namespace, query, found_number):
         date_now = datetime.datetime.now()
         date_old = datetime.datetime.now() - datetime.timedelta(days=5)
         result = initiate_pepdb_con.annotation.get(
