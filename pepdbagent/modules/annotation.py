@@ -432,7 +432,7 @@ class PEPDatabaseAnnotation:
         elif filter_by == "last_update_date":
             statement = statement.filter(Projects.last_update_date.between(start_date, end_date))
         else:
-            raise FilterError("Incorrect filter was provided!")
+            raise FilterError("Invalid filter_by was provided!")
         return statement
 
     def get_project_number_in_namespace(
