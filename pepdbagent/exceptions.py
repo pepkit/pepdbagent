@@ -26,3 +26,13 @@ class ProjectNotFoundError(PEPDatabaseAgentError):
 class ProjectUniqueNameError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
         super().__init__(f"""{msg}""")
+
+
+class IncorrectDateFormat(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Incorrect date format was provided. {msg}""")
+
+
+class FilterError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""pepdbagent filter error. {msg}""")
