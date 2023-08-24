@@ -1,16 +1,23 @@
 import logging
-from typing import List, Union
+from datetime import datetime
+from typing import List, Literal, Optional, Union
 
-from sqlalchemy import Engine, func, select
-from sqlalchemy import and_, or_
+from sqlalchemy import Engine, and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.selectable import Select
 
-from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET, DEFAULT_TAG, PKG_NAME
-from pepdbagent.db_utils import Projects, BaseEngine
-from pepdbagent.exceptions import ProjectNotFoundError, RegistryPathError
+from pepdbagent.const import (
+    DEFAULT_LIMIT,
+    DEFAULT_OFFSET,
+    DEFAULT_TAG,
+    PKG_NAME,
+    SUBMISSION_DATE_KEY,
+    LAST_UPDATE_DATE_KEY,
+)
+from pepdbagent.db_utils import BaseEngine, Projects
+from pepdbagent.exceptions import FilterError, ProjectNotFoundError, RegistryPathError
 from pepdbagent.models import AnnotationList, AnnotationModel
-from pepdbagent.utils import registry_path_converter, tuple_converter
+from pepdbagent.utils import convert_date_string_to_date, registry_path_converter, tuple_converter
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -40,6 +47,9 @@ class PEPDatabaseAnnotation:
         offset: int = DEFAULT_OFFSET,
         order_by: str = "update_date",
         order_desc: bool = False,
+        filter_by: Optional[Literal["submission_date", "last_update_date"]] = None,
+        filter_start_date: Optional[str] = None,
+        filter_end_date: Optional[str] = None,
     ) -> AnnotationList:
         """
         Get project annotations.
@@ -62,7 +72,12 @@ class PEPDatabaseAnnotation:
             Options: ["name", "update_date", "submission_date"]
             [Default: update_date]
         :param order_desc: Sort the records in descending order. [Default: False]
-        :return: pydantic model: AnnotationReturnModel
+        :param filter_by: data to use filter on.
+            Options: ["submission_date", "last_update_date"]
+            [Default: filter won't be used]
+        :param filter_start_date: Filter start date. Format: "YYYY/MM/DD"
+        :param filter_end_date: Filter end date. Format: "YYYY/MM/DD". if None: present date will be used
+        :return: pydantic model: AnnotationList
         """
         if all([namespace, name, tag]):
             found_annotation = [
@@ -82,7 +97,14 @@ class PEPDatabaseAnnotation:
         return AnnotationList(
             limit=limit,
             offset=offset,
-            count=self._count_projects(namespace=namespace, search_str=query, admin=admin),
+            count=self._count_projects(
+                namespace=namespace,
+                search_str=query,
+                admin=admin,
+                filter_by=filter_by,
+                filter_end_date=filter_end_date,
+                filter_start_date=filter_start_date,
+            ),
             results=self._get_projects(
                 namespace=namespace,
                 search_str=query,
@@ -91,6 +113,9 @@ class PEPDatabaseAnnotation:
                 limit=limit,
                 order_by=order_by,
                 order_desc=order_desc,
+                filter_by=filter_by,
+                filter_end_date=filter_end_date,
+                filter_start_date=filter_start_date,
             ),
         )
 
@@ -200,12 +225,20 @@ class PEPDatabaseAnnotation:
         namespace: str = None,
         search_str: str = None,
         admin: Union[str, List[str]] = None,
+        filter_by: Optional[Literal["submission_date", "last_update_date"]] = None,
+        filter_start_date: Optional[str] = None,
+        filter_end_date: Optional[str] = None,
     ) -> int:
         """
         Count projects. [This function is related to _find_projects]
         :param namespace: namespace where to search for a project
         :param search_str: search string. will be searched in name, tag and description information
         :param admin: string or list of admins [e.g. "Khoroshevskyi", or ["doc_adin","Khoroshevskyi"]]
+        :param filter_by: data to use filter on.
+            Options: ["submission_date", "last_update_date"]
+            [Default: filter won't be used]
+        :param filter_start_date: Filter start date. Format: "YYYY:MM:DD"
+        :param filter_end_date: Filter end date. Format: "YYYY:MM:DD". if None: present date will be used
         :return: number of found project in specified namespace
         """
         if admin is None:
@@ -216,6 +249,9 @@ class PEPDatabaseAnnotation:
             namespace=namespace,
             search_str=search_str,
             admin_list=admin,
+        )
+        statement = self._add_date_filter_if_provided(
+            statement, filter_by, filter_start_date, filter_end_date
         )
         result = self._pep_db_engine.session_execute(statement).first()
 
@@ -233,6 +269,9 @@ class PEPDatabaseAnnotation:
         offset: int = DEFAULT_OFFSET,
         order_by: str = "update_date",
         order_desc: bool = False,
+        filter_by: Optional[Literal["submission_date", "last_update_date"]] = None,
+        filter_start_date: Optional[str] = None,
+        filter_end_date: Optional[str] = None,
     ) -> List[AnnotationModel]:
         """
         Get projects by providing search string.
@@ -246,6 +285,11 @@ class PEPDatabaseAnnotation:
             Options: ["name", "update_date", "submission_date"]
             [Default: "update_date"]
         :param order_desc: Sort the records in descending order. [Default: False]
+        :param filter_by: data to use filter on.
+            Options: ["submission_date", "last_update_date"]
+            [Default: filter won't be used]
+        :param filter_start_date: Filter start date. Format: "YYYY:MM:DD"
+        :param filter_end_date: Filter end date. Format: "YYYY:MM:DD". if None: present date will be used
         :return: list of found projects with their annotations.
         """
         _LOGGER.info(f"Running annotation search: (namespace: {namespace}, query: {search_str}.")
@@ -270,6 +314,9 @@ class PEPDatabaseAnnotation:
             namespace=namespace,
             search_str=search_str,
             admin_list=admin,
+        )
+        statement = self._add_date_filter_if_provided(
+            statement, filter_by, filter_start_date, filter_end_date
         )
         statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
         statement = statement.limit(limit).offset(offset)
@@ -312,7 +359,7 @@ class PEPDatabaseAnnotation:
             order_by_obj = Projects.last_update_date
         elif by == "name":
             order_by_obj = Projects.name
-        elif by == "submission_date":
+        elif by == SUBMISSION_DATE_KEY:
             order_by_obj = Projects.submission_date
         else:
             _LOGGER.warning(
@@ -361,6 +408,45 @@ class PEPDatabaseAnnotation:
         )
 
         return statement
+
+    @staticmethod
+    def _add_date_filter_if_provided(
+        statement: Select,
+        filter_by: Optional[Literal["submission_date", "last_update_date"]],
+        filter_start_date: Optional[str],
+        filter_end_date: Optional[str] = None,
+    ):
+        """
+        Add filter to where clause to sqlalchemy statement (in project search)
+
+        :param statement: sqlalchemy representation of a SELECT statement with where clause
+        :param filter_by: data to use filter on.
+            Options: ["submission_date", "last_update_date"]
+        :param filter_start_date: Filter start date. Format: "YYYY:MM:DD"
+        :param filter_end_date: Filter end date. Format: "YYYY:MM:DD". if None: present date will be used
+        :return: sqlalchemy representation of a SELECT statement with where clause with added filter
+        """
+        if filter_by and filter_start_date:
+            start_date = convert_date_string_to_date(filter_start_date)
+            if filter_end_date:
+                end_date = convert_date_string_to_date(filter_end_date)
+            else:
+                end_date = datetime.now()
+            if filter_by == SUBMISSION_DATE_KEY:
+                statement = statement.filter(
+                    Projects.submission_date.between(start_date, end_date)
+                )
+            elif filter_by == LAST_UPDATE_DATE_KEY:
+                statement = statement.filter(
+                    Projects.last_update_date.between(start_date, end_date)
+                )
+            else:
+                raise FilterError("Invalid filter_by was provided!")
+            return statement
+        else:
+            if filter_by:
+                _LOGGER.warning(f"filter_start_date was not provided, skipping filter...")
+            return statement
 
     def get_project_number_in_namespace(
         self,

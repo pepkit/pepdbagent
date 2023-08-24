@@ -1,8 +1,10 @@
-import pytest
-import peppy
+import datetime
 import os
-from pepdbagent.exceptions import ProjectNotFoundError
 
+import peppy
+import pytest
+
+from pepdbagent.exceptions import FilterError, ProjectNotFoundError
 
 DNS = f"postgresql://postgres:docker@localhost:5432/pep-db"
 
@@ -396,6 +398,67 @@ class TestAnnotation:
             "submission_date",
             "pep_schema",
         }
+
+    @pytest.mark.parametrize(
+        "namespace, query, found_number",
+        [
+            ["namespace1", "ame", 2],
+            [None, "re", 3],
+        ],
+    )
+    def test_search_filter_success(self, initiate_pepdb_con, namespace, query, found_number):
+        date_now = datetime.datetime.now()
+        date_old = datetime.datetime.now() - datetime.timedelta(days=5)
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace,
+            query=query,
+            admin="private_test",
+            filter_by="submission_date",
+            filter_start_date=date_old.strftime("%Y/%m/%d"),
+            filter_end_date=date_now.strftime("%Y/%m/%d"),
+        )
+        assert len(result.results) == found_number
+
+    @pytest.mark.parametrize(
+        "namespace, query, found_number",
+        [
+            ["namespace1", "ame", 0],
+            [None, "re", 0],
+        ],
+    )
+    def test_search_filter_zero_prj(self, initiate_pepdb_con, namespace, query, found_number):
+        date_now = datetime.datetime.now() - datetime.timedelta(days=2)
+        date_old = date_now - datetime.timedelta(days=2)
+        result = initiate_pepdb_con.annotation.get(
+            namespace=namespace,
+            query=query,
+            admin="private_test",
+            filter_by="submission_date",
+            filter_start_date=date_old.strftime("%Y/%m/%d"),
+            filter_end_date=date_now.strftime("%Y/%m/%d"),
+        )
+        assert len(result.results) == found_number
+
+    @pytest.mark.parametrize(
+        "namespace, query, found_number",
+        [
+            ["namespace1", "ame", 2],
+        ],
+    )
+    def test_search_incorrect_filter_by_string(
+        self, initiate_pepdb_con, namespace, query, found_number
+    ):
+        date_now = datetime.datetime.now() - datetime.timedelta(days=2)
+        date_old = date_now - datetime.timedelta(days=2)
+        with pytest.raises(FilterError):
+            result = initiate_pepdb_con.annotation.get(
+                namespace=namespace,
+                query=query,
+                admin="private_test",
+                filter_by="incorrect",
+                filter_start_date=date_old.strftime("%Y/%m/%d"),
+                filter_end_date=date_now.strftime("%Y/%m/%d"),
+            )
 
 
 class TestNamespace:

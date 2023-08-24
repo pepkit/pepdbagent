@@ -1,6 +1,6 @@
 sqlalchemy>=2.0.0
 logmuse
-peppy>=0.35.7
+peppy>=0.40.0a4
 ubiquerg>=0.6.2
 coloredlogs>=15.0.1
 pytest-mock

@@ -1,3 +1,4 @@
+import datetime
 import json
 from collections.abc import Iterable
 from hashlib import md5
@@ -6,7 +7,7 @@ from typing import Tuple, Union
 import ubiquerg
 from peppy.const import SAMPLE_RAW_DICT_KEY
 
-from .exceptions import RegistryPathError
+from .exceptions import IncorrectDateFormat, RegistryPathError
 
 
 def is_valid_registry_path(rpath: str) -> bool:
@@ -93,3 +94,13 @@ def tuple_converter(value: Union[tuple, list, str, None]) -> tuple:
     return tuple(
         " ",
     )
+
+
+def convert_date_string_to_date(date_string: str) -> datetime.datetime:
+    """
+    Convert string into datetime format
+
+    :param date_str: date string in format [YYYY/MM/DD]. e.g. 2022/02/22
+    :return: datetime format
+    """
+    return datetime.datetime.strptime(date_string, "%Y/%m/%d") + datetime.timedelta(days=1)
