@@ -103,7 +103,4 @@ def convert_date_string_to_date(date_string: str) -> datetime.datetime:
     :param date_str: date string in format [YYYY/MM/DD]. e.g. 2022/02/22
     :return: datetime format
     """
-    try:
-        return datetime.datetime.strptime(date_string, "%Y/%m/%d") + datetime.timedelta(days=1)
-    except Exception:
-        raise IncorrectDateFormat
+    return datetime.datetime.strptime(date_string, "%Y/%m/%d") + datetime.timedelta(days=1)

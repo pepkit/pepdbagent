@@ -6,7 +6,14 @@ from sqlalchemy import Engine, and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.selectable import Select
 
-from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET, DEFAULT_TAG, PKG_NAME
+from pepdbagent.const import (
+    DEFAULT_LIMIT,
+    DEFAULT_OFFSET,
+    DEFAULT_TAG,
+    PKG_NAME,
+    SUBMISSION_DATE_KEY,
+    LAST_UPDATE_DATE_KEY,
+)
 from pepdbagent.db_utils import BaseEngine, Projects
 from pepdbagent.exceptions import FilterError, ProjectNotFoundError, RegistryPathError
 from pepdbagent.models import AnnotationList, AnnotationModel
@@ -243,11 +250,9 @@ class PEPDatabaseAnnotation:
             search_str=search_str,
             admin_list=admin,
         )
-        if filter_by:
-            statement = self._add_date_filter(
-                statement, filter_by, filter_start_date, filter_end_date
-            )
-        ff = str(statement)
+        statement = self._add_date_filter_if_provided(
+            statement, filter_by, filter_start_date, filter_end_date
+        )
         result = self._pep_db_engine.session_execute(statement).first()
 
         try:
@@ -310,10 +315,9 @@ class PEPDatabaseAnnotation:
             search_str=search_str,
             admin_list=admin,
         )
-        if filter_by:
-            statement = self._add_date_filter(
-                statement, filter_by, filter_start_date, filter_end_date
-            )
+        statement = self._add_date_filter_if_provided(
+            statement, filter_by, filter_start_date, filter_end_date
+        )
         statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
         statement = statement.limit(limit).offset(offset)
 
@@ -355,7 +359,7 @@ class PEPDatabaseAnnotation:
             order_by_obj = Projects.last_update_date
         elif by == "name":
             order_by_obj = Projects.name
-        elif by == "submission_date":
+        elif by == SUBMISSION_DATE_KEY:
             order_by_obj = Projects.submission_date
         else:
             _LOGGER.warning(
@@ -406,7 +410,7 @@ class PEPDatabaseAnnotation:
         return statement
 
     @staticmethod
-    def _add_date_filter(
+    def _add_date_filter_if_provided(
         statement: Select,
         filter_by: Optional[Literal["submission_date", "last_update_date"]],
         filter_start_date: Optional[str],
@@ -422,18 +426,27 @@ class PEPDatabaseAnnotation:
         :param filter_end_date: Filter end date. Format: "YYYY:MM:DD". if None: present date will be used
         :return: sqlalchemy representation of a SELECT statement with where clause with added filter
         """
-        start_date = convert_date_string_to_date(filter_start_date)
-        if filter_end_date:
-            end_date = convert_date_string_to_date(filter_end_date)
+        if filter_by and filter_start_date:
+            start_date = convert_date_string_to_date(filter_start_date)
+            if filter_end_date:
+                end_date = convert_date_string_to_date(filter_end_date)
+            else:
+                end_date = datetime.now()
+            if filter_by == SUBMISSION_DATE_KEY:
+                statement = statement.filter(
+                    Projects.submission_date.between(start_date, end_date)
+                )
+            elif filter_by == LAST_UPDATE_DATE_KEY:
+                statement = statement.filter(
+                    Projects.last_update_date.between(start_date, end_date)
+                )
+            else:
+                raise FilterError("Invalid filter_by was provided!")
+            return statement
         else:
-            end_date = datetime.now()
-        if filter_by == "submission_date":
-            statement = statement.filter(Projects.submission_date.between(start_date, end_date))
-        elif filter_by == "last_update_date":
-            statement = statement.filter(Projects.last_update_date.between(start_date, end_date))
-        else:
-            raise FilterError("Invalid filter_by was provided!")
-        return statement
+            if filter_by:
+                _LOGGER.warning(f"filter_start_date was not provided, skipping filter...")
+            return statement
 
     def get_project_number_in_namespace(
         self,

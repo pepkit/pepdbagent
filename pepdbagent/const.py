@@ -15,3 +15,6 @@ DEFAULT_LIMIT = 100
 POSTGRES_DIALECT = "postgresql"
 
 DEFAULT_LIMIT_INFO = 5
+
+SUBMISSION_DATE_KEY = "submission_date"
+LAST_UPDATE_DATE_KEY = "last_update_date"
