@@ -211,6 +211,7 @@ class PEPDatabaseGroup:
         :param admin: string or list of admins [e.g. "Khoroshevskyi", or ["doc_adin","Khoroshevskyi"]]
         :return: Number of found groups
         """
+
         if admin is None:
             admin = []
         statement = select(func.count()).select_from(PEPGroup)
@@ -336,7 +337,7 @@ class PEPDatabaseGroup:
         """
         if not self.exists(namespace=namespace, name=name):
             raise GroupNotFoundError(
-                f"Can't delete unexciting group: namespace : '{namespace}', name: '{name}'."
+                f"Can't delete not existing group: namespace : '{namespace}', name: '{name}'."
             )
         with self._sa_engine.begin() as conn:
             conn.execute(

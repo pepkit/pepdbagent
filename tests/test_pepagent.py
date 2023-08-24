@@ -414,8 +414,8 @@ class TestAnnotation:
             query=query,
             admin="private_test",
             filter_by="submission_date",
-            filter_start_date=date_old.strftime("%Y:%m:%d"),
-            filter_end_date=date_now.strftime("%Y:%m:%d"),
+            filter_start_date=date_old.strftime("%Y/%m/%d"),
+            filter_end_date=date_now.strftime("%Y/%m/%d"),
         )
         assert len(result.results) == found_number
 
@@ -434,8 +434,8 @@ class TestAnnotation:
             query=query,
             admin="private_test",
             filter_by="submission_date",
-            filter_start_date=date_old.strftime("%Y:%m:%d"),
-            filter_end_date=date_now.strftime("%Y:%m:%d"),
+            filter_start_date=date_old.strftime("%Y/%m/%d"),
+            filter_end_date=date_now.strftime("%Y/%m/%d"),
         )
         assert len(result.results) == found_number
 
@@ -456,8 +456,8 @@ class TestAnnotation:
                 query=query,
                 admin="private_test",
                 filter_by="incorrect",
-                filter_start_date=date_old.strftime("%Y:%m:%d"),
-                filter_end_date=date_now.strftime("%Y:%m:%d"),
+                filter_start_date=date_old.strftime("%Y/%m/%d"),
+                filter_end_date=date_now.strftime("%Y/%m/%d"),
             )
 
 
@@ -568,7 +568,7 @@ class TestGroupPEPs:
         initiate_pepdb_con.group.create(namespace=namespace, name=name, private=False)
         initiate_pepdb_con.group.delete(namespace, name)
 
-        with pytest.raises(GroupNotFoundError, match="Can't delete unexciting"):
+        with pytest.raises(GroupNotFoundError, match="Can't delete not existing"):
             initiate_pepdb_con.group.delete(namespace, name)
 
     @pytest.mark.parametrize(

@@ -68,8 +68,8 @@ class PEPDatabaseAnnotation:
         :param filter_by: data to use filter on.
             Options: ["submission_date", "last_update_date"]
             [Default: filter won't be used]
-        :param filter_start_date: Filter start date. Format: "YYYY:MM:DD"
-        :param filter_end_date: Filter end date. Format: "YYYY:MM:DD". if None: present date will be used
+        :param filter_start_date: Filter start date. Format: "YYYY/MM/DD"
+        :param filter_end_date: Filter end date. Format: "YYYY/MM/DD". if None: present date will be used
         :return: pydantic model: AnnotationList
         """
         if all([namespace, name, tag]):
@@ -244,7 +244,9 @@ class PEPDatabaseAnnotation:
             admin_list=admin,
         )
         if filter_by:
-            statement = self._add_filter(statement, filter_by, filter_start_date, filter_end_date)
+            statement = self._add_date_filter(
+                statement, filter_by, filter_start_date, filter_end_date
+            )
         ff = str(statement)
         result = self._pep_db_engine.session_execute(statement).first()
 
@@ -309,7 +311,9 @@ class PEPDatabaseAnnotation:
             admin_list=admin,
         )
         if filter_by:
-            statement = self._add_filter(statement, filter_by, filter_start_date, filter_end_date)
+            statement = self._add_date_filter(
+                statement, filter_by, filter_start_date, filter_end_date
+            )
         statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
         statement = statement.limit(limit).offset(offset)
 
@@ -402,7 +406,7 @@ class PEPDatabaseAnnotation:
         return statement
 
     @staticmethod
-    def _add_filter(
+    def _add_date_filter(
         statement: Select,
         filter_by: Optional[Literal["submission_date", "last_update_date"]],
         filter_start_date: Optional[str],
