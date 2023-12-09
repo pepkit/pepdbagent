@@ -1,11 +1,10 @@
 import datetime
 import logging
-from typing import Any, Optional, List
+from typing import Optional, List
 
 from sqlalchemy import (
     BigInteger,
     FetchedValue,
-    PrimaryKeyConstraint,
     Result,
     Select,
     String,
@@ -13,7 +12,6 @@ from sqlalchemy import (
     select,
     TIMESTAMP,
     ForeignKey,
-    ForeignKeyConstraint,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSON
@@ -92,6 +90,7 @@ class Projects(Base):
         onupdate=deliver_update_date, default=deliver_update_date
     )
     pep_schema: Mapped[Optional[str]]
+    pop: Mapped[Optional[bool]] = mapped_column(default=False)
     samples_mapping: Mapped[List["Samples"]] = relationship(
         back_populates="sample_mapping", cascade="all, delete-orphan"
     )

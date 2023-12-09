@@ -1,8 +1,5 @@
 # file with pydantic models
-import datetime
 from typing import List, Optional, Union
-
-import peppy
 from pydantic import BaseModel, Extra, Field, validator
 
 
@@ -21,6 +18,7 @@ class AnnotationModel(BaseModel):
     submission_date: Optional[str]
     digest: Optional[str]
     pep_schema: Optional[str]
+    pop: Optional[bool] = False
 
     class Config:
         allow_population_by_field_name = True

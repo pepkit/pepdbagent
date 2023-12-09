@@ -5,8 +5,9 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy import text
 
-DNS = f"postgresql://postgres:docker@localhost:5432/pep-db"
 from pepdbagent import PEPDatabaseAgent
+
+DNS = "postgresql://postgres:docker@localhost:5432/pep-db"
 
 
 DATA_PATH = os.path.join(
