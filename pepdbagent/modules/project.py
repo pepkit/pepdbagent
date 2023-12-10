@@ -426,6 +426,7 @@ class PEPDatabaseProject:
                     update_dict["subsamples"] = project_dict[SUBSAMPLE_RAW_LIST_KEY]
 
                 update_values = UpdateItems(**update_dict)
+                # update_values = UpdateItems(tag="ff")
 
             update_values = self.__create_update_dict(update_values)
 
@@ -488,14 +489,14 @@ class PEPDatabaseProject:
             updating values
         :return: unified update dict
         """
-        update_final = UpdateModel()
+        update_final = UpdateModel.model_construct()
 
         if update_values.name is not None:
             if update_values.config is not None:
                 update_values.config[NAME_KEY] = update_values.name
             update_final = UpdateModel(
                 name=update_values.name,
-                **update_final.dict(exclude_unset=True),
+                **update_final.model_dump(exclude_unset=True),
             )
 
         if update_values.description is not None:
@@ -503,49 +504,49 @@ class PEPDatabaseProject:
                 update_values.config[DESCRIPTION_KEY] = update_values.description
             update_final = UpdateModel(
                 description=update_values.description,
-                **update_final.dict(exclude_unset=True),
+                **update_final.model_dump(exclude_unset=True),
             )
         if update_values.config is not None:
             update_final = UpdateModel(
-                config=update_values.config, **update_final.dict(exclude_unset=True)
+                config=update_values.config, **update_final.model_dump(exclude_unset=True)
             )
             name = update_values.config.get(NAME_KEY)
             description = update_values.config.get(DESCRIPTION_KEY)
             if name:
                 update_final = UpdateModel(
                     name=name,
-                    **update_final.dict(exclude_unset=True, exclude={NAME_KEY}),
+                    **update_final.model_dump(exclude_unset=True, exclude={NAME_KEY}),
                 )
             if description:
                 update_final = UpdateModel(
                     description=description,
-                    **update_final.dict(exclude_unset=True, exclude={DESCRIPTION_KEY}),
+                    **update_final.model_dump(exclude_unset=True, exclude={DESCRIPTION_KEY}),
                 )
 
         if update_values.tag is not None:
             update_final = UpdateModel(
-                tag=update_values.tag, **update_final.dict(exclude_unset=True)
+                tag=update_values.tag, **update_final.model_dump(exclude_unset=True)
             )
 
         if update_values.is_private is not None:
             update_final = UpdateModel(
                 is_private=update_values.is_private,
-                **update_final.dict(exclude_unset=True),
+                **update_final.model_dump(exclude_unset=True),
             )
 
         if update_values.pep_schema is not None:
             update_final = UpdateModel(
                 pep_schema=update_values.pep_schema,
-                **update_final.dict(exclude_unset=True),
+                **update_final.model_dump(exclude_unset=True),
             )
 
         if update_values.number_of_samples is not None:
             update_final = UpdateModel(
                 number_of_samples=update_values.number_of_samples,
-                **update_final.dict(exclude_unset=True),
+                **update_final.model_dump(exclude_unset=True),
             )
 
-        return update_final.dict(exclude_unset=True, exclude_none=True)
+        return update_final.model_dump(exclude_unset=True, exclude_none=True)
 
     def exists(
         self,

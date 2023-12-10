@@ -5,8 +5,8 @@ import peppy
 import pytest
 
 from pepdbagent.exceptions import FilterError, ProjectNotFoundError
+from .conftest import DNS
 
-DNS = "postgresql://postgres:docker@localhost:5432/pep-db"
 
 DATA_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -60,7 +60,7 @@ class TestProject:
     )
     def test_get_project_error(self, initiate_pepdb_con, namespace, name, tag):
         with pytest.raises(ProjectNotFoundError, match="Project does not exist."):
-            initiate_pepdb_con.project.get(namespace=namespace, name=name, tag=tag)
+            kk = initiate_pepdb_con.project.get(namespace=namespace, name=name, tag=tag)
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -97,7 +97,7 @@ class TestProject:
         initiate_pepdb_con.project.delete(namespace=namespace, name=name, tag="default")
 
         with pytest.raises(ProjectNotFoundError, match="Project does not exist."):
-            initiate_pepdb_con.project.get(namespace=namespace, name=name, tag="default")
+            kk = initiate_pepdb_con.project.get(namespace=namespace, name=name, tag="default")
 
 
 class TestProjectUpdate:
@@ -385,7 +385,7 @@ class TestAnnotation:
             name=name,
             tag="default",
         )
-        assert result.results[0].__fields_set__ == {
+        assert result.results[0].model_fields_set == {
             "is_private",
             "tag",
             "namespace",
@@ -407,7 +407,7 @@ class TestAnnotation:
         ],
     )
     def test_search_filter_success(self, initiate_pepdb_con, namespace, query, found_number):
-        date_now = datetime.datetime.now() + datetime.timedelta(days=1)
+        date_now = datetime.datetime.now()
         date_old = datetime.datetime.now() - datetime.timedelta(days=5)
         result = initiate_pepdb_con.annotation.get(
             namespace=namespace,
@@ -451,7 +451,7 @@ class TestAnnotation:
         date_now = datetime.datetime.now() - datetime.timedelta(days=2)
         date_old = date_now - datetime.timedelta(days=2)
         with pytest.raises(FilterError):
-            initiate_pepdb_con.annotation.get(
+            result = initiate_pepdb_con.annotation.get(
                 namespace=namespace,
                 query=query,
                 admin="private_test",
