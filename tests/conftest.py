@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from pepdbagent import PEPDatabaseAgent
 
-DNS = "postgresql://postgres:docker@localhost:5432/pep-db"
+DNS = "postgresql+psycopg://postgres:docker@localhost:5432/pep-db"
 
 
 DATA_PATH = os.path.join(

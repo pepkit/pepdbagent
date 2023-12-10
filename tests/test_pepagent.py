@@ -7,8 +7,7 @@ import pytest
 import pepdbagent
 
 from pepdbagent.exceptions import FilterError, ProjectNotFoundError, ProjectNotInFavorites
-
-DNS = "postgresql://postgres:docker@localhost:5432/pep-db"
+from .conftest import DNS
 
 DATA_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
