@@ -1,10 +1,12 @@
 import datetime
 import os
+import warnings
 
 import peppy
 import pytest
+import pepdbagent
 
-from pepdbagent.exceptions import FilterError, ProjectNotFoundError
+from pepdbagent.exceptions import FilterError, ProjectNotFoundError, ProjectNotInFavorites
 
 DNS = "postgresql://postgres:docker@localhost:5432/pep-db"
 
@@ -19,6 +21,24 @@ def get_path_to_example_file(namespace, project_name):
     return os.path.join(DATA_PATH, namespace, project_name, "project_config.yaml")
 
 
+def db_setup():
+    # Check if the database is setup
+    try:
+        pepdbagent.PEPDatabaseAgent(dsn=DNS)
+    except Exception:
+        warnings.warn(
+            UserWarning(
+                f"Skipping tests, because DB is not setup. {DNS}. To setup DB go to README.md"
+            )
+        )
+        return False
+    return True
+
+
+@pytest.mark.skipif(
+    not db_setup(),
+    reason="DB is not setup",
+)
 class TestProject:
     """
     Test project methods
@@ -100,6 +120,10 @@ class TestProject:
             initiate_pepdb_con.project.get(namespace=namespace, name=name, tag="default")
 
 
+@pytest.mark.skipif(
+    not db_setup(),
+    reason="DB is not setup",
+)
 class TestProjectUpdate:
     @pytest.mark.parametrize(
         "namespace, name,new_name",
@@ -232,6 +256,10 @@ class TestProjectUpdate:
         assert is_private is True
 
 
+@pytest.mark.skipif(
+    not db_setup(),
+    reason="DB is not setup",
+)
 class TestAnnotation:
     """
     Test function within annotation class
@@ -461,6 +489,10 @@ class TestAnnotation:
             )
 
 
+@pytest.mark.skipif(
+    not db_setup(),
+    reason="DB is not setup",
+)
 class TestNamespace:
     """
     Test function within namespace class
@@ -484,3 +516,70 @@ class TestNamespace:
         result = initiate_pepdb_con.namespace.info()
         assert len(result.results) == 4
         assert result.results[3].number_of_projects == 1
+
+
+@pytest.mark.skipif(
+    not db_setup(),
+    reason="DB is not setup",
+)
+class TestFavorites:
+    """
+    Test function within user class
+    """
+
+    def test_add_projects_to_favorites(self, initiate_pepdb_con):
+        result = initiate_pepdb_con.annotation.get(
+            namespace="namespace1",
+        )
+        for project in result.results:
+            initiate_pepdb_con.user.add_to_favorites(
+                "random_namespace", project.namespace, project.name, "default"
+            )
+        fav_results = initiate_pepdb_con.user.get_favorites("random_namespace")
+
+        assert fav_results.count == len(result.results)
+
+        # This can fail if the order of the results is different
+        assert fav_results.results[0].namespace == result.results[0].namespace
+
+    def test_count_project_none(self, initiate_pepdb_con):
+        result = initiate_pepdb_con.user.get_favorites("private_test")
+        assert result.count == 0
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+        ],
+    )
+    def test_count_project_one(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.user.add_to_favorites(namespace, namespace, name, "default")
+        result = initiate_pepdb_con.user.get_favorites("namespace1")
+        assert result.count == 1
+        result1 = initiate_pepdb_con.user.get_favorites("private_test")
+        assert result1.count == 0
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+        ],
+    )
+    def test_remove_from_favorite(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.user.add_to_favorites("namespace1", namespace, name, "default")
+        initiate_pepdb_con.user.add_to_favorites("namespace1", namespace, "amendments2", "default")
+        result = initiate_pepdb_con.user.get_favorites("namespace1")
+        assert result.count == len(result.results) == 2
+        initiate_pepdb_con.user.remove_from_favorites("namespace1", namespace, name, "default")
+        result = initiate_pepdb_con.user.get_favorites("namespace1")
+        assert result.count == len(result.results) == 1
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+        ],
+    )
+    def test_remove_from_favorite_error(self, initiate_pepdb_con, namespace, name):
+        with pytest.raises(ProjectNotInFavorites):
+            initiate_pepdb_con.user.remove_from_favorites("namespace1", namespace, name, "default")

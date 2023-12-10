@@ -1,5 +1,5 @@
 import logging
-from typing import List, Union
+from typing import List, Union, Tuple
 
 from sqlalchemy import distinct, func, or_, select, text
 from sqlalchemy.sql.selectable import Select
@@ -141,7 +141,7 @@ class PEPDatabaseNamespace:
     def _add_condition(
         statement: Select,
         search_str: str = None,
-        admin_list: Union[str, List[str]] = None,
+        admin_list: Union[str, List[str], Tuple[str]] = None,
     ) -> Select:
         """
         Add where clause to sqlalchemy statement (in namespace search)

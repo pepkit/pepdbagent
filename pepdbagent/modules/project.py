@@ -363,6 +363,7 @@ class PEPDatabaseProject:
                     found_prj.config = project_dict[CONFIG_KEY]
                     found_prj.description = description
                     found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
+                    found_prj.pop = pop
 
                     # Deleting old samples and subsamples
                     if found_prj.samples_mapping:
@@ -604,3 +605,22 @@ class PEPDatabaseProject:
                 projects_sa.subsamples_mapping.append(
                     Subsamples(subsample=sub_item, subsample_number=i, row_number=row_number)
                 )
+
+    def get_project_id(self, namespace: str, name: str, tag: str) -> Union[int, None]:
+        """
+        Get Project id by providing namespace, name, and tag
+
+        :param namespace: project namespace
+        :param name: project name
+        :param tag: project tag
+        :return: projects id
+        """
+        statement = select(Projects.id).where(
+            and_(Projects.namespace == namespace, Projects.name == name, Projects.tag == tag)
+        )
+        with Session(self._sa_engine) as session:
+            result = session.execute(statement).one_or_none()
+
+        if result:
+            return result[0]
+        return None

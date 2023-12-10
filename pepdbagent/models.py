@@ -2,6 +2,8 @@
 from typing import List, Optional, Union
 from pydantic import BaseModel, Extra, Field, validator
 
+from pepdbagent.const import DEFAULT_TAG
+
 
 class AnnotationModel(BaseModel):
     """
@@ -147,3 +149,13 @@ class ListOfNamespaceInfo(BaseModel):
     number_of_namespaces: int
     limit: int
     results: List[NamespaceInfo]
+
+
+class ProjectRegistryPath(BaseModel):
+    """
+    Project Namespace
+    """
+
+    namespace: str
+    name: str
+    tag: str = DEFAULT_TAG
