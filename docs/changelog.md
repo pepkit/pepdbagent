@@ -2,6 +2,11 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.7.0] -- 2023-XX-XX
+- Added pop to project table and annotation model
+- Switched to pydantic2
+- Updated requirements (psycopg2 -> psycopg3)
+
 ## [0.6.0] -- 2023-08-24
 - Added date filter to project annotation
 

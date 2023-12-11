@@ -4,14 +4,20 @@ import logging
 from typing import Union, List, NoReturn
 
 import peppy
-from sqlalchemy import Engine, and_, delete, insert, or_, select, update
+from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
 from sqlalchemy import Select
 
 from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_LIST_KEY, CONFIG_KEY
 
-from pepdbagent.const import *
+from pepdbagent.const import (
+    DEFAULT_TAG,
+    DESCRIPTION_KEY,
+    NAME_KEY,
+    PKG_NAME,
+)
+
 from pepdbagent.db_utils import Projects, Samples, Subsamples, BaseEngine
 from pepdbagent.exceptions import ProjectNotFoundError, ProjectUniqueNameError
 from pepdbagent.models import UpdateItems, UpdateModel
@@ -200,6 +206,7 @@ class PEPDatabaseProject:
         tag: str = DEFAULT_TAG,
         description: str = None,
         is_private: bool = False,
+        pop: bool = False,
         pep_schema: str = None,
         overwrite: bool = False,
         update_only: bool = False,
@@ -214,7 +221,8 @@ class PEPDatabaseProject:
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
         :param is_private: boolean value if the project should be visible just for user that creates it.
-        :param pep_schema: assign PEP to a specific schema. [DefaultL: None]
+        :param pep_schema: assign PEP to a specific schema. [Default: None]
+        :param pop: if project is a pep of peps (POP) [Default: False]
         :param overwrite: if project exists overwrite the project, otherwise upload it.
             [Default: False - project won't be overwritten if it exists in db]
         :param update_only: if project exists overwrite it, otherwise do nothing.  [Default: False]
@@ -232,7 +240,7 @@ class PEPDatabaseProject:
         elif proj_dict[CONFIG_KEY][NAME_KEY]:
             proj_name = proj_dict[CONFIG_KEY][NAME_KEY].lower()
         else:
-            raise ValueError(f"Name of the project wasn't provided. Project will not be uploaded.")
+            raise ValueError("Name of the project wasn't provided. Project will not be uploaded.")
 
         proj_dict[CONFIG_KEY][NAME_KEY] = proj_name
 
@@ -251,6 +259,7 @@ class PEPDatabaseProject:
                 private=is_private,
                 pep_schema=pep_schema,
                 description=description,
+                pop=pop,
             )
             return None
         else:
@@ -268,6 +277,7 @@ class PEPDatabaseProject:
                     last_update_date=datetime.datetime.now(datetime.timezone.utc),
                     pep_schema=pep_schema,
                     description=description,
+                    pop=pop,
                 )
 
                 self._add_samples_to_project(new_prj, proj_dict[SAMPLE_RAW_DICT_KEY])
@@ -299,9 +309,9 @@ class PEPDatabaseProject:
 
                 else:
                     raise ProjectUniqueNameError(
-                        f"Namespace, name and tag already exists. Project won't be "
-                        f"uploaded. Solution: Set overwrite value as True"
-                        f" (project will be overwritten), or change tag!"
+                        "Namespace, name and tag already exists. Project won't be "
+                        "uploaded. Solution: Set overwrite value as True"
+                        " (project will be overwritten), or change tag!"
                     )
 
     def _overwrite(
@@ -315,6 +325,7 @@ class PEPDatabaseProject:
         private: bool = False,
         pep_schema: str = None,
         description: str = "",
+        pop: bool = False,
     ) -> None:
         """
         Update existing project by providing all necessary information.
@@ -328,6 +339,7 @@ class PEPDatabaseProject:
         :param private: boolean value if the project should be visible just for user that creates it.
         :param pep_schema: assign PEP to a specific schema. [DefaultL: None]
         :param description: project description
+        :param pop: if project is a pep of peps, simply POP [Default: False]
         :return: None
         """
         proj_name = proj_name.lower()
@@ -351,6 +363,7 @@ class PEPDatabaseProject:
                     found_prj.config = project_dict[CONFIG_KEY]
                     found_prj.description = description
                     found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
+                    found_prj.pop = pop
 
                     # Deleting old samples and subsamples
                     if found_prj.samples_mapping:
@@ -476,14 +489,14 @@ class PEPDatabaseProject:
             updating values
         :return: unified update dict
         """
-        update_final = UpdateModel()
+        update_final = UpdateModel.model_construct()
 
         if update_values.name is not None:
             if update_values.config is not None:
                 update_values.config[NAME_KEY] = update_values.name
             update_final = UpdateModel(
                 name=update_values.name,
-                **update_final.dict(exclude_unset=True),
+                **update_final.model_dump(exclude_unset=True),
             )
 
         if update_values.description is not None:
@@ -491,49 +504,49 @@ class PEPDatabaseProject:
                 update_values.config[DESCRIPTION_KEY] = update_values.description
             update_final = UpdateModel(
                 description=update_values.description,
-                **update_final.dict(exclude_unset=True),
+                **update_final.model_dump(exclude_unset=True),
             )
         if update_values.config is not None:
             update_final = UpdateModel(
-                config=update_values.config, **update_final.dict(exclude_unset=True)
+                config=update_values.config, **update_final.model_dump(exclude_unset=True)
             )
             name = update_values.config.get(NAME_KEY)
             description = update_values.config.get(DESCRIPTION_KEY)
             if name:
                 update_final = UpdateModel(
                     name=name,
-                    **update_final.dict(exclude_unset=True, exclude={NAME_KEY}),
+                    **update_final.model_dump(exclude_unset=True, exclude={NAME_KEY}),
                 )
             if description:
                 update_final = UpdateModel(
                     description=description,
-                    **update_final.dict(exclude_unset=True, exclude={DESCRIPTION_KEY}),
+                    **update_final.model_dump(exclude_unset=True, exclude={DESCRIPTION_KEY}),
                 )
 
         if update_values.tag is not None:
             update_final = UpdateModel(
-                tag=update_values.tag, **update_final.dict(exclude_unset=True)
+                tag=update_values.tag, **update_final.model_dump(exclude_unset=True)
             )
 
         if update_values.is_private is not None:
             update_final = UpdateModel(
                 is_private=update_values.is_private,
-                **update_final.dict(exclude_unset=True),
+                **update_final.model_dump(exclude_unset=True),
             )
 
         if update_values.pep_schema is not None:
             update_final = UpdateModel(
                 pep_schema=update_values.pep_schema,
-                **update_final.dict(exclude_unset=True),
+                **update_final.model_dump(exclude_unset=True),
             )
 
         if update_values.number_of_samples is not None:
             update_final = UpdateModel(
                 number_of_samples=update_values.number_of_samples,
-                **update_final.dict(exclude_unset=True),
+                **update_final.model_dump(exclude_unset=True),
             )
 
-        return update_final.dict(exclude_unset=True, exclude_none=True)
+        return update_final.model_dump(exclude_unset=True, exclude_none=True)
 
     def exists(
         self,
@@ -565,7 +578,7 @@ class PEPDatabaseProject:
             return False
 
     @staticmethod
-    def _add_samples_to_project(projects_sa: Projects, samples: List[dict]) -> NoReturn:
+    def _add_samples_to_project(projects_sa: Projects, samples: List[dict]) -> None:
         """
         Add samples to the project sa object. (With commit this samples will be added to the 'samples table')
         :param projects_sa: Projects sa object, in open session
@@ -574,6 +587,8 @@ class PEPDatabaseProject:
         """
         for row_number, sample in enumerate(samples):
             projects_sa.samples_mapping.append(Samples(sample=sample, row_number=row_number))
+
+        return None
 
     @staticmethod
     def _add_subsamples_to_project(

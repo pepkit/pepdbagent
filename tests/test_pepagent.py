@@ -5,8 +5,7 @@ import peppy
 import pytest
 
 from pepdbagent.exceptions import FilterError, ProjectNotFoundError
-
-DNS = f"postgresql://postgres:docker@localhost:5432/pep-db"
+from .conftest import DNS
 
 
 DATA_PATH = os.path.join(
@@ -386,7 +385,7 @@ class TestAnnotation:
             name=name,
             tag="default",
         )
-        assert result.results[0].__fields_set__ == {
+        assert result.results[0].model_fields_set == {
             "is_private",
             "tag",
             "namespace",
@@ -397,6 +396,7 @@ class TestAnnotation:
             "last_update_date",
             "submission_date",
             "pep_schema",
+            "pop",
         }
 
     @pytest.mark.parametrize(

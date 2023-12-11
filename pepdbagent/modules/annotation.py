@@ -2,8 +2,7 @@ import logging
 from datetime import datetime
 from typing import List, Literal, Optional, Union
 
-from sqlalchemy import Engine, and_, func, or_, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.sql.selectable import Select
 
 from pepdbagent.const import (
@@ -189,6 +188,7 @@ class PEPDatabaseAnnotation:
             Projects.last_update_date,
             Projects.digest,
             Projects.pep_schema,
+            Projects.pop,
         ).where(
             and_(
                 Projects.name == name,
@@ -214,6 +214,7 @@ class PEPDatabaseAnnotation:
                 last_update_date=str(query_result.last_update_date),
                 digest=query_result.digest,
                 pep_schema=query_result.pep_schema,
+                pop=query_result.pop,
             )
             _LOGGER.info(f"Annotation of the project '{namespace}/{name}:{tag}' has been found!")
             return annot
@@ -307,6 +308,7 @@ class PEPDatabaseAnnotation:
             Projects.last_update_date,
             Projects.digest,
             Projects.pep_schema,
+            Projects.pop,
         ).select_from(Projects)
 
         statement = self._add_condition(
@@ -337,6 +339,7 @@ class PEPDatabaseAnnotation:
                     last_update_date=str(result.last_update_date),
                     digest=result.digest,
                     pep_schema=result.pep_schema,
+                    pop=result.pop,
                 )
             )
         return results_list
@@ -445,7 +448,7 @@ class PEPDatabaseAnnotation:
             return statement
         else:
             if filter_by:
-                _LOGGER.warning(f"filter_start_date was not provided, skipping filter...")
+                _LOGGER.warning("filter_start_date was not provided, skipping filter...")
             return statement
 
     def get_project_number_in_namespace(

@@ -7,7 +7,7 @@ from typing import Tuple, Union
 import ubiquerg
 from peppy.const import SAMPLE_RAW_DICT_KEY
 
-from .exceptions import IncorrectDateFormat, RegistryPathError
+from .exceptions import RegistryPathError
 
 
 def is_valid_registry_path(rpath: str) -> bool:
