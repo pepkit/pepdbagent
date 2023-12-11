@@ -4,11 +4,11 @@ import warnings
 
 import peppy
 import pytest
+from sqlalchemy.exc import OperationalError
+
 import pepdbagent
-
-from pepdbagent.exceptions import FilterError, ProjectNotFoundError
-
-DNS = "postgresql://postgres:docker@localhost:5432/pep-db"
+from pepdbagent.exceptions import FilterError, ProjectNotFoundError, ProjectNotInFavorites
+from .conftest import DNS
 
 DATA_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -25,7 +25,7 @@ def db_setup():
     # Check if the database is setup
     try:
         pepdbagent.PEPDatabaseAgent(dsn=DNS)
-    except Exception:
+    except OperationalError:
         warnings.warn(
             UserWarning(
                 f"Skipping tests, because DB is not setup. {DNS}. To setup DB go to README.md"
@@ -489,6 +489,10 @@ class TestAnnotation:
             )
 
 
+@pytest.mark.skipif(
+    not db_setup(),
+    reason="DB is not setup",
+)
 class TestNamespace:
     """
     Test function within namespace class
