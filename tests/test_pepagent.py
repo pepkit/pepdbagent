@@ -6,8 +6,9 @@ import peppy
 import pytest
 import pepdbagent
 
-from pepdbagent.exceptions import FilterError, ProjectNotFoundError, ProjectNotInFavorites
-from .conftest import DNS
+from pepdbagent.exceptions import FilterError, ProjectNotFoundError
+
+DNS = "postgresql://postgres:docker@localhost:5432/pep-db"
 
 DATA_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -412,7 +413,7 @@ class TestAnnotation:
             name=name,
             tag="default",
         )
-        assert result.results[0].__fields_set__ == {
+        assert result.results[0].model_fields_set == {
             "is_private",
             "tag",
             "namespace",
@@ -488,10 +489,6 @@ class TestAnnotation:
             )
 
 
-@pytest.mark.skipif(
-    not db_setup(),
-    reason="DB is not setup",
-)
 class TestNamespace:
     """
     Test function within namespace class
