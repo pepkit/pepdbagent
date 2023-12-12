@@ -221,7 +221,7 @@ class PEPDatabaseProject:
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
         :param is_private: boolean value if the project should be visible just for user that creates it.
-        :param pep_schema: assign PEP to a specific schema. [DefaultL: None]
+        :param pep_schema: assign PEP to a specific schema. [Default: None]
         :param pop: if project is a pep of peps (POP) [Default: False]
         :param overwrite: if project exists overwrite the project, otherwise upload it.
             [Default: False - project won't be overwritten if it exists in db]
@@ -427,7 +427,6 @@ class PEPDatabaseProject:
                     update_dict["subsamples"] = project_dict[SUBSAMPLE_RAW_LIST_KEY]
 
                 update_values = UpdateItems(**update_dict)
-                # update_values = UpdateItems(tag="ff")
 
             update_values = self.__create_update_dict(update_values)
 
