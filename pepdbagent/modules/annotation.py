@@ -4,6 +4,7 @@ from typing import List, Literal, Optional, Union
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.sql.selectable import Select
+from sqlalchemy.orm import Session
 
 from pepdbagent.const import (
     DEFAULT_LIMIT,
@@ -177,19 +178,7 @@ class PEPDatabaseAnnotation:
         _LOGGER.info(f"Getting annotation of the project: '{namespace}/{name}:{tag}'")
         admin_tuple = tuple_converter(admin)
 
-        statement = select(
-            Projects.namespace,
-            Projects.name,
-            Projects.tag,
-            Projects.private,
-            Projects.description,
-            Projects.number_of_samples,
-            Projects.submission_date,
-            Projects.last_update_date,
-            Projects.digest,
-            Projects.pep_schema,
-            Projects.pop,
-        ).where(
+        statement = select(Projects).where(
             and_(
                 Projects.name == name,
                 Projects.namespace == namespace,
@@ -200,26 +189,30 @@ class PEPDatabaseAnnotation:
                 ),
             )
         )
-        query_result = self._pep_db_engine.session_execute(statement).first()
+        with Session(self._sa_engine) as session:
+            query_result = session.scalar(statement)
 
-        if query_result:
-            annot = AnnotationModel(
-                namespace=query_result.namespace,
-                name=query_result.name,
-                tag=query_result.tag,
-                is_private=query_result.private,
-                description=query_result.description,
-                number_of_samples=query_result.number_of_samples,
-                submission_date=str(query_result.submission_date),
-                last_update_date=str(query_result.last_update_date),
-                digest=query_result.digest,
-                pep_schema=query_result.pep_schema,
-                pop=query_result.pop,
-            )
-            _LOGGER.info(f"Annotation of the project '{namespace}/{name}:{tag}' has been found!")
-            return annot
-        else:
-            raise ProjectNotFoundError(f"Project '{namespace}/{name}:{tag}' was not found.")
+            if query_result:
+                annot = AnnotationModel(
+                    namespace=query_result.namespace,
+                    name=query_result.name,
+                    tag=query_result.tag,
+                    is_private=query_result.private,
+                    description=query_result.description,
+                    number_of_samples=query_result.number_of_samples,
+                    submission_date=str(query_result.submission_date),
+                    last_update_date=str(query_result.last_update_date),
+                    digest=query_result.digest,
+                    pep_schema=query_result.pep_schema,
+                    pop=query_result.pop,
+                    stars_number=len(query_result.stars_mapping),
+                )
+                _LOGGER.info(
+                    f"Annotation of the project '{namespace}/{name}:{tag}' has been found!"
+                )
+                return annot
+            else:
+                raise ProjectNotFoundError(f"Project '{namespace}/{name}:{tag}' was not found.")
 
     def _count_projects(
         self,
@@ -297,19 +290,7 @@ class PEPDatabaseAnnotation:
 
         if admin is None:
             admin = []
-        statement = select(
-            Projects.namespace,
-            Projects.name,
-            Projects.tag,
-            Projects.private,
-            Projects.description,
-            Projects.number_of_samples,
-            Projects.submission_date,
-            Projects.last_update_date,
-            Projects.digest,
-            Projects.pep_schema,
-            Projects.pop,
-        ).select_from(Projects)
+        statement = select(Projects.id)
 
         statement = self._add_condition(
             statement,
@@ -323,25 +304,29 @@ class PEPDatabaseAnnotation:
         statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
         statement = statement.limit(limit).offset(offset)
 
-        query_results = self._pep_db_engine.session_execute(statement).all()
+        id_results = self._pep_db_engine.session_execute(statement).all()
 
         results_list = []
-        for result in query_results:
-            results_list.append(
-                AnnotationModel(
-                    namespace=result.namespace,
-                    name=result.name,
-                    tag=result.tag,
-                    is_private=result.private,
-                    description=result.description,
-                    number_of_samples=result.number_of_samples,
-                    submission_date=str(result.submission_date),
-                    last_update_date=str(result.last_update_date),
-                    digest=result.digest,
-                    pep_schema=result.pep_schema,
-                    pop=result.pop,
+        with Session(self._sa_engine) as session:
+            for prj_ids in id_results:
+                result = session.scalar(select(Projects).where(Projects.id == prj_ids[0]))
+
+                results_list.append(
+                    AnnotationModel(
+                        namespace=result.namespace,
+                        name=result.name,
+                        tag=result.tag,
+                        is_private=result.private,
+                        description=result.description,
+                        number_of_samples=result.number_of_samples,
+                        submission_date=str(result.submission_date),
+                        last_update_date=str(result.last_update_date),
+                        digest=result.digest,
+                        pep_schema=result.pep_schema,
+                        pop=result.pop,
+                        stars_number=len(result.stars_mapping),
+                    )
                 )
-            )
         return results_list
 
     @staticmethod

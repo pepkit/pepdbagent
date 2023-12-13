@@ -7,7 +7,12 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 import pepdbagent
-from pepdbagent.exceptions import FilterError, ProjectNotFoundError, ProjectNotInFavorites
+from pepdbagent.exceptions import (
+    FilterError,
+    ProjectNotFoundError,
+    ProjectNotInFavorites,
+    ProjectAlreadyInFavorites,
+)
 from .conftest import DNS
 
 DATA_PATH = os.path.join(
@@ -284,6 +289,20 @@ class TestAnnotation:
         assert result.results[0].namespace == namespace
 
     @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace6", "amendments1"],
+        ],
+    )
+    def test_annotation_of_one_non_existing_project(self, initiate_pepdb_con, namespace, name):
+        with pytest.raises(ProjectNotFoundError):
+            initiate_pepdb_con.annotation.get(
+                namespace=namespace,
+                name=name,
+                tag="default",
+            )
+
+    @pytest.mark.parametrize(
         "namespace, n_projects",
         [
             ["namespace1", 6],
@@ -425,6 +444,7 @@ class TestAnnotation:
             "submission_date",
             "pep_schema",
             "pop",
+            "stars_number",
         }
 
     @pytest.mark.parametrize(
@@ -583,3 +603,30 @@ class TestFavorites:
     def test_remove_from_favorite_error(self, initiate_pepdb_con, namespace, name):
         with pytest.raises(ProjectNotInFavorites):
             initiate_pepdb_con.user.remove_from_favorites("namespace1", namespace, name, "default")
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+        ],
+    )
+    def test_favorites_duplication_error(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.user.add_to_favorites("namespace1", namespace, name, "default")
+        with pytest.raises(ProjectAlreadyInFavorites):
+            initiate_pepdb_con.user.add_to_favorites("namespace1", namespace, name, "default")
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+        ],
+    )
+    def test_annotation_favorite_number(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.user.add_to_favorites("namespace1", namespace, name, "default")
+        annotations_in_namespace = initiate_pepdb_con.annotation.get("namespace1")
+
+        for prj_annot in annotations_in_namespace.results:
+            if prj_annot.name == name:
+                assert prj_annot.stars_number == 1
+            else:
+                assert prj_annot.stars_number == 0

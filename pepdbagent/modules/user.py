@@ -3,15 +3,16 @@ from typing import Union
 
 from sqlalchemy import and_, delete, select
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from pepdbagent.const import (
     PKG_NAME,
 )
 
-from pepdbagent.db_utils import BaseEngine, User, Favorites
+from pepdbagent.db_utils import BaseEngine, User, Stars
 from pepdbagent.modules.project import PEPDatabaseProject
 from pepdbagent.models import AnnotationList, AnnotationModel
-from pepdbagent.exceptions import ProjectNotInFavorites
+from pepdbagent.exceptions import ProjectNotInFavorites, ProjectAlreadyInFavorites
 
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -80,11 +81,13 @@ class PEPDatabaseUser:
         if not user_id:
             user_id = self.create_user(namespace)
 
-        new_favorites_raw = Favorites(user_id=user_id, project_id=project_id)
-
-        with Session(self._sa_engine) as session:
-            session.add(new_favorites_raw)
-            session.commit()
+        new_favorites_raw = Stars(user_id=user_id, project_id=project_id)
+        try:
+            with Session(self._sa_engine) as session:
+                session.add(new_favorites_raw)
+                session.commit()
+        except IntegrityError:
+            raise ProjectAlreadyInFavorites()
         return None
 
     def remove_from_favorites(
@@ -100,16 +103,16 @@ class PEPDatabaseUser:
         :return: None
         """
         _LOGGER.debug(
-            f"Removing project {project_name} from fProjectNotInFavoritesavorites for user {namespace}"
+            f"Removing project {project_namespace}/{project_name}:{project_tag} from fProjectNotInFavorites for user {namespace}"
         )
         project_id = PEPDatabaseProject(self._pep_db_engine).get_project_id(
             project_namespace, project_name, project_tag
         )
         user_id = self.get_user_id(namespace)
-        statement = delete(Favorites).where(
+        statement = delete(Stars).where(
             and_(
-                Favorites.user_id == user_id,
-                Favorites.project_id == project_id,
+                Stars.user_id == user_id,
+                Stars.project_id == project_id,
             )
         )
 
@@ -141,9 +144,9 @@ class PEPDatabaseUser:
         statement = select(User).where(User.namespace == namespace)
         with Session(self._sa_engine) as session:
             query_result = session.scalar(statement)
-            number_of_projects = len([kk.project_mapping for kk in query_result.favorites_mapping])
+            number_of_projects = len([kk.project_mapping for kk in query_result.stars_mapping])
             project_list = []
-            for prj_list in query_result.favorites_mapping:
+            for prj_list in query_result.stars_mapping:
                 project_list.append(
                     AnnotationModel(
                         namespace=prj_list.project_mapping.namespace,
@@ -157,6 +160,7 @@ class PEPDatabaseUser:
                         digest=prj_list.project_mapping.digest,
                         pep_schema=prj_list.project_mapping.pep_schema,
                         pop=prj_list.project_mapping.pop,
+                        stars_number=len(query_result.stars_mapping),
                     )
                 )
         favorite_prj = AnnotationList(

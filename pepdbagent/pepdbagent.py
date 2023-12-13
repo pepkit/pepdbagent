@@ -53,19 +53,19 @@ class PEPDatabaseAgent(object):
         self.__db_name = database
 
     @property
-    def project(self):
+    def project(self) -> PEPDatabaseProject:
         return self.__project
 
     @property
-    def annotation(self):
+    def annotation(self) -> PEPDatabaseAnnotation:
         return self.__annotation
 
     @property
-    def namespace(self):
+    def namespace(self) -> PEPDatabaseNamespace:
         return self.__namespace
 
     @property
-    def user(self):
+    def user(self) -> PEPDatabaseUser:
         return self.__user
 
     def __str__(self):

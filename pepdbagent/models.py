@@ -1,6 +1,6 @@
 # file with pydantic models
 from typing import List, Optional, Union
-from pydantic import BaseModel, Extra, Field, validator, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from pepdbagent.const import DEFAULT_TAG
 
@@ -21,6 +21,7 @@ class AnnotationModel(BaseModel):
     digest: Optional[str]
     pep_schema: Optional[str]
     pop: Optional[bool] = False
+    stars_number: Optional[int] = 0
 
     model_config = ConfigDict(
         validate_assignment=True,

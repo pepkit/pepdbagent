@@ -141,7 +141,7 @@ class PEPDatabaseNamespace:
     def _add_condition(
         statement: Select,
         search_str: str = None,
-        admin_list: Union[str, List[str], Tuple[str]] = None,
+        admin_list: Union[Tuple[str], List[str], str] = None,
     ) -> Select:
         """
         Add where clause to sqlalchemy statement (in namespace search)
