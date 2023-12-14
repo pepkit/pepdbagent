@@ -552,7 +552,7 @@ class TestFavorites:
             namespace="namespace1",
         )
         for project in result.results:
-            initiate_pepdb_con.user.add_to_favorites(
+            initiate_pepdb_con.user.add_project_to_favorites(
                 "random_namespace", project.namespace, project.name, "default"
             )
         fav_results = initiate_pepdb_con.user.get_favorites("random_namespace")
@@ -573,7 +573,7 @@ class TestFavorites:
         ],
     )
     def test_count_project_one(self, initiate_pepdb_con, namespace, name):
-        initiate_pepdb_con.user.add_to_favorites(namespace, namespace, name, "default")
+        initiate_pepdb_con.user.add_project_to_favorites(namespace, namespace, name, "default")
         result = initiate_pepdb_con.user.get_favorites("namespace1")
         assert result.count == 1
         result1 = initiate_pepdb_con.user.get_favorites("private_test")
@@ -586,11 +586,15 @@ class TestFavorites:
         ],
     )
     def test_remove_from_favorite(self, initiate_pepdb_con, namespace, name):
-        initiate_pepdb_con.user.add_to_favorites("namespace1", namespace, name, "default")
-        initiate_pepdb_con.user.add_to_favorites("namespace1", namespace, "amendments2", "default")
+        initiate_pepdb_con.user.add_project_to_favorites("namespace1", namespace, name, "default")
+        initiate_pepdb_con.user.add_project_to_favorites(
+            "namespace1", namespace, "amendments2", "default"
+        )
         result = initiate_pepdb_con.user.get_favorites("namespace1")
         assert result.count == len(result.results) == 2
-        initiate_pepdb_con.user.remove_from_favorites("namespace1", namespace, name, "default")
+        initiate_pepdb_con.user.remove_project_from_favorites(
+            "namespace1", namespace, name, "default"
+        )
         result = initiate_pepdb_con.user.get_favorites("namespace1")
         assert result.count == len(result.results) == 1
 
@@ -602,7 +606,9 @@ class TestFavorites:
     )
     def test_remove_from_favorite_error(self, initiate_pepdb_con, namespace, name):
         with pytest.raises(ProjectNotInFavorites):
-            initiate_pepdb_con.user.remove_from_favorites("namespace1", namespace, name, "default")
+            initiate_pepdb_con.user.remove_project_from_favorites(
+                "namespace1", namespace, name, "default"
+            )
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -611,9 +617,11 @@ class TestFavorites:
         ],
     )
     def test_favorites_duplication_error(self, initiate_pepdb_con, namespace, name):
-        initiate_pepdb_con.user.add_to_favorites("namespace1", namespace, name, "default")
+        initiate_pepdb_con.user.add_project_to_favorites("namespace1", namespace, name, "default")
         with pytest.raises(ProjectAlreadyInFavorites):
-            initiate_pepdb_con.user.add_to_favorites("namespace1", namespace, name, "default")
+            initiate_pepdb_con.user.add_project_to_favorites(
+                "namespace1", namespace, name, "default"
+            )
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -622,7 +630,7 @@ class TestFavorites:
         ],
     )
     def test_annotation_favorite_number(self, initiate_pepdb_con, namespace, name):
-        initiate_pepdb_con.user.add_to_favorites("namespace1", namespace, name, "default")
+        initiate_pepdb_con.user.add_project_to_favorites("namespace1", namespace, name, "default")
         annotations_in_namespace = initiate_pepdb_con.annotation.get("namespace1")
 
         for prj_annot in annotations_in_namespace.results:

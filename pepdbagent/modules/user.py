@@ -62,7 +62,9 @@ class PEPDatabaseUser:
             return result[0]
         return None
 
-    def add_to_favorites(self, namespace, project_namespace, project_name, project_tag) -> None:
+    def add_project_to_favorites(
+        self, namespace, project_namespace, project_name, project_tag
+    ) -> None:
         """
         Add project to favorites
 
@@ -90,7 +92,7 @@ class PEPDatabaseUser:
             raise ProjectAlreadyInFavorites()
         return None
 
-    def remove_from_favorites(
+    def remove_project_from_favorites(
         self, namespace: str, project_namespace: str, project_name: str, project_tag: str
     ) -> None:
         """
