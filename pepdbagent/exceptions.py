@@ -36,3 +36,21 @@ class IncorrectDateFormat(PEPDatabaseAgentError):
 class FilterError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
         super().__init__(f"""pepdbagent filter error. {msg}""")
+
+
+class ProjectNotInFavorites(PEPDatabaseAgentError):
+    """
+    Project doesn't exist in favorites
+    """
+
+    def __init__(self, msg=""):
+        super().__init__(f"""Project is not in favorites list. {msg}""")
+
+
+class ProjectAlreadyInFavorites(PEPDatabaseAgentError):
+    """
+    Project doesn't exist in favorites
+    """
+
+    def __init__(self, msg=""):
+        super().__init__(f"""Project is already in favorites list. {msg}""")

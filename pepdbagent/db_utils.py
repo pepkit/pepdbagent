@@ -97,7 +97,9 @@ class Projects(Base):
     subsamples_mapping: Mapped[List["Subsamples"]] = relationship(
         back_populates="subsample_mapping", cascade="all, delete-orphan"
     )
-
+    stars_mapping: Mapped[List["Stars"]] = relationship(
+        back_populates="project_mapping", cascade="all, delete-orphan"
+    )
     __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
 
 
@@ -128,6 +130,33 @@ class Subsamples(Base):
     row_number: Mapped[int]
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     subsample_mapping: Mapped["Projects"] = relationship(back_populates="subsamples_mapping")
+
+
+class User(Base):
+    """
+    User table representation in the database
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    namespace: Mapped[str]
+    stars_mapping: Mapped[List["Stars"]] = relationship(
+        back_populates="user_mapping", cascade="all, delete-orphan"
+    )
+
+
+class Stars(Base):
+    """
+    FavoriteProjects table representation in the database
+    """
+
+    __tablename__ = "stars"
+
+    user_id = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+    user_mapping: Mapped[List["User"]] = relationship(back_populates="stars_mapping")
+    project_mapping: Mapped["Projects"] = relationship(back_populates="stars_mapping")
 
 
 class BaseEngine:

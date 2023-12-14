@@ -1,12 +1,19 @@
 import datetime
 import os
+import warnings
 
 import peppy
 import pytest
+from sqlalchemy.exc import OperationalError
 
-from pepdbagent.exceptions import FilterError, ProjectNotFoundError
+import pepdbagent
+from pepdbagent.exceptions import (
+    FilterError,
+    ProjectNotFoundError,
+    ProjectNotInFavorites,
+    ProjectAlreadyInFavorites,
+)
 from .conftest import DNS
-
 
 DATA_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -19,6 +26,24 @@ def get_path_to_example_file(namespace, project_name):
     return os.path.join(DATA_PATH, namespace, project_name, "project_config.yaml")
 
 
+def db_setup():
+    # Check if the database is setup
+    try:
+        pepdbagent.PEPDatabaseAgent(dsn=DNS)
+    except OperationalError:
+        warnings.warn(
+            UserWarning(
+                f"Skipping tests, because DB is not setup. {DNS}. To setup DB go to README.md"
+            )
+        )
+        return False
+    return True
+
+
+@pytest.mark.skipif(
+    not db_setup(),
+    reason="DB is not setup",
+)
 class TestProject:
     """
     Test project methods
@@ -60,7 +85,7 @@ class TestProject:
     )
     def test_get_project_error(self, initiate_pepdb_con, namespace, name, tag):
         with pytest.raises(ProjectNotFoundError, match="Project does not exist."):
-            kk = initiate_pepdb_con.project.get(namespace=namespace, name=name, tag=tag)
+            initiate_pepdb_con.project.get(namespace=namespace, name=name, tag=tag)
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -97,9 +122,13 @@ class TestProject:
         initiate_pepdb_con.project.delete(namespace=namespace, name=name, tag="default")
 
         with pytest.raises(ProjectNotFoundError, match="Project does not exist."):
-            kk = initiate_pepdb_con.project.get(namespace=namespace, name=name, tag="default")
+            initiate_pepdb_con.project.get(namespace=namespace, name=name, tag="default")
 
 
+@pytest.mark.skipif(
+    not db_setup(),
+    reason="DB is not setup",
+)
 class TestProjectUpdate:
     @pytest.mark.parametrize(
         "namespace, name,new_name",
@@ -232,6 +261,10 @@ class TestProjectUpdate:
         assert is_private is True
 
 
+@pytest.mark.skipif(
+    not db_setup(),
+    reason="DB is not setup",
+)
 class TestAnnotation:
     """
     Test function within annotation class
@@ -254,6 +287,20 @@ class TestAnnotation:
             tag="default",
         )
         assert result.results[0].namespace == namespace
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace6", "amendments1"],
+        ],
+    )
+    def test_annotation_of_one_non_existing_project(self, initiate_pepdb_con, namespace, name):
+        with pytest.raises(ProjectNotFoundError):
+            initiate_pepdb_con.annotation.get(
+                namespace=namespace,
+                name=name,
+                tag="default",
+            )
 
     @pytest.mark.parametrize(
         "namespace, n_projects",
@@ -397,6 +444,7 @@ class TestAnnotation:
             "submission_date",
             "pep_schema",
             "pop",
+            "stars_number",
         }
 
     @pytest.mark.parametrize(
@@ -407,7 +455,7 @@ class TestAnnotation:
         ],
     )
     def test_search_filter_success(self, initiate_pepdb_con, namespace, query, found_number):
-        date_now = datetime.datetime.now()
+        date_now = datetime.datetime.now() + datetime.timedelta(days=1)
         date_old = datetime.datetime.now() - datetime.timedelta(days=5)
         result = initiate_pepdb_con.annotation.get(
             namespace=namespace,
@@ -451,7 +499,7 @@ class TestAnnotation:
         date_now = datetime.datetime.now() - datetime.timedelta(days=2)
         date_old = date_now - datetime.timedelta(days=2)
         with pytest.raises(FilterError):
-            result = initiate_pepdb_con.annotation.get(
+            initiate_pepdb_con.annotation.get(
                 namespace=namespace,
                 query=query,
                 admin="private_test",
@@ -461,6 +509,10 @@ class TestAnnotation:
             )
 
 
+@pytest.mark.skipif(
+    not db_setup(),
+    reason="DB is not setup",
+)
 class TestNamespace:
     """
     Test function within namespace class
@@ -484,3 +536,105 @@ class TestNamespace:
         result = initiate_pepdb_con.namespace.info()
         assert len(result.results) == 4
         assert result.results[3].number_of_projects == 1
+
+
+@pytest.mark.skipif(
+    not db_setup(),
+    reason="DB is not setup",
+)
+class TestFavorites:
+    """
+    Test function within user class
+    """
+
+    def test_add_projects_to_favorites(self, initiate_pepdb_con):
+        result = initiate_pepdb_con.annotation.get(
+            namespace="namespace1",
+        )
+        for project in result.results:
+            initiate_pepdb_con.user.add_project_to_favorites(
+                "random_namespace", project.namespace, project.name, "default"
+            )
+        fav_results = initiate_pepdb_con.user.get_favorites("random_namespace")
+
+        assert fav_results.count == len(result.results)
+
+        # This can fail if the order of the results is different
+        assert fav_results.results[0].namespace == result.results[0].namespace
+
+    def test_count_project_none(self, initiate_pepdb_con):
+        result = initiate_pepdb_con.user.get_favorites("private_test")
+        assert result.count == 0
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+        ],
+    )
+    def test_count_project_one(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.user.add_project_to_favorites(namespace, namespace, name, "default")
+        result = initiate_pepdb_con.user.get_favorites("namespace1")
+        assert result.count == 1
+        result1 = initiate_pepdb_con.user.get_favorites("private_test")
+        assert result1.count == 0
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+        ],
+    )
+    def test_remove_from_favorite(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.user.add_project_to_favorites("namespace1", namespace, name, "default")
+        initiate_pepdb_con.user.add_project_to_favorites(
+            "namespace1", namespace, "amendments2", "default"
+        )
+        result = initiate_pepdb_con.user.get_favorites("namespace1")
+        assert result.count == len(result.results) == 2
+        initiate_pepdb_con.user.remove_project_from_favorites(
+            "namespace1", namespace, name, "default"
+        )
+        result = initiate_pepdb_con.user.get_favorites("namespace1")
+        assert result.count == len(result.results) == 1
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+        ],
+    )
+    def test_remove_from_favorite_error(self, initiate_pepdb_con, namespace, name):
+        with pytest.raises(ProjectNotInFavorites):
+            initiate_pepdb_con.user.remove_project_from_favorites(
+                "namespace1", namespace, name, "default"
+            )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+        ],
+    )
+    def test_favorites_duplication_error(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.user.add_project_to_favorites("namespace1", namespace, name, "default")
+        with pytest.raises(ProjectAlreadyInFavorites):
+            initiate_pepdb_con.user.add_project_to_favorites(
+                "namespace1", namespace, name, "default"
+            )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+        ],
+    )
+    def test_annotation_favorite_number(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.user.add_project_to_favorites("namespace1", namespace, name, "default")
+        annotations_in_namespace = initiate_pepdb_con.annotation.get("namespace1")
+
+        for prj_annot in annotations_in_namespace.results:
+            if prj_annot.name == name:
+                assert prj_annot.stars_number == 1
+            else:
+                assert prj_annot.stars_number == 0
