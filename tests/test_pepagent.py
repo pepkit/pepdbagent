@@ -508,6 +508,51 @@ class TestAnnotation:
                 filter_end_date=date_now.strftime("%Y/%m/%d"),
             )
 
+    @pytest.mark.parametrize(
+        "rp_list, admin, found_number",
+        [
+            [
+                [
+                    "namespace1/amendments1:default",
+                    "namespace1/amendments2:default",
+                    "namespace2/derive:default",
+                    "private_test/amendments1:default",
+                ],
+                "namespace1",
+                3,
+            ],
+            [
+                [
+                    "namespace1/amendments1:default",
+                    "namespace1/amendments2:default",
+                    "namespace2/derive:default",
+                    "private_test/amendments1:default",
+                ],
+                "private_test",
+                4,
+            ],
+        ],
+    )
+    def test_get_annotation_by_rp_list(self, initiate_pepdb_con, rp_list, admin, found_number):
+        result = initiate_pepdb_con.annotation.get_by_rp_list(rp_list)
+        assert len(result.results) == 3
+
+    def test_get_annotation_by_rp_enpty_list(self, initiate_pepdb_con):
+        result = initiate_pepdb_con.annotation.get_by_rp_list([])
+        assert len(result.results) == 0
+
+    @pytest.mark.parametrize(
+        "namespace, query, found_number",
+        [
+            ["namespace1", "ame", 2],
+        ],
+    )
+    def test_search_incorrect_incorrect_pep_type(
+        self, initiate_pepdb_con, namespace, query, found_number
+    ):
+        with pytest.raises(ValueError):
+            initiate_pepdb_con.annotation.get(namespace=namespace, pep_type="incorrect")
+
 
 @pytest.mark.skipif(
     not db_setup(),
