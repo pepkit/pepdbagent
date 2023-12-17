@@ -110,6 +110,7 @@ class PEPDatabaseAnnotation:
                 filter_by=filter_by,
                 filter_end_date=filter_end_date,
                 filter_start_date=filter_start_date,
+                pep_type=pep_type,
             ),
             results=self._get_projects(
                 namespace=namespace,
