@@ -162,7 +162,7 @@ class PEPDatabaseUser:
                         digest=prj_list.project_mapping.digest,
                         pep_schema=prj_list.project_mapping.pep_schema,
                         pop=prj_list.project_mapping.pop,
-                        stars_number=len(query_result.stars_mapping),
+                        stars_number=len(prj_list.project_mapping.stars_mapping),
                     )
                 )
         favorite_prj = AnnotationList(
