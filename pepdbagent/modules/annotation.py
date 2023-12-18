@@ -550,12 +550,15 @@ class PEPDatabaseAnnotation:
                     )
                     anno_results.append(annot)
 
+            found_dict = {f"{r.namespace}/{r.name}:{r.tag}": r for r in anno_results}
+            end_results = [found_dict.get(project) for project in registry_paths]
+
             return_len = len(anno_results)
             return AnnotationList(
                 count=return_len,
                 limit=len(registry_paths),
                 offset=0,
-                results=anno_results,
+                results=end_results,
             )
 
         else:

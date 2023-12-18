@@ -519,7 +519,7 @@ class TestAnnotation:
                     "private_test/amendments1:default",
                 ],
                 "namespace1",
-                3,
+                4,
             ],
             [
                 [
@@ -535,7 +535,7 @@ class TestAnnotation:
     )
     def test_get_annotation_by_rp_list(self, initiate_pepdb_con, rp_list, admin, found_number):
         result = initiate_pepdb_con.annotation.get_by_rp_list(rp_list)
-        assert len(result.results) == 3
+        assert len(result.results) == found_number
 
     def test_get_annotation_by_rp_enpty_list(self, initiate_pepdb_con):
         result = initiate_pepdb_con.annotation.get_by_rp_list([])

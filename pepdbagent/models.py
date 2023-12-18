@@ -44,7 +44,7 @@ class AnnotationList(BaseModel):
     count: int
     limit: int
     offset: int
-    results: List[AnnotationModel]
+    results: List[Union[AnnotationModel, None]]
 
 
 class Namespace(BaseModel):
