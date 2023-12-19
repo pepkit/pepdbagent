@@ -624,3 +624,44 @@ class PEPDatabaseProject:
         if result:
             return result[0]
         return None
+
+    def fork(
+        self,
+        original_namespace: str,
+        original_name: str,
+        original_tag: str,
+        fork_namespace: str,
+        fork_name: str = None,
+        fork_tag: str = None,
+    ):
+        """
+
+        :param original_namespace:
+        :param original_name:
+        :param original_tag:
+        :param fork_namespace:
+        :param fork_name:
+        :param fork_tag:
+        :return:
+        """
+        self.create(
+            project=self.get(
+                namespace=original_namespace,
+                name=original_name,
+                tag=original_tag,
+            ),
+            namespace=fork_namespace,
+            name=fork_name,
+            tag=fork_tag,
+        )
+        original_id = self.get_project_id(original_namespace, original_name, original_tag)
+        with Session(self._sa_engine) as session:
+            statement = select(Projects).where(
+                Projects.namespace == fork_namespace,
+                Projects.name == fork_name,
+                Projects.tag == fork_tag,
+            )
+            prj = session.scalar(statement)
+            prj.forked_from_id = original_id
+            session.commit()
+        return None
