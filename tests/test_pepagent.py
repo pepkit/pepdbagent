@@ -208,6 +208,44 @@ class TestProject:
         )
         assert initiate_pepdb_con.project.exists(namespace=namespace, name=name, tag="default")
 
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace1", "amendments2"],
+        ],
+    )
+    def test_project_can_be_forked_twice(self, initiate_pepdb_con, namespace, name):
+        """
+        Test if project can be forked twice
+        """
+        initiate_pepdb_con.project.fork(
+            original_namespace=namespace,
+            original_name=name,
+            original_tag="default",
+            fork_namespace="new_namespace",
+            fork_name="new_name",
+            fork_tag="new_tag",
+        )
+        initiate_pepdb_con.project.fork(
+            original_namespace=namespace,
+            original_name=name,
+            original_tag="default",
+            fork_namespace="new_namespace2",
+            fork_name="new_name2",
+            fork_tag="new_tag2",
+        )
+
+        result = initiate_pepdb_con.annotation.get(
+            namespace="new_namespace", name="new_name", tag="new_tag"
+        )
+        assert result.results[0].forked_from == f"{namespace}/{name}:default"
+
+        result = initiate_pepdb_con.annotation.get(
+            namespace="new_namespace2", name="new_name2", tag="new_tag2"
+        )
+        assert result.results[0].forked_from == f"{namespace}/{name}:default"
+
 
 @pytest.mark.skipif(
     not db_setup(),
