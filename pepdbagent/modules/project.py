@@ -9,7 +9,12 @@ from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
 from sqlalchemy import Select
 
-from peppy.const import SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_LIST_KEY, CONFIG_KEY
+from peppy.const import (
+    SAMPLE_RAW_DICT_KEY,
+    SUBSAMPLE_RAW_LIST_KEY,
+    CONFIG_KEY,
+    SAMPLE_TABLE_INDEX_KEY,
+)
 
 from pepdbagent.const import (
     DEFAULT_TAG,
@@ -280,7 +285,11 @@ class PEPDatabaseProject:
                     pop=pop,
                 )
 
-                self._add_samples_to_project(new_prj, proj_dict[SAMPLE_RAW_DICT_KEY])
+                self._add_samples_to_project(
+                    new_prj,
+                    proj_dict[SAMPLE_RAW_DICT_KEY],
+                    sample_table_index=project.sample_table_index,
+                )
 
                 if proj_dict[SUBSAMPLE_RAW_LIST_KEY]:
                     subsamples = proj_dict[SUBSAMPLE_RAW_LIST_KEY]
@@ -377,7 +386,11 @@ class PEPDatabaseProject:
                             session.delete(subsample)
 
                 # Adding new samples and subsamples
-                self._add_samples_to_project(found_prj, project_dict[SAMPLE_RAW_DICT_KEY])
+                self._add_samples_to_project(
+                    found_prj,
+                    project_dict[SAMPLE_RAW_DICT_KEY],
+                    sample_table_index=project_dict[CONFIG_KEY].get(SAMPLE_TABLE_INDEX_KEY),
+                )
 
                 if project_dict[SUBSAMPLE_RAW_LIST_KEY]:
                     self._add_subsamples_to_project(
@@ -433,7 +446,7 @@ class PEPDatabaseProject:
             statement = self._create_select_statement(name, namespace, tag)
 
             with Session(self._sa_engine) as session:
-                found_prj = session.scalars(statement).one()
+                found_prj = session.scalar(statement)
 
                 if found_prj:
                     _LOGGER.debug(
@@ -458,7 +471,11 @@ class PEPDatabaseProject:
                                 _LOGGER.debug(f"deleting samples: {str(sample)}")
                                 session.delete(sample)
 
-                        self._add_samples_to_project(found_prj, update_dict["samples"])
+                        self._add_samples_to_project(
+                            found_prj,
+                            update_dict["samples"],
+                            sample_table_index=update_dict["config"].get(SAMPLE_TABLE_INDEX_KEY),
+                        )
 
                     if "subsamples" in update_dict:
                         if found_prj.subsamples_mapping:
@@ -578,15 +595,24 @@ class PEPDatabaseProject:
             return False
 
     @staticmethod
-    def _add_samples_to_project(projects_sa: Projects, samples: List[dict]) -> None:
+    def _add_samples_to_project(
+        projects_sa: Projects, samples: List[dict], sample_table_index: str = "sample_name"
+    ) -> None:
         """
         Add samples to the project sa object. (With commit this samples will be added to the 'samples table')
         :param projects_sa: Projects sa object, in open session
         :param samples: list of samles to be added to the database
+        :param sample_table_index: index of the sample table
         :return: NoReturn
         """
         for row_number, sample in enumerate(samples):
-            projects_sa.samples_mapping.append(Samples(sample=sample, row_number=row_number))
+            projects_sa.samples_mapping.append(
+                Samples(
+                    sample=sample,
+                    row_number=row_number,
+                    sample_name=sample.get(sample_table_index),
+                )
+            )
 
         return None
 
