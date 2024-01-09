@@ -45,12 +45,12 @@ agent.project.create(prj_obj, namespace, name, tag)
 # examples of update_dict:
 update_dict1 = {"is_private" = True}
 update_dict2 = {"is_private" = True, name = "new_name"}
-update_dict3 = {"project" = prj_obj, "is_private"=True}
+update_dict3 = {"project" = prj_obj, "is_private" = True}
 update_dict4 = {"project" = prj_obj}
 update_dict4 = {"tag" = "new_tag"}
 
 # after creation of the dict, update record by providing update_dict and namespace, name and tag:
-agent.project.update(update_dict, namespace, name, tag)
+agent.project.update(update_dict, namespace, name, tag, )
 
 # retrieve a project
 agent.project.get(namespace, name, tag)

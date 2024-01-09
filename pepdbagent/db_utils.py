@@ -130,6 +130,7 @@ class Samples(Base):
     sample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     row_number: Mapped[int]
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    sample_name: Mapped[Optional[str]] = mapped_column()
     sample_mapping: Mapped["Projects"] = relationship(back_populates="samples_mapping")
 
 

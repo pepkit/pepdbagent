@@ -54,3 +54,8 @@ class ProjectAlreadyInFavorites(PEPDatabaseAgentError):
 
     def __init__(self, msg=""):
         super().__init__(f"""Project is already in favorites list. {msg}""")
+
+
+class SampleNotFoundError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Sample does not exist. {msg}""")

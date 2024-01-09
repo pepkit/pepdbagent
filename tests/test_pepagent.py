@@ -12,6 +12,7 @@ from pepdbagent.exceptions import (
     ProjectNotFoundError,
     ProjectNotInFavorites,
     ProjectAlreadyInFavorites,
+    SampleNotFoundError,
 )
 from .conftest import DNS
 
@@ -806,3 +807,217 @@ class TestFavorites:
                 assert prj_annot.stars_number == 1
             else:
                 assert prj_annot.stars_number == 0
+
+
+@pytest.mark.skipif(
+    not db_setup(),
+    reason="DB is not setup",
+)
+class TestSamples:
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace1", "amendments1", "pig_0h"],
+        ],
+    )
+    def test_retrieve_one_sample(self, initiate_pepdb_con, namespace, name, sample_name):
+        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name)
+        assert isinstance(one_sample, peppy.Sample)
+        assert one_sample.sample_name == sample_name
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace1", "amendments1", "pig_0h"],
+        ],
+    )
+    def test_retrieve_raw_sample(self, initiate_pepdb_con, namespace, name, sample_name):
+        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name, raw=True)
+        assert isinstance(one_sample, dict)
+        assert one_sample["sample_name"] == sample_name
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace2", "custom_index", "frog_1"],
+        ],
+    )
+    def test_retrieve_sample_with_modified_sample_id(
+        self, initiate_pepdb_con, namespace, name, sample_name
+    ):
+        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name)
+        assert isinstance(one_sample, peppy.Sample)
+        assert one_sample.sample_id == "frog_1"
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace1", "amendments1", "pig_0h"],
+        ],
+    )
+    def test_update(self, initiate_pepdb_con, namespace, name, sample_name):
+        initiate_pepdb_con.sample.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            sample_name=sample_name,
+            update_dict={"organism": "butterfly"},
+        )
+        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name)
+        assert one_sample.organism == "butterfly"
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace1", "amendments1", "pig_0h"],
+        ],
+    )
+    def test_update_sample_name(self, initiate_pepdb_con, namespace, name, sample_name):
+        initiate_pepdb_con.sample.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            sample_name=sample_name,
+            update_dict={"sample_name": "butterfly"},
+        )
+        one_sample = initiate_pepdb_con.sample.get(namespace, name, "butterfly")
+        assert one_sample.sample_name == "butterfly"
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace2", "custom_index", "frog_1"],
+        ],
+    )
+    def test_update_custom_sample_id(self, initiate_pepdb_con, namespace, name, sample_name):
+        initiate_pepdb_con.sample.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            sample_name=sample_name,
+            update_dict={"sample_id": "butterfly"},
+        )
+        one_sample = initiate_pepdb_con.sample.get(namespace, name, "butterfly")
+        assert one_sample.sample_id == "butterfly"
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace1", "amendments1", "pig_0h"],
+        ],
+    )
+    def test_add_new_attributes(self, initiate_pepdb_con, namespace, name, sample_name):
+        initiate_pepdb_con.sample.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            sample_name=sample_name,
+            update_dict={"new_attr": "butterfly"},
+        )
+        prj = initiate_pepdb_con.project.get(namespace, name)
+
+        assert prj.get_sample(sample_name).new_attr == "butterfly"
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace1", "amendments1", "pig_0h"],
+        ],
+    )
+    def test_project_timestamp_was_changed(self, initiate_pepdb_con, namespace, name, sample_name):
+        annotation1 = initiate_pepdb_con.annotation.get(namespace, name, "default")
+        import time
+
+        time.sleep(0.2)
+        initiate_pepdb_con.sample.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            sample_name=sample_name,
+            update_dict={"new_attr": "butterfly"},
+        )
+        annotation2 = initiate_pepdb_con.annotation.get(namespace, name, "default")
+
+        assert annotation1.results[0].last_update_date != annotation2.results[0].last_update_date
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace1", "amendments1", "pig_0h"],
+        ],
+    )
+    def test_delete_sample(self, initiate_pepdb_con, namespace, name, sample_name):
+        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name)
+        assert isinstance(one_sample, peppy.Sample)
+
+        initiate_pepdb_con.sample.delete(namespace, name, tag="default", sample_name=sample_name)
+
+        with pytest.raises(SampleNotFoundError):
+            initiate_pepdb_con.sample.get(namespace, name, tag="default", sample_name=sample_name)
+
+    @pytest.mark.parametrize(
+        "namespace, name, tag, sample_dict",
+        [
+            [
+                "namespace1",
+                "amendments1",
+                "default",
+                {
+                    "sample_name": "new_sample",
+                    "time": "new_time",
+                },
+            ],
+        ],
+    )
+    def test_add_sample(self, initiate_pepdb_con, namespace, name, tag, sample_dict):
+        prj = initiate_pepdb_con.project.get(namespace, name)
+        initiate_pepdb_con.sample.add(namespace, name, tag, sample_dict)
+
+        prj2 = initiate_pepdb_con.project.get(namespace, name)
+
+        assert len(prj.samples) + 1 == len(prj2.samples)
+        assert prj2.samples[-1].sample_name == sample_dict["sample_name"]
+
+    @pytest.mark.parametrize(
+        "namespace, name, tag, sample_dict",
+        [
+            [
+                "namespace1",
+                "amendments1",
+                "default",
+                {
+                    "sample_name": "pig_0h",
+                    "time": "new_time",
+                },
+            ],
+        ],
+    )
+    def test_overwrite_sample(self, initiate_pepdb_con, namespace, name, tag, sample_dict):
+        assert initiate_pepdb_con.project.get(namespace, name).get_sample("pig_0h").time == "0"
+        initiate_pepdb_con.sample.add(namespace, name, tag, sample_dict, overwrite=True)
+
+        assert (
+            initiate_pepdb_con.project.get(namespace, name).get_sample("pig_0h").time == "new_time"
+        )
+
+    @pytest.mark.parametrize(
+        "namespace, name, tag, sample_dict",
+        [
+            [
+                "namespace1",
+                "amendments1",
+                "default",
+                {
+                    "sample_name": "new_sample",
+                    "time": "new_time",
+                },
+            ],
+        ],
+    )
+    def test_delete_and_add(self, initiate_pepdb_con, namespace, name, tag, sample_dict):
+        prj = initiate_pepdb_con.project.get(namespace, name)
+        sample_dict = initiate_pepdb_con.sample.get(namespace, name, "pig_0h", raw=True)
+        initiate_pepdb_con.sample.delete(namespace, name, tag, "pig_0h")
+        initiate_pepdb_con.sample.add(namespace, name, tag, sample_dict)
+        prj2 = initiate_pepdb_con.project.get(namespace, name)
+        assert prj.get_sample("pig_0h").to_dict() == prj2.get_sample("pig_0h").to_dict()
