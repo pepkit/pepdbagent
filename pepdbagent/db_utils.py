@@ -100,6 +100,10 @@ class Projects(Base):
     stars_mapping: Mapped[List["Stars"]] = relationship(
         back_populates="project_mapping", cascade="all, delete-orphan"
     )
+    views_mapping: Mapped[List["Views"]] = relationship(
+        back_populates="project_mapping", cascade="all, delete-orphan"
+    )
+
     __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
 
 
@@ -116,6 +120,10 @@ class Samples(Base):
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     sample_name: Mapped[Optional[str]] = mapped_column()
     sample_mapping: Mapped["Projects"] = relationship(back_populates="samples_mapping")
+
+    views: Mapped[List["ViewSampleAssociation"]] = relationship(
+        back_populates="sample", cascade="all, delete-orphan"
+    )
 
 
 class Subsamples(Base):
@@ -158,6 +166,40 @@ class Stars(Base):
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
     user_mapping: Mapped[List["User"]] = relationship(back_populates="stars_mapping")
     project_mapping: Mapped["Projects"] = relationship(back_populates="stars_mapping")
+
+
+class Views(Base):
+    """
+    Views table representation in the database
+    """
+
+    __tablename__ = "views"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column()
+    description: Mapped[Optional[str]]
+
+    project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    project_mapping = relationship("Projects", back_populates="views_mapping")
+
+    samples: Mapped[List["ViewSampleAssociation"]] = relationship(
+        back_populates="view", cascade="all, delete-orphan"
+    )
+
+    _table_args__ = (UniqueConstraint("namespace", "project_id"),)
+
+
+class ViewSampleAssociation(Base):
+    """
+    Association table between views and samples
+    """
+
+    __tablename__ = "views_samples"
+
+    sample_id = mapped_column(ForeignKey("samples.id", ondelete="CASCADE"), primary_key=True)
+    view_id = mapped_column(ForeignKey("views.id", ondelete="CASCADE"), primary_key=True)
+    sample: Mapped["Samples"] = relationship(back_populates="views")
+    view: Mapped["Views"] = relationship(back_populates="samples")
 
 
 class BaseEngine:

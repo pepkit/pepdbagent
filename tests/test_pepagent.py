@@ -898,3 +898,71 @@ class TestSamples:
         initiate_pepdb_con.sample.add(namespace, name, tag, sample_dict)
         prj2 = initiate_pepdb_con.project.get(namespace, name)
         assert prj.get_sample("pig_0h").to_dict() == prj2.get_sample("pig_0h").to_dict()
+
+
+# @pytest.mark.skipif(
+#     not db_setup(),
+#     reason="DB is not setup",
+# )
+@pytest.mark.skipif(
+    True,
+    reason="Not implemented",
+)
+class TestViews:
+    """
+    Test function within view class
+    """
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace1", "amendments1", "pig_0h"],
+        ],
+    )
+    def test_create_view(self, initiate_pepdb_con, namespace, name, sample_name):
+        ...
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace1", "amendments1", "pig_0h"],
+        ],
+    )
+    def test_delete_view(self, initiate_pepdb_con, namespace, name, sample_name):
+        ...
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace1", "amendments1", "pig_0h"],
+        ],
+    )
+    def test_add_sample_to_view(self, initiate_pepdb_con, namespace, name, sample_name):
+        ...
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace1", "amendments1", "pig_0h"],
+        ],
+    )
+    def test_remove_sample_from_view(self, initiate_pepdb_con, namespace, name, sample_name):
+        ...
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace1", "amendments1", "pig_0h"],
+        ],
+    )
+    def test_add_existing_sample_in_view(self, initiate_pepdb_con, namespace, name, sample_name):
+        ...
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace1", "amendments1", "pig_0h"],
+        ],
+    )
+    def test_get_snap_view(self, initiate_pepdb_con, namespace, name, sample_name):
+        ...
