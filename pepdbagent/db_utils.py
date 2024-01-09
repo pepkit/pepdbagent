@@ -104,6 +104,22 @@ class Projects(Base):
         back_populates="project_mapping", cascade="all, delete-orphan"
     )
 
+    # Self-referential relationship. The parent project is the one that was forked to create this one.
+    forked_from_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+    forked_from_mapping = relationship(
+        "Projects",
+        back_populates="forked_to_mapping",
+        remote_side=[id],
+        single_parent=True,
+        cascade="all",
+    )
+
+    forked_to_mapping = relationship(
+        "Projects", back_populates="forked_from_mapping", cascade="all"
+    )
+
     __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
 
 

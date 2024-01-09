@@ -22,6 +22,7 @@ class AnnotationModel(BaseModel):
     pep_schema: Optional[str]
     pop: Optional[bool] = False
     stars_number: Optional[int] = 0
+    forked_from: Optional[Union[str, None]] = None
 
     model_config = ConfigDict(
         validate_assignment=True,
