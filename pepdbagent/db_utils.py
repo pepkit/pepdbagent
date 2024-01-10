@@ -137,7 +137,7 @@ class Samples(Base):
     sample_name: Mapped[Optional[str]] = mapped_column()
     sample_mapping: Mapped["Projects"] = relationship(back_populates="samples_mapping")
 
-    views: Mapped[List["ViewSampleAssociation"]] = relationship(
+    views: Mapped[Optional[List["ViewSampleAssociation"]]] = relationship(
         back_populates="sample", cascade="all, delete-orphan"
     )
 
