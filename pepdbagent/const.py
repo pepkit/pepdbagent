@@ -12,7 +12,7 @@ DEFAULT_OFFSET = 0
 DEFAULT_LIMIT = 100
 
 # db_dialects
-POSTGRES_DIALECT = "postgresql"
+POSTGRES_DIALECT = "postgresql+psycopg"
 
 DEFAULT_LIMIT_INFO = 5
 
