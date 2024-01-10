@@ -1172,3 +1172,23 @@ class TestViews:
         )
 
         assert len(snap_project.samples) == 2
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name, view_name",
+        [
+            ["namespace1", "amendments1", "pig_0h", "view1"],
+        ],
+    )
+    def test_get_view_list_from_project(
+        self, initiate_pepdb_con, namespace, name, sample_name, view_name
+    ):
+        initiate_pepdb_con.view.create(
+            "view1",
+            {
+                "project_namespace": namespace,
+                "project_name": name,
+                "project_tag": "default",
+                "sample_list": [sample_name, "pig_1h"],
+            },
+        )
+        assert initiate_pepdb_con.annotation.get_views(namespace, name, "default")[0] == "view1"
