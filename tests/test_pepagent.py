@@ -1182,6 +1182,10 @@ class TestViews:
     def test_get_view_list_from_project(
         self, initiate_pepdb_con, namespace, name, sample_name, view_name
     ):
+        assert (
+            len(initiate_pepdb_con.view.get_views_annotation(namespace, name, "default").views)
+            == 0
+        )
         initiate_pepdb_con.view.create(
             "view1",
             {
@@ -1191,4 +1195,8 @@ class TestViews:
                 "sample_list": [sample_name, "pig_1h"],
             },
         )
-        assert initiate_pepdb_con.annotation.get_views(namespace, name, "default")[0] == "view1"
+        result = initiate_pepdb_con.view.get_views_annotation(namespace, name, "default")
+        assert (
+            len(initiate_pepdb_con.view.get_views_annotation(namespace, name, "default").views)
+            == 1
+        )

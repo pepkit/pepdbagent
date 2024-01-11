@@ -572,26 +572,3 @@ class PEPDatabaseAnnotation:
 
         else:
             return self.get_by_rp(registry_paths, admin)
-
-    def get_views(self, namespace: str, name: str, tag: str = DEFAULT_TAG) -> List[str]:
-        """
-        Get list of views of the project
-
-        :param namespace: namespace of the project
-        :param name: name of the project
-        :param tag: tag of the project
-        :return: list of views of the project
-        """
-        statement = select(Views.name).where(
-            Views.project_mapping.has(namespace=namespace, name=name, tag=tag),
-            and_(
-                Projects.name == name,
-                Projects.namespace == namespace,
-                Projects.tag == tag,
-            ),
-        )
-        views = self._pep_db_engine.session_execute(statement).all()
-        if views:
-            return [v[0] for v in views]
-        else:
-            return []

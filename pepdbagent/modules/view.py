@@ -16,7 +16,7 @@ from pepdbagent.const import (
 from pepdbagent.exceptions import ViewNotFoundError, SampleAlreadyInView
 
 from pepdbagent.db_utils import BaseEngine, Samples, Projects, Views, ViewSampleAssociation
-from pepdbagent.models import ViewAnnotation, CreateViewDictModel
+from pepdbagent.models import ViewAnnotation, CreateViewDictModel, ProjectViews
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -369,3 +369,37 @@ class PEPDatabaseView:
             return peppy.Project.from_dict(
                 {"_config": config, "_sample_dict": samples, "_subsample_dict": None}
             )
+
+    def get_views_annotation(
+        self, namespace: str, name: str, tag: str = DEFAULT_TAG
+    ) -> Union[ProjectViews, None]:
+        """
+        Get list of views of the project
+
+        :param namespace: namespace of the project
+        :param name: name of the project
+        :param tag: tag of the project
+        :return: list of views of the project
+        """
+        statement = select(Views).where(
+            Views.project_mapping.has(namespace=namespace, name=name, tag=tag),
+            and_(
+                Projects.name == name,
+                Projects.namespace == namespace,
+                Projects.tag == tag,
+            ),
+        )
+        views_list = []
+
+        with Session(self._sa_engine) as session:
+            views = session.scalars(statement)
+            for view in views:
+                views_list.append(
+                    ViewAnnotation(
+                        name=view.name,
+                        description=view.description,
+                        number_of_samples=len(view.samples),
+                    )
+                )
+
+        return ProjectViews(namespace=namespace, name=name, tag=tag, views=views_list)
