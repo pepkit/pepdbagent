@@ -13,7 +13,7 @@ from pepdbagent.const import (
     DEFAULT_TAG,
     PKG_NAME,
 )
-from pepdbagent.exceptions import ViewNotFoundError, SampleAlreadyInView
+from pepdbagent.exceptions import ViewNotFoundError, SampleAlreadyInView, ProjectNotFoundError, SampleNotFoundError
 
 from pepdbagent.db_utils import BaseEngine, Samples, Projects, Views, ViewSampleAssociation
 from pepdbagent.models import ViewAnnotation, CreateViewDictModel, ProjectViews
@@ -158,7 +158,7 @@ class PEPDatabaseView:
         with Session(self._sa_engine) as sa_session:
             project = sa_session.scalar(project_statement)
             if not project:
-                raise ValueError(
+                raise ProjectNotFoundError(
                     f"Project {view_dict.project_namespace}/{view_dict.project_name}:{view_dict.project_tag} does not exist"
                 )
             view = Views(
@@ -177,7 +177,7 @@ class PEPDatabaseView:
                 )
                 sample_id = sa_session.execute(sample_statement).one()[0]
                 if not sample_id:
-                    raise ValueError(
+                    raise SampleNotFoundError(
                         f"Sample {view_dict.project_namespace}/{view_dict.project_name}:{view_dict.project_tag}:{sample_name} does not exist"
                     )
                 sa_session.add(ViewSampleAssociation(sample_id=sample_id, view=view))
@@ -260,7 +260,7 @@ class PEPDatabaseView:
                 )
                 sample = sa_session.scalar(sample_statement)
                 if not sample:
-                    raise ValueError(
+                    raise SampleNotFoundError(
                         f"Sample {namespace}/{name}:{tag}:{sample_name} does not exist"
                     )
                 try:
@@ -346,7 +346,7 @@ class PEPDatabaseView:
         with Session(self._sa_engine) as sa_session:
             project = sa_session.scalar(project_statement)
             if not project:
-                raise ValueError(f"Project {namespace}/{name}:{tag} does not exist")
+                raise ProjectNotFoundError(f"Project {namespace}/{name}:{tag} does not exist")
             samples = []
             for sample_name in sample_name_list:
                 sample_statement = select(Samples).where(
@@ -357,7 +357,7 @@ class PEPDatabaseView:
                 )
                 sample = sa_session.scalar(sample_statement)
                 if not sample:
-                    raise ValueError(
+                    raise SampleNotFoundError(
                         f"Sample {namespace}/{name}:{tag}:{sample_name} does not exist"
                     )
                 samples.append(sample.sample)
