@@ -14,7 +14,7 @@ from pepdbagent.const import (
     SUBMISSION_DATE_KEY,
     LAST_UPDATE_DATE_KEY,
 )
-from pepdbagent.db_utils import BaseEngine, Projects, Views
+from pepdbagent.db_utils import BaseEngine, Projects
 from pepdbagent.exceptions import FilterError, ProjectNotFoundError, RegistryPathError
 from pepdbagent.models import AnnotationList, AnnotationModel
 from pepdbagent.utils import convert_date_string_to_date, registry_path_converter, tuple_converter

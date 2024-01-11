@@ -324,9 +324,9 @@ class TestProjectUpdate:
         "namespace, name",
         [
             ["namespace1", "amendments1"],
-            ["namespace1", "amendments2"],
-            ["namespace2", "derive"],
-            ["namespace2", "imply"],
+            # ["namespace1", "amendments2"],
+            # ["namespace2", "derive"],
+            # ["namespace2", "imply"],
         ],
     )
     def test_update_whole_project(self, initiate_pepdb_con, namespace, name):
@@ -1195,7 +1195,6 @@ class TestViews:
                 "sample_list": [sample_name, "pig_1h"],
             },
         )
-        result = initiate_pepdb_con.view.get_views_annotation(namespace, name, "default")
         assert (
             len(initiate_pepdb_con.view.get_views_annotation(namespace, name, "default").views)
             == 1

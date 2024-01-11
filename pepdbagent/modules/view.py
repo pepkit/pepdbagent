@@ -13,7 +13,12 @@ from pepdbagent.const import (
     DEFAULT_TAG,
     PKG_NAME,
 )
-from pepdbagent.exceptions import ViewNotFoundError, SampleAlreadyInView, ProjectNotFoundError, SampleNotFoundError
+from pepdbagent.exceptions import (
+    ViewNotFoundError,
+    SampleAlreadyInView,
+    ProjectNotFoundError,
+    SampleNotFoundError,
+)
 
 from pepdbagent.db_utils import BaseEngine, Samples, Projects, Views, ViewSampleAssociation
 from pepdbagent.models import ViewAnnotation, CreateViewDictModel, ProjectViews
@@ -383,11 +388,6 @@ class PEPDatabaseView:
         """
         statement = select(Views).where(
             Views.project_mapping.has(namespace=namespace, name=name, tag=tag),
-            and_(
-                Projects.name == name,
-                Projects.namespace == namespace,
-                Projects.tag == tag,
-            ),
         )
         views_list = []
 

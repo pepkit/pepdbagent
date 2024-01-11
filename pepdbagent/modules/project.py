@@ -1,7 +1,7 @@
 import datetime
 import json
 import logging
-from typing import Union, List, NoReturn
+from typing import Union, List, NoReturn, Mapping
 
 import peppy
 from sqlalchemy import and_, delete, select
@@ -90,11 +90,16 @@ class PEPDatabaseProject:
                         subsample_list = list(subsample_dict.values())
                     else:
                         subsample_list = []
+
+                    # samples
+                    samples_dict = {
+                        sample_sa.row_number: sample_sa.sample
+                        for sample_sa in found_prj.samples_mapping
+                    }
+
                     project_value = {
                         CONFIG_KEY: found_prj.config,
-                        SAMPLE_RAW_DICT_KEY: [
-                            sample_sa.sample for sample_sa in found_prj.samples_mapping
-                        ],
+                        SAMPLE_RAW_DICT_KEY: [samples_dict[key] for key in sorted(samples_dict)],
                         SUBSAMPLE_RAW_LIST_KEY: subsample_list,
                     }
                     # project_value = found_prj.project_value
@@ -466,16 +471,25 @@ class PEPDatabaseProject:
                                 found_prj.name = found_prj.config[NAME_KEY]
 
                     if "samples" in update_dict:
-                        if found_prj.samples_mapping:
-                            for sample in found_prj.samples_mapping:
-                                _LOGGER.debug(f"deleting samples: {str(sample)}")
-                                session.delete(sample)
-
-                        self._add_samples_to_project(
-                            found_prj,
-                            update_dict["samples"],
-                            sample_table_index=update_dict["config"].get(SAMPLE_TABLE_INDEX_KEY),
+                        self._update_samples(
+                            namespace=namespace,
+                            name=name,
+                            tag=tag,
+                            samples_list=update_dict["samples"],
+                            sample_name_key=update_dict["config"].get(
+                                SAMPLE_TABLE_INDEX_KEY, "sample_name"
+                            ),
                         )
+                        # if found_prj.samples_mapping:
+                        #     for sample in found_prj.samples_mapping:
+                        #         _LOGGER.debug(f"deleting samples: {str(sample)}")
+                        #         session.delete(sample)
+                        #
+                        # self._add_samples_to_project(
+                        #     found_prj,
+                        #     update_dict["samples"],
+                        #     sample_table_index=update_dict["config"].get(SAMPLE_TABLE_INDEX_KEY),
+                        # )
 
                     if "subsamples" in update_dict:
                         if found_prj.subsamples_mapping:
@@ -495,6 +509,67 @@ class PEPDatabaseProject:
 
         else:
             raise ProjectNotFoundError("No items will be updated!")
+
+    def _update_samples(
+        self,
+        namespace: str,
+        name: str,
+        tag: str,
+        samples_list: List[Mapping],
+        sample_name_key: str = "sample_name",
+    ) -> None:
+        """
+        Update samples in the project
+        This is a new method that instead of deleting all samples and adding new ones,
+        updates samples and adds new ones if they don't exist
+
+        :param samples_list: list of samples to be updated
+        :param sample_name_key: key of the sample name
+        :return: None
+        """
+        new_sample_names = [sample[sample_name_key] for sample in samples_list]
+        with Session(self._sa_engine) as session:
+            project = session.scalar(
+                select(Projects).where(
+                    and_(
+                        Projects.namespace == namespace, Projects.name == name, Projects.tag == tag
+                    )
+                )
+            )
+            old_sample_names = [sample.sample_name for sample in project.samples_mapping]
+            for old_sample in old_sample_names:
+                if old_sample not in new_sample_names:
+                    session.execute(
+                        delete(Samples).where(
+                            and_(
+                                Samples.sample_name == old_sample, Samples.project_id == project.id
+                            )
+                        )
+                    )
+
+            order_number = 0
+            for new_sample in samples_list:
+                order_number += 1
+                if new_sample[sample_name_key] not in old_sample_names:
+                    project.samples_mapping.append(
+                        Samples(
+                            sample=new_sample,
+                            sample_name=new_sample[sample_name_key],
+                            row_number=order_number,
+                        )
+                    )
+                else:
+                    sample_mapping = session.scalar(
+                        select(Samples).where(
+                            and_(
+                                Samples.sample_name == new_sample[sample_name_key],
+                                Samples.project_id == project.id,
+                            )
+                        )
+                    )
+                    sample_mapping.sample = new_sample
+                    sample_mapping.row_number = order_number
+            session.commit()
 
     @staticmethod
     def __create_update_dict(update_values: UpdateItems) -> dict:
