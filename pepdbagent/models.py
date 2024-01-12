@@ -83,6 +83,7 @@ class UpdateItems(BaseModel):
     config: Optional[dict] = None
     samples: Optional[List[dict]] = None
     subsamples: Optional[List[List[dict]]] = None
+    pop: Optional[bool] = False
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -111,6 +112,7 @@ class UpdateModel(BaseModel):
     pep_schema: Optional[str] = None
     description: Optional[str] = ""
     # last_update_date: Optional[datetime.datetime] = datetime.datetime.now(datetime.timezone.utc)
+    pop: Optional[bool] = False
 
     @field_validator("tag", "name")
     def value_must_not_be_empty(cls, v):

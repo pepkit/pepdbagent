@@ -659,16 +659,21 @@ class PEPDatabaseProject:
         fork_namespace: str,
         fork_name: str = None,
         fork_tag: str = None,
+        description: str = None,
+        private: bool = False,
     ):
         """
+        Fork project from one namespace to another
 
-        :param original_namespace:
-        :param original_name:
-        :param original_tag:
-        :param fork_namespace:
-        :param fork_name:
-        :param fork_tag:
-        :return:
+        :param original_namespace: namespace of the project to be forked
+        :param original_name: name of the project to be forked
+        :param original_tag: tag of the project to be forked
+        :param fork_namespace: namespace of the forked project
+        :param fork_name: name of the forked project
+        :param fork_tag: tag of the forked project
+        :param description: description of the forked project
+        :param private: boolean value if the project should be visible just for user that creates it.
+        :return: None
         """
         self.create(
             project=self.get(
@@ -679,15 +684,26 @@ class PEPDatabaseProject:
             namespace=fork_namespace,
             name=fork_name,
             tag=fork_tag,
+            description=description or None,
+            is_private=private,
         )
-        original_id = self.get_project_id(original_namespace, original_name, original_tag)
+        original_statement = select(Projects).where(
+            Projects.namespace == original_namespace,
+            Projects.name == original_name,
+            Projects.tag == original_tag,
+        )
+        fork_statement = select(Projects).where(
+            Projects.namespace == fork_namespace,
+            Projects.name == fork_name,
+            Projects.tag == fork_tag,
+        )
+
         with Session(self._sa_engine) as session:
-            statement = select(Projects).where(
-                Projects.namespace == fork_namespace,
-                Projects.name == fork_name,
-                Projects.tag == fork_tag,
-            )
-            prj = session.scalar(statement)
-            prj.forked_from_id = original_id
+            original_prj = session.scalar(original_statement)
+            fork_prj = session.scalar(fork_statement)
+            fork_prj.forked_from_id = original_prj.id
+            fork_prj.pop = original_prj.pop
+            fork_prj.submission_date = original_prj.submission_date
+
             session.commit()
         return None
