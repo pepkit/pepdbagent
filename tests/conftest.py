@@ -42,6 +42,9 @@ def initiate_pepdb_con(
         conn.execute(text("DROP table IF EXISTS subsamples CASCADE"))
         conn.execute(text("DROP table IF EXISTS stars CASCADE"))
         conn.execute(text("DROP table IF EXISTS users CASCADE"))
+        conn.execute(text("DROP table IF EXISTS views CASCADE"))
+        conn.execute(text("DROP table IF EXISTS views_samples CASCADE"))
+
     pepdb_con = PEPDatabaseAgent(dsn=DNS, echo=True)
     for namespace, item in list_of_available_peps.items():
         if namespace == "private_test":

@@ -162,3 +162,35 @@ class ProjectRegistryPath(BaseModel):
     namespace: str
     name: str
     tag: str = DEFAULT_TAG
+
+
+class ViewAnnotation(BaseModel):
+    """
+    Project views model
+    """
+
+    name: str
+    description: Optional[str] = None
+    number_of_samples: int = 0
+
+
+class ProjectViews(BaseModel):
+    """
+    View annotation model
+    """
+
+    namespace: str
+    name: str
+    tag: str = DEFAULT_TAG
+    views: List[ViewAnnotation] = []
+
+
+class CreateViewDictModel(BaseModel):
+    """
+    View creation dict model
+    """
+
+    project_namespace: str
+    project_name: str
+    project_tag: str
+    sample_list: List[str]

@@ -5,6 +5,7 @@ from pepdbagent.modules.namespace import PEPDatabaseNamespace
 from pepdbagent.modules.project import PEPDatabaseProject
 from pepdbagent.modules.user import PEPDatabaseUser
 from pepdbagent.modules.sample import PEPDatabaseSample
+from pepdbagent.modules.view import PEPDatabaseView
 
 
 class PEPDatabaseAgent(object):
@@ -51,6 +52,7 @@ class PEPDatabaseAgent(object):
         self.__namespace = PEPDatabaseNamespace(pep_db_engine)
         self.__sample = PEPDatabaseSample(pep_db_engine)
         self.__user = PEPDatabaseUser(pep_db_engine)
+        self.__view = PEPDatabaseView(pep_db_engine)
 
         self.__db_name = database
 
@@ -73,6 +75,10 @@ class PEPDatabaseAgent(object):
     @property
     def sample(self) -> PEPDatabaseSample:
         return self.__sample
+
+    @property
+    def view(self) -> PEPDatabaseView:
+        return self.__view
 
     def __str__(self):
         return f"Connection to the database: '{self.__db_name}' is set!"

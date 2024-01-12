@@ -59,3 +59,17 @@ class ProjectAlreadyInFavorites(PEPDatabaseAgentError):
 class SampleNotFoundError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
         super().__init__(f"""Sample does not exist. {msg}""")
+
+
+class ViewNotFoundError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""View does not exist. {msg}""")
+
+
+class SampleAlreadyInView(PEPDatabaseAgentError):
+    """
+    Sample is already in the view exception
+    """
+
+    def __init__(self, msg=""):
+        super().__init__(f"""Sample is already in the view. {msg}""")
