@@ -2,10 +2,14 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
-## [0.7.0] -- 2023-XX-XX
-- Added pop to project table and annotation model
-- Switched to pydantic2
-- Updated requirements (psycopg2 -> psycopg3)
+## [0.7.0] -- 2023-01-17
+- Added `pop` to project table and annotation model [#107](https://github.com/pepkit/pepdbagent/issues/107)
+- Added `forked_from` feature [#73](https://github.com/pepkit/pepdbagent/issues/73)
+- Switched to pydantic2 [#105](https://github.com/pepkit/pepdbagent/issues/105)
+- Updated requirements (psycopg2 -> psycopg3) [#102](https://github.com/pepkit/pepdbagent/issues/102)
+- Added sample module that contains functionality for updating, adding, and deleting samples in the project separately [#111](https://github.com/pepkit/pepdbagent/issues/111)
+- Added user and favorite tables with functionality [#104](https://github.com/pepkit/pepdbagent/issues/104)
+- Updated the sample update method when updating the whole project. Following this change, samples are updated without changing the ID in the database
 
 ## [0.6.0] -- 2023-08-24
 - Added date filter to project annotation
