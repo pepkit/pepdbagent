@@ -2,8 +2,11 @@
 import coloredlogs
 import logmuse
 
-from ._version import __version__
-from .pepdbagent import *
+from pepdbagent._version import __version__
+from pepdbagent.pepdbagent import PEPDatabaseAgent
+
+__all__ = ["__version__", "PEPDatabaseAgent"]
+
 
 _LOGGER = logmuse.init_logger("pepdbagent")
 coloredlogs.install(
