@@ -1,9 +1,8 @@
 # file with pydantic models
-import datetime
 from typing import List, Optional, Union
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
-import peppy
-from pydantic import BaseModel, Extra, Field, validator
+from pepdbagent.const import DEFAULT_TAG
 
 
 class AnnotationModel(BaseModel):
@@ -21,12 +20,16 @@ class AnnotationModel(BaseModel):
     submission_date: Optional[str]
     digest: Optional[str]
     pep_schema: Optional[str]
+    pop: Optional[bool] = False
+    stars_number: Optional[int] = 0
+    forked_from: Optional[Union[str, None]] = None
 
-    class Config:
-        allow_population_by_field_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_assignment=True,
+        populate_by_name=True,
+    )
 
-    @validator("is_private")
+    @field_validator("is_private")
     def is_private_should_be_bool(cls, v):
         if not isinstance(v, bool):
             return False
@@ -42,7 +45,7 @@ class AnnotationList(BaseModel):
     count: int
     limit: int
     offset: int
-    results: List[AnnotationModel]
+    results: List[Union[AnnotationModel, None]]
 
 
 class Namespace(BaseModel):
@@ -71,20 +74,21 @@ class UpdateItems(BaseModel):
     Model used for updating individual items in db
     """
 
-    name: Optional[str]
-    description: Optional[str]
-    tag: Optional[str]
-    is_private: Optional[bool]
-    pep_schema: Optional[str]
-    digest: Optional[str]
-    config: Optional[dict]
-    samples: Optional[List[dict]]
-    subsamples: Optional[List[List[dict]]]
-    description: Optional[str]
+    name: Optional[str] = None
+    description: Optional[str] = None
+    tag: Optional[str] = None
+    is_private: Optional[bool] = None
+    pep_schema: Optional[str] = None
+    digest: Optional[str] = None
+    config: Optional[dict] = None
+    samples: Optional[List[dict]] = None
+    subsamples: Optional[List[List[dict]]] = None
+    pop: Optional[bool] = False
 
-    class Config:
-        arbitrary_types_allowed = True
-        extra = Extra.forbid
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        extra="forbid",
+    )
 
     @property
     def number_of_samples(self) -> Union[int, None]:
@@ -99,37 +103,36 @@ class UpdateModel(BaseModel):
     Model used for updating individual items and creating sql string in the code
     """
 
-    config: Optional[dict]
+    config: Optional[dict] = None
     name: Optional[str] = None
     tag: Optional[str] = None
-    private: Optional[bool] = Field(alias="is_private")
-    digest: Optional[str]
-    number_of_samples: Optional[int]
-    pep_schema: Optional[str]
+    private: Optional[bool] = Field(alias="is_private", default=None)
+    digest: Optional[str] = None
+    number_of_samples: Optional[int] = None
+    pep_schema: Optional[str] = None
     description: Optional[str] = ""
     # last_update_date: Optional[datetime.datetime] = datetime.datetime.now(datetime.timezone.utc)
+    pop: Optional[bool] = False
 
-    @validator("tag", "name")
+    @field_validator("tag", "name")
     def value_must_not_be_empty(cls, v):
         if "" == v:
             return None
         return v
 
-    @validator("tag", "name")
+    @field_validator("tag", "name")
     def value_must_be_lowercase(cls, v):
         if v:
             return v.lower()
         return v
 
-    @validator("tag", "name")
+    @field_validator("tag", "name")
     def value_should_not_contain_question(cls, v):
         if "?" in v:
             return ValueError("Question mark (?) is prohibited in name and tag.")
         return v
 
-    class Config:
-        extra = Extra.forbid
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
 class NamespaceInfo(BaseModel):
@@ -149,3 +152,45 @@ class ListOfNamespaceInfo(BaseModel):
     number_of_namespaces: int
     limit: int
     results: List[NamespaceInfo]
+
+
+class ProjectRegistryPath(BaseModel):
+    """
+    Project Namespace
+    """
+
+    namespace: str
+    name: str
+    tag: str = DEFAULT_TAG
+
+
+class ViewAnnotation(BaseModel):
+    """
+    Project views model
+    """
+
+    name: str
+    description: Optional[str] = None
+    number_of_samples: int = 0
+
+
+class ProjectViews(BaseModel):
+    """
+    View annotation model
+    """
+
+    namespace: str
+    name: str
+    tag: str = DEFAULT_TAG
+    views: List[ViewAnnotation] = []
+
+
+class CreateViewDictModel(BaseModel):
+    """
+    View creation dict model
+    """
+
+    project_namespace: str
+    project_name: str
+    project_tag: str
+    sample_list: List[str]

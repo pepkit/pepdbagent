@@ -1,11 +1,10 @@
 import datetime
 import logging
-from typing import Any, Optional, List
+from typing import Optional, List
 
 from sqlalchemy import (
     BigInteger,
     FetchedValue,
-    PrimaryKeyConstraint,
     Result,
     Select,
     String,
@@ -13,7 +12,6 @@ from sqlalchemy import (
     select,
     TIMESTAMP,
     ForeignKey,
-    ForeignKeyConstraint,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSON
@@ -87,16 +85,40 @@ class Projects(Base):
     config: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     private: Mapped[bool]
     number_of_samples: Mapped[int]
+    number_of_stars: Mapped[int] = mapped_column(default=0)
     submission_date: Mapped[datetime.datetime]
     last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
         onupdate=deliver_update_date, default=deliver_update_date
     )
     pep_schema: Mapped[Optional[str]]
+    pop: Mapped[Optional[bool]] = mapped_column(default=False)
     samples_mapping: Mapped[List["Samples"]] = relationship(
         back_populates="sample_mapping", cascade="all, delete-orphan"
     )
     subsamples_mapping: Mapped[List["Subsamples"]] = relationship(
         back_populates="subsample_mapping", cascade="all, delete-orphan"
+    )
+    stars_mapping: Mapped[List["Stars"]] = relationship(
+        back_populates="project_mapping", cascade="all, delete-orphan"
+    )
+    views_mapping: Mapped[List["Views"]] = relationship(
+        back_populates="project_mapping", cascade="all, delete-orphan"
+    )
+
+    # Self-referential relationship. The parent project is the one that was forked to create this one.
+    forked_from_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+    forked_from_mapping = relationship(
+        "Projects",
+        back_populates="forked_to_mapping",
+        remote_side=[id],
+        single_parent=True,
+        cascade="all",
+    )
+
+    forked_to_mapping = relationship(
+        "Projects", back_populates="forked_from_mapping", cascade="all"
     )
 
     __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
@@ -113,7 +135,12 @@ class Samples(Base):
     sample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     row_number: Mapped[int]
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    sample_name: Mapped[Optional[str]] = mapped_column()
     sample_mapping: Mapped["Projects"] = relationship(back_populates="samples_mapping")
+
+    views: Mapped[Optional[List["ViewSampleAssociation"]]] = relationship(
+        back_populates="sample", cascade="all, delete-orphan"
+    )
 
 
 class Subsamples(Base):
@@ -129,6 +156,67 @@ class Subsamples(Base):
     row_number: Mapped[int]
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     subsample_mapping: Mapped["Projects"] = relationship(back_populates="subsamples_mapping")
+
+
+class User(Base):
+    """
+    User table representation in the database
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    namespace: Mapped[str]
+    stars_mapping: Mapped[List["Stars"]] = relationship(
+        back_populates="user_mapping", cascade="all, delete-orphan"
+    )
+
+
+class Stars(Base):
+    """
+    FavoriteProjects table representation in the database
+    """
+
+    __tablename__ = "stars"
+
+    user_id = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+    user_mapping: Mapped[List["User"]] = relationship(back_populates="stars_mapping")
+    project_mapping: Mapped["Projects"] = relationship(back_populates="stars_mapping")
+
+
+class Views(Base):
+    """
+    Views table representation in the database
+    """
+
+    __tablename__ = "views"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column()
+    description: Mapped[Optional[str]]
+
+    project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    project_mapping = relationship("Projects", back_populates="views_mapping")
+
+    samples: Mapped[List["ViewSampleAssociation"]] = relationship(
+        back_populates="view", cascade="all, delete-orphan"
+    )
+
+    _table_args__ = (UniqueConstraint("namespace", "project_id"),)
+
+
+class ViewSampleAssociation(Base):
+    """
+    Association table between views and samples
+    """
+
+    __tablename__ = "views_samples"
+
+    sample_id = mapped_column(ForeignKey("samples.id", ondelete="CASCADE"), primary_key=True)
+    view_id = mapped_column(ForeignKey("views.id", ondelete="CASCADE"), primary_key=True)
+    sample: Mapped["Samples"] = relationship(back_populates="views")
+    view: Mapped["Views"] = relationship(back_populates="samples")
 
 
 class BaseEngine:

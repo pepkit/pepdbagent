@@ -2,9 +2,9 @@ import logging
 from datetime import datetime
 from typing import List, Literal, Optional, Union
 
-from sqlalchemy import Engine, and_, func, or_, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.sql.selectable import Select
+from sqlalchemy.orm import Session
 
 from pepdbagent.const import (
     DEFAULT_LIMIT,
@@ -50,6 +50,7 @@ class PEPDatabaseAnnotation:
         filter_by: Optional[Literal["submission_date", "last_update_date"]] = None,
         filter_start_date: Optional[str] = None,
         filter_end_date: Optional[str] = None,
+        pep_type: Optional[Literal["pep", "pop"]] = None,
     ) -> AnnotationList:
         """
         Get project annotations.
@@ -77,6 +78,7 @@ class PEPDatabaseAnnotation:
             [Default: filter won't be used]
         :param filter_start_date: Filter start date. Format: "YYYY/MM/DD"
         :param filter_end_date: Filter end date. Format: "YYYY/MM/DD". if None: present date will be used
+        :param pep_type: Get pep with specified type. Options: ["pep", "pop"]. Default: None, get all peps
         :return: pydantic model: AnnotationList
         """
         if all([namespace, name, tag]):
@@ -94,6 +96,10 @@ class PEPDatabaseAnnotation:
                 offset=0,
                 results=found_annotation,
             )
+
+        if pep_type not in [None, "pep", "pop"]:
+            raise ValueError(f"pep_type should be one of ['pep', 'pop'], got {pep_type}")
+
         return AnnotationList(
             limit=limit,
             offset=offset,
@@ -104,6 +110,7 @@ class PEPDatabaseAnnotation:
                 filter_by=filter_by,
                 filter_end_date=filter_end_date,
                 filter_start_date=filter_start_date,
+                pep_type=pep_type,
             ),
             results=self._get_projects(
                 namespace=namespace,
@@ -116,6 +123,7 @@ class PEPDatabaseAnnotation:
                 filter_by=filter_by,
                 filter_end_date=filter_end_date,
                 filter_start_date=filter_start_date,
+                pep_type=pep_type,
             ),
         )
 
@@ -178,18 +186,7 @@ class PEPDatabaseAnnotation:
         _LOGGER.info(f"Getting annotation of the project: '{namespace}/{name}:{tag}'")
         admin_tuple = tuple_converter(admin)
 
-        statement = select(
-            Projects.namespace,
-            Projects.name,
-            Projects.tag,
-            Projects.private,
-            Projects.description,
-            Projects.number_of_samples,
-            Projects.submission_date,
-            Projects.last_update_date,
-            Projects.digest,
-            Projects.pep_schema,
-        ).where(
+        statement = select(Projects).where(
             and_(
                 Projects.name == name,
                 Projects.namespace == namespace,
@@ -200,25 +197,33 @@ class PEPDatabaseAnnotation:
                 ),
             )
         )
-        query_result = self._pep_db_engine.session_execute(statement).first()
+        with Session(self._sa_engine) as session:
+            query_result = session.scalar(statement)
 
-        if query_result:
-            annot = AnnotationModel(
-                namespace=query_result.namespace,
-                name=query_result.name,
-                tag=query_result.tag,
-                is_private=query_result.private,
-                description=query_result.description,
-                number_of_samples=query_result.number_of_samples,
-                submission_date=str(query_result.submission_date),
-                last_update_date=str(query_result.last_update_date),
-                digest=query_result.digest,
-                pep_schema=query_result.pep_schema,
-            )
-            _LOGGER.info(f"Annotation of the project '{namespace}/{name}:{tag}' has been found!")
-            return annot
-        else:
-            raise ProjectNotFoundError(f"Project '{namespace}/{name}:{tag}' was not found.")
+            if query_result:
+                annot = AnnotationModel(
+                    namespace=query_result.namespace,
+                    name=query_result.name,
+                    tag=query_result.tag,
+                    is_private=query_result.private,
+                    description=query_result.description,
+                    number_of_samples=query_result.number_of_samples,
+                    submission_date=str(query_result.submission_date),
+                    last_update_date=str(query_result.last_update_date),
+                    digest=query_result.digest,
+                    pep_schema=query_result.pep_schema,
+                    pop=query_result.pop,
+                    stars_number=query_result.number_of_stars,
+                    forked_from=f"{query_result.forked_from_mapping.namespace}/{query_result.forked_from_mapping.name}:{query_result.forked_from_mapping.tag}"
+                    if query_result.forked_from_id
+                    else None,
+                )
+                _LOGGER.info(
+                    f"Annotation of the project '{namespace}/{name}:{tag}' has been found!"
+                )
+                return annot
+            else:
+                raise ProjectNotFoundError(f"Project '{namespace}/{name}:{tag}' was not found.")
 
     def _count_projects(
         self,
@@ -228,9 +233,11 @@ class PEPDatabaseAnnotation:
         filter_by: Optional[Literal["submission_date", "last_update_date"]] = None,
         filter_start_date: Optional[str] = None,
         filter_end_date: Optional[str] = None,
+        pep_type: Optional[Literal["pep", "pop"]] = None,
     ) -> int:
         """
         Count projects. [This function is related to _find_projects]
+
         :param namespace: namespace where to search for a project
         :param search_str: search string. will be searched in name, tag and description information
         :param admin: string or list of admins [e.g. "Khoroshevskyi", or ["doc_adin","Khoroshevskyi"]]
@@ -239,6 +246,8 @@ class PEPDatabaseAnnotation:
             [Default: filter won't be used]
         :param filter_start_date: Filter start date. Format: "YYYY:MM:DD"
         :param filter_end_date: Filter end date. Format: "YYYY:MM:DD". if None: present date will be used
+        :param pep_type: Get pep with specified type. Options: ["pep", "pop"]. Default: None, get all peps
+
         :return: number of found project in specified namespace
         """
         if admin is None:
@@ -253,6 +262,8 @@ class PEPDatabaseAnnotation:
         statement = self._add_date_filter_if_provided(
             statement, filter_by, filter_start_date, filter_end_date
         )
+        if pep_type:
+            statement = statement.where(Projects.pop.is_(pep_type == "pop"))
         result = self._pep_db_engine.session_execute(statement).first()
 
         try:
@@ -272,6 +283,7 @@ class PEPDatabaseAnnotation:
         filter_by: Optional[Literal["submission_date", "last_update_date"]] = None,
         filter_start_date: Optional[str] = None,
         filter_end_date: Optional[str] = None,
+        pep_type: Optional[Literal["pep", "pop"]] = None,
     ) -> List[AnnotationModel]:
         """
         Get projects by providing search string.
@@ -290,24 +302,14 @@ class PEPDatabaseAnnotation:
             [Default: filter won't be used]
         :param filter_start_date: Filter start date. Format: "YYYY:MM:DD"
         :param filter_end_date: Filter end date. Format: "YYYY:MM:DD". if None: present date will be used
+        :param pep_type: Get pep with specified type. Options: ["pep", "pop"]. Default: None, get all peps
         :return: list of found projects with their annotations.
         """
         _LOGGER.info(f"Running annotation search: (namespace: {namespace}, query: {search_str}.")
 
         if admin is None:
             admin = []
-        statement = select(
-            Projects.namespace,
-            Projects.name,
-            Projects.tag,
-            Projects.private,
-            Projects.description,
-            Projects.number_of_samples,
-            Projects.submission_date,
-            Projects.last_update_date,
-            Projects.digest,
-            Projects.pep_schema,
-        ).select_from(Projects)
+        statement = select(Projects.id)
 
         statement = self._add_condition(
             statement,
@@ -320,25 +322,35 @@ class PEPDatabaseAnnotation:
         )
         statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
         statement = statement.limit(limit).offset(offset)
+        if pep_type:
+            statement = statement.where(Projects.pop.is_(pep_type == "pop"))
 
-        query_results = self._pep_db_engine.session_execute(statement).all()
+        id_results = self._pep_db_engine.session_execute(statement).all()
 
         results_list = []
-        for result in query_results:
-            results_list.append(
-                AnnotationModel(
-                    namespace=result.namespace,
-                    name=result.name,
-                    tag=result.tag,
-                    is_private=result.private,
-                    description=result.description,
-                    number_of_samples=result.number_of_samples,
-                    submission_date=str(result.submission_date),
-                    last_update_date=str(result.last_update_date),
-                    digest=result.digest,
-                    pep_schema=result.pep_schema,
+        with Session(self._sa_engine) as session:
+            for prj_ids in id_results:
+                result = session.scalar(select(Projects).where(Projects.id == prj_ids[0]))
+
+                results_list.append(
+                    AnnotationModel(
+                        namespace=result.namespace,
+                        name=result.name,
+                        tag=result.tag,
+                        is_private=result.private,
+                        description=result.description,
+                        number_of_samples=result.number_of_samples,
+                        submission_date=str(result.submission_date),
+                        last_update_date=str(result.last_update_date),
+                        digest=result.digest,
+                        pep_schema=result.pep_schema,
+                        pop=result.pop,
+                        stars_number=result.number_of_stars,
+                        forked_from=f"{result.forked_from_mapping.namespace}/{result.forked_from_mapping.name}:{result.forked_from_mapping.tag}"
+                        if result.forked_from_id
+                        else None,
+                    )
                 )
-            )
         return results_list
 
     @staticmethod
@@ -445,7 +457,7 @@ class PEPDatabaseAnnotation:
             return statement
         else:
             if filter_by:
-                _LOGGER.warning(f"filter_start_date was not provided, skipping filter...")
+                _LOGGER.warning("filter_start_date was not provided, skipping filter...")
             return statement
 
     def get_project_number_in_namespace(
@@ -475,3 +487,88 @@ class PEPDatabaseAnnotation:
             return result[0]
         except IndexError:
             return 0
+
+    def get_by_rp_list(
+        self,
+        registry_paths: List[str],
+        admin: Union[str, List[str]] = None,
+    ) -> AnnotationList:
+        """
+        Get project annotations by providing list of registry paths.
+
+        :param registry_paths: registry path string or list of registry paths
+        :param admin: list of namespaces where user is admin
+        :return: pydantic model: AnnotationReturnModel(
+            limit:
+            offset:
+            count:
+            result: List [AnnotationModel])
+        """
+        admin_tuple = tuple_converter(admin)
+
+        if isinstance(registry_paths, list):
+            or_statement_list = []
+            for path in registry_paths:
+                try:
+                    namespace, name, tag = registry_path_converter(path)
+                    or_statement_list.append(
+                        and_(
+                            Projects.name == name,
+                            Projects.namespace == namespace,
+                            Projects.tag == tag,
+                            or_(
+                                Projects.namespace.in_(admin_tuple),
+                                Projects.private.is_(False),
+                            ),
+                        )
+                    )
+                except RegistryPathError as err:
+                    _LOGGER.error(str(err), registry_paths)
+                    continue
+            if not or_statement_list:
+                _LOGGER.error("No valid registry paths were provided!")
+                return AnnotationList(
+                    count=0,
+                    limit=len(registry_paths),
+                    offset=0,
+                    results=[],
+                )
+
+            statement = select(Projects).where(or_(*or_statement_list))
+            anno_results = []
+            with Session(self._sa_engine) as session:
+                query_result = session.execute(statement).all()
+                for result in query_result:
+                    project_obj = result[0]
+                    annot = AnnotationModel(
+                        namespace=project_obj.namespace,
+                        name=project_obj.name,
+                        tag=project_obj.tag,
+                        is_private=project_obj.private,
+                        description=project_obj.description,
+                        number_of_samples=project_obj.number_of_samples,
+                        submission_date=str(project_obj.submission_date),
+                        last_update_date=str(project_obj.last_update_date),
+                        digest=project_obj.digest,
+                        pep_schema=project_obj.pep_schema,
+                        pop=project_obj.pop,
+                        stars_number=project_obj.number_of_stars,
+                        forked_from=f"{project_obj.forked_from_mapping.namespace}/{project_obj.forked_from_mapping.name}:{project_obj.forked_from_mapping.tag}"
+                        if project_obj.forked_from_mapping
+                        else None,
+                    )
+                    anno_results.append(annot)
+
+            found_dict = {f"{r.namespace}/{r.name}:{r.tag}": r for r in anno_results}
+            end_results = [found_dict.get(project) for project in registry_paths]
+
+            return_len = len(anno_results)
+            return AnnotationList(
+                count=return_len,
+                limit=len(registry_paths),
+                offset=0,
+                results=end_results,
+            )
+
+        else:
+            return self.get_by_rp(registry_paths, admin)

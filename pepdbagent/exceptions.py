@@ -36,3 +36,40 @@ class IncorrectDateFormat(PEPDatabaseAgentError):
 class FilterError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
         super().__init__(f"""pepdbagent filter error. {msg}""")
+
+
+class ProjectNotInFavorites(PEPDatabaseAgentError):
+    """
+    Project doesn't exist in favorites
+    """
+
+    def __init__(self, msg=""):
+        super().__init__(f"""Project is not in favorites list. {msg}""")
+
+
+class ProjectAlreadyInFavorites(PEPDatabaseAgentError):
+    """
+    Project doesn't exist in favorites
+    """
+
+    def __init__(self, msg=""):
+        super().__init__(f"""Project is already in favorites list. {msg}""")
+
+
+class SampleNotFoundError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Sample does not exist. {msg}""")
+
+
+class ViewNotFoundError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""View does not exist. {msg}""")
+
+
+class SampleAlreadyInView(PEPDatabaseAgentError):
+    """
+    Sample is already in the view exception
+    """
+
+    def __init__(self, msg=""):
+        super().__init__(f"""Sample is already in the view. {msg}""")
