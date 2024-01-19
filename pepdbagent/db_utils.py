@@ -85,6 +85,7 @@ class Projects(Base):
     config: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     private: Mapped[bool]
     number_of_samples: Mapped[int]
+    number_of_stars: Mapped[int] = mapped_column(default=0)
     submission_date: Mapped[datetime.datetime]
     last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
         onupdate=deliver_update_date, default=deliver_update_date

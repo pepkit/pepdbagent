@@ -9,7 +9,7 @@ from pepdbagent.const import (
     PKG_NAME,
 )
 
-from pepdbagent.db_utils import BaseEngine, User, Stars
+from pepdbagent.db_utils import BaseEngine, User, Stars, Projects
 from pepdbagent.modules.project import PEPDatabaseProject
 from pepdbagent.models import AnnotationList, AnnotationModel
 from pepdbagent.exceptions import ProjectNotInFavorites, ProjectAlreadyInFavorites
@@ -63,7 +63,7 @@ class PEPDatabaseUser:
         return None
 
     def add_project_to_favorites(
-        self, namespace, project_namespace, project_name, project_tag
+        self, namespace: str, project_namespace: str, project_name: str, project_tag: str
     ) -> None:
         """
         Add project to favorites
@@ -75,18 +75,27 @@ class PEPDatabaseUser:
         :return: None
         """
 
-        project_id = PEPDatabaseProject(self._pep_db_engine).get_project_id(
-            project_namespace, project_name, project_tag
-        )
         user_id = self.get_user_id(namespace)
 
         if not user_id:
             user_id = self.create_user(namespace)
 
-        new_favorites_raw = Stars(user_id=user_id, project_id=project_id)
         try:
             with Session(self._sa_engine) as session:
+                project_mapping = session.scalar(
+                    select(Projects).where(
+                        and_(
+                            Projects.namespace == project_namespace,
+                            Projects.name == project_name,
+                            Projects.tag == project_tag,
+                        )
+                    )
+                )
+
+                new_favorites_raw = Stars(user_id=user_id, project_id=project_mapping.id)
+
                 session.add(new_favorites_raw)
+                project_mapping.number_of_stars += 1
                 session.commit()
         except IntegrityError:
             raise ProjectAlreadyInFavorites()
@@ -107,19 +116,27 @@ class PEPDatabaseUser:
         _LOGGER.debug(
             f"Removing project {project_namespace}/{project_name}:{project_tag} from fProjectNotInFavorites for user {namespace}"
         )
-        project_id = PEPDatabaseProject(self._pep_db_engine).get_project_id(
-            project_namespace, project_name, project_tag
-        )
+
         user_id = self.get_user_id(namespace)
-        statement = delete(Stars).where(
-            and_(
-                Stars.user_id == user_id,
-                Stars.project_id == project_id,
-            )
-        )
 
         with Session(self._sa_engine) as session:
-            result = session.execute(statement)
+            project_mapping = session.scalar(
+                select(Projects).where(
+                    and_(
+                        Projects.namespace == project_namespace,
+                        Projects.name == project_name,
+                        Projects.tag == project_tag,
+                    )
+                )
+            )
+            delete_statement = delete(Stars).where(
+                and_(
+                    Stars.user_id == user_id,
+                    Stars.project_id == project_mapping.id,
+                )
+            )
+            project_mapping.number_of_stars -= 1
+            result = session.execute(delete_statement)
             session.commit()
             row_count = result.rowcount
         if row_count == 0:
@@ -162,7 +179,10 @@ class PEPDatabaseUser:
                         digest=prj_list.project_mapping.digest,
                         pep_schema=prj_list.project_mapping.pep_schema,
                         pop=prj_list.project_mapping.pop,
-                        stars_number=len(prj_list.project_mapping.stars_mapping),
+                        stars_number=prj_list.project_mapping.number_of_stars,
+                        forked_from=f"{prj_list.project_mapping.namespace}/{prj_list.project_mapping.name}:{prj_list.project_mapping.tag}"
+                        if prj_list.project_mapping
+                        else None,
                     )
                 )
         favorite_prj = AnnotationList(
