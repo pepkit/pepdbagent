@@ -166,22 +166,23 @@ class PEPDatabaseUser:
             number_of_projects = len([kk.project_mapping for kk in query_result.stars_mapping])
             project_list = []
             for prj_list in query_result.stars_mapping:
+                prj = prj_list.project_mapping
                 project_list.append(
                     AnnotationModel(
-                        namespace=prj_list.project_mapping.namespace,
-                        name=prj_list.project_mapping.name,
-                        tag=prj_list.project_mapping.tag,
-                        is_private=prj_list.project_mapping.private,
-                        number_of_samples=prj_list.project_mapping.number_of_samples,
-                        description=prj_list.project_mapping.description,
-                        last_update_date=str(prj_list.project_mapping.last_update_date),
-                        submission_date=str(prj_list.project_mapping.submission_date),
-                        digest=prj_list.project_mapping.digest,
-                        pep_schema=prj_list.project_mapping.pep_schema,
-                        pop=prj_list.project_mapping.pop,
-                        stars_number=prj_list.project_mapping.number_of_stars,
-                        forked_from=f"{prj_list.project_mapping.namespace}/{prj_list.project_mapping.name}:{prj_list.project_mapping.tag}"
-                        if prj_list.project_mapping
+                        namespace=prj.namespace,
+                        name=prj.name,
+                        tag=prj.tag,
+                        is_private=prj.private,
+                        number_of_samples=prj.number_of_samples,
+                        description=prj.description,
+                        last_update_date=str(prj.last_update_date),
+                        submission_date=str(prj.submission_date),
+                        digest=prj.digest,
+                        pep_schema=prj.pep_schema,
+                        pop=prj.pop,
+                        stars_number=prj.number_of_stars,
+                        forked_from=f"{prj.forked_from_mapping.namespace}/{prj.forked_from_mapping.name}:{prj.forked_from_mapping.tag}"
+                        if prj.forked_from_mapping
                         else None,
                     )
                 )
