@@ -75,7 +75,7 @@ class PEPDatabaseProject:
 
         try:
             with Session(self._sa_engine) as session:
-                found_prj = session.scalars(statement).one()
+                found_prj = session.scalar(statement)
 
                 if found_prj:
                     _LOGGER.info(
