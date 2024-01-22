@@ -194,3 +194,9 @@ class CreateViewDictModel(BaseModel):
     project_name: str
     project_tag: str
     sample_list: List[str]
+
+
+class RegistryPath(BaseModel):
+    namespace: str
+    name: str
+    tag: Optional[str] = "default"

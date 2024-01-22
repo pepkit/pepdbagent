@@ -10,7 +10,6 @@ from pepdbagent.const import (
 )
 
 from pepdbagent.db_utils import BaseEngine, User, Stars, Projects
-from pepdbagent.modules.project import PEPDatabaseProject
 from pepdbagent.models import AnnotationList, AnnotationModel
 from pepdbagent.exceptions import ProjectNotInFavorites, ProjectAlreadyInFavorites
 
@@ -114,7 +113,7 @@ class PEPDatabaseUser:
         :return: None
         """
         _LOGGER.debug(
-            f"Removing project {project_namespace}/{project_name}:{project_tag} from fProjectNotInFavorites for user {namespace}"
+            f"Removing project {project_namespace}/{project_name}:{project_tag} from favorites in {namespace}"
         )
 
         user_id = self.get_user_id(namespace)
