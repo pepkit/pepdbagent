@@ -2,6 +2,11 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.7.1] -- 2023-01-22
+- Fixed bug in Stars annotation
+- SQL efficiency improvements
+- Added sort by date in stared projects
+
 ## [0.7.0] -- 2023-01-17
 - Added `pop` to project table and annotation model [#107](https://github.com/pepkit/pepdbagent/issues/107)
 - Added `forked_from` feature [#73](https://github.com/pepkit/pepdbagent/issues/73)

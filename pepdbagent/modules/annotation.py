@@ -16,7 +16,7 @@ from pepdbagent.const import (
 )
 from pepdbagent.db_utils import BaseEngine, Projects
 from pepdbagent.exceptions import FilterError, ProjectNotFoundError, RegistryPathError
-from pepdbagent.models import AnnotationList, AnnotationModel
+from pepdbagent.models import AnnotationList, AnnotationModel, RegistryPath
 from pepdbagent.utils import convert_date_string_to_date, registry_path_converter, tuple_converter
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -309,7 +309,7 @@ class PEPDatabaseAnnotation:
 
         if admin is None:
             admin = []
-        statement = select(Projects.id)
+        statement = select(Projects)
 
         statement = self._add_condition(
             statement,
@@ -325,13 +325,10 @@ class PEPDatabaseAnnotation:
         if pep_type:
             statement = statement.where(Projects.pop.is_(pep_type == "pop"))
 
-        id_results = self._pep_db_engine.session_execute(statement).all()
-
         results_list = []
         with Session(self._sa_engine) as session:
-            for prj_ids in id_results:
-                result = session.scalar(select(Projects).where(Projects.id == prj_ids[0]))
-
+            results = session.scalars(statement)
+            for result in results:
                 results_list.append(
                     AnnotationModel(
                         namespace=result.namespace,
@@ -572,3 +569,70 @@ class PEPDatabaseAnnotation:
 
         else:
             return self.get_by_rp(registry_paths, admin)
+
+    def get_projects_list(
+        self,
+        namespace: str = None,
+        search_str: str = None,
+        admin: Union[str, List[str]] = None,
+        limit: int = DEFAULT_LIMIT,
+        offset: int = DEFAULT_OFFSET,
+        order_by: str = "update_date",
+        order_desc: bool = False,
+        filter_by: Optional[Literal["submission_date", "last_update_date"]] = None,
+        filter_start_date: Optional[str] = None,
+        filter_end_date: Optional[str] = None,
+        pep_type: Optional[Literal["pep", "pop"]] = None,
+    ) -> List[RegistryPath]:
+        """
+        Retrieve a list of projects by providing a search string.
+        This function serves as a lightweight version of the full 'get' function,
+        returning only a list of registry paths without annotations.
+        It is designed for use cases where a large list of projects is needed with minimal processing time.
+
+        :param namespace: namespace where to search for a project
+        :param search_str: search string that has to be found in the name or tag
+        :param admin: True, if user is admin of the namespace [Default: False]
+        :param limit: limit of return results
+        :param offset: number of results off set (that were already showed)
+        :param order_by: sort the result-set by the information
+            Options: ["name", "update_date", "submission_date"]
+            [Default: "update_date"]
+        :param order_desc: Sort the records in descending order. [Default: False]
+        :param filter_by: data to use filter on.
+            Options: ["submission_date", "last_update_date"]
+            [Default: filter won't be used]
+        :param filter_start_date: Filter start date. Format: "YYYY:MM:DD"
+        :param filter_end_date: Filter end date. Format: "YYYY:MM:DD". if None: present date will be used
+        :param pep_type: Get pep with specified type. Options: ["pep", "pop"]. Default: None, get all peps
+        :return: list of found projects with their annotations.
+        """
+        _LOGGER.info(f"Running project search: (namespace: {namespace}, query: {search_str}.")
+
+        if admin is None:
+            admin = []
+        statement = select(Projects.namespace, Projects.name, Projects.tag)
+
+        statement = self._add_condition(
+            statement,
+            namespace=namespace,
+            search_str=search_str,
+            admin_list=admin,
+        )
+        statement = self._add_date_filter_if_provided(
+            statement, filter_by, filter_start_date, filter_end_date
+        )
+        statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
+        statement = statement.limit(limit).offset(offset)
+        if pep_type:
+            statement = statement.where(Projects.pop.is_(pep_type == "pop"))
+
+        results_list = []
+        with Session(self._sa_engine) as session:
+            results = session.execute(statement)
+
+            for result in results:
+                results_list.append(
+                    RegistryPath(namespace=result[0], name=result[1], tag=result[2])
+                )
+        return results_list

@@ -679,6 +679,21 @@ class TestAnnotation:
         with pytest.raises(ValueError):
             initiate_pepdb_con.annotation.get(namespace=namespace, pep_type="incorrect")
 
+    @pytest.mark.parametrize(
+        "namespace, query, found_number",
+        [
+            ["namespace1", "ame", 2],
+        ],
+    )
+    def test_project_list_without_annotation(
+        self, initiate_pepdb_con, namespace, query, found_number
+    ):
+        result = initiate_pepdb_con.annotation.get_projects_list(
+            namespace=namespace,
+            search_str=query,
+        )
+        assert len(result) == found_number
+
 
 @pytest.mark.skipif(
     not db_setup(),

@@ -67,6 +67,7 @@ class PEPDatabaseView:
                 _subsample_dict: dict
             }
         """
+        _LOGGER.debug(f"Get view {view_name} from {namespace}/{name}:{tag}")
         view_statement = select(Views).where(
             and_(
                 Views.project_mapping.has(namespace=namespace, name=name, tag=tag),
@@ -106,6 +107,7 @@ class PEPDatabaseView:
              description: str,
              number_of_samples: int}
         """
+        _LOGGER.debug(f"Get annotation for view {view_name} in {namespace}/{name}:{tag}")
         view_statement = select(Views).where(
             and_(
                 Views.project_mapping.has(namespace=namespace, name=name, tag=tag),
@@ -149,6 +151,7 @@ class PEPDatabaseView:
         :param description: description of the view
         retrun: None
         """
+        _LOGGER.debug(f"Creating view {view_name} with provided info: (view_dict: {view_dict})")
         if isinstance(view_dict, dict):
             view_dict = CreateViewDictModel(**view_dict)
 
@@ -205,6 +208,9 @@ class PEPDatabaseView:
         :param view_name: name of the view
         :return: None
         """
+        _LOGGER.debug(
+            f"Deleting view {view_name} from {project_namespace}/{project_name}:{project_tag}"
+        )
         view_statement = select(Views).where(
             and_(
                 Views.project_mapping.has(
@@ -241,6 +247,9 @@ class PEPDatabaseView:
         :param sample_name: sample name
         :return: None
         """
+        _LOGGER.debug(
+            f"Adding sample {sample_name} to view {view_name} in {namespace}/{name}:{tag}"
+        )
         if isinstance(sample_name, str):
             sample_name = [sample_name]
         view_statement = select(Views).where(
@@ -296,6 +305,9 @@ class PEPDatabaseView:
         :param sample_name: sample name
         :return: None
         """
+        _LOGGER.debug(
+            f"Removing sample {sample_name} from view {view_name} in {namespace}/{name}:{tag}"
+        )
         view_statement = select(Views).where(
             and_(
                 Views.project_mapping.has(namespace=namespace, name=name, tag=tag),
@@ -341,6 +353,7 @@ class PEPDatabaseView:
         :param raw: retrieve unprocessed (raw) PEP dict.
         :return: peppy.Project object
         """
+        _LOGGER.debug(f"Creating snap view for {namespace}/{name}:{tag}")
         project_statement = select(Projects).where(
             and_(
                 Projects.namespace == namespace,
@@ -386,6 +399,7 @@ class PEPDatabaseView:
         :param tag: tag of the project
         :return: list of views of the project
         """
+        _LOGGER.debug(f"Get views annotation for {namespace}/{name}:{tag}")
         statement = select(Views).where(
             Views.project_mapping.has(namespace=namespace, name=name, tag=tag),
         )

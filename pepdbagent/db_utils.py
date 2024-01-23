@@ -88,7 +88,7 @@ class Projects(Base):
     number_of_stars: Mapped[int] = mapped_column(default=0)
     submission_date: Mapped[datetime.datetime]
     last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
-        onupdate=deliver_update_date, default=deliver_update_date
+        default=deliver_update_date,  # onupdate=deliver_update_date, # This field should not be updated, while we are adding project to favorites
     )
     pep_schema: Mapped[Optional[str]]
     pop: Mapped[Optional[bool]] = mapped_column(default=False)
@@ -168,7 +168,9 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     namespace: Mapped[str]
     stars_mapping: Mapped[List["Stars"]] = relationship(
-        back_populates="user_mapping", cascade="all, delete-orphan"
+        back_populates="user_mapping",
+        cascade="all, delete-orphan",
+        order_by="Stars.star_date.desc()",
     )
 
 
@@ -183,6 +185,9 @@ class Stars(Base):
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
     user_mapping: Mapped[List["User"]] = relationship(back_populates="stars_mapping")
     project_mapping: Mapped["Projects"] = relationship(back_populates="stars_mapping")
+    star_date: Mapped[datetime.datetime] = mapped_column(
+        onupdate=deliver_update_date, default=deliver_update_date
+    )
 
 
 class Views(Base):
