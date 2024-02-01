@@ -214,9 +214,11 @@ class PEPDatabaseAnnotation:
                     pep_schema=query_result.pep_schema,
                     pop=query_result.pop,
                     stars_number=query_result.number_of_stars,
-                    forked_from=f"{query_result.forked_from_mapping.namespace}/{query_result.forked_from_mapping.name}:{query_result.forked_from_mapping.tag}"
-                    if query_result.forked_from_id
-                    else None,
+                    forked_from=(
+                        f"{query_result.forked_from_mapping.namespace}/{query_result.forked_from_mapping.name}:{query_result.forked_from_mapping.tag}"
+                        if query_result.forked_from_id
+                        else None
+                    ),
                 )
                 _LOGGER.info(
                     f"Annotation of the project '{namespace}/{name}:{tag}' has been found!"
@@ -343,9 +345,11 @@ class PEPDatabaseAnnotation:
                         pep_schema=result.pep_schema,
                         pop=result.pop,
                         stars_number=result.number_of_stars,
-                        forked_from=f"{result.forked_from_mapping.namespace}/{result.forked_from_mapping.name}:{result.forked_from_mapping.tag}"
-                        if result.forked_from_id
-                        else None,
+                        forked_from=(
+                            f"{result.forked_from_mapping.namespace}/{result.forked_from_mapping.name}:{result.forked_from_mapping.tag}"
+                            if result.forked_from_id
+                            else None
+                        ),
                     )
                 )
         return results_list
@@ -550,9 +554,11 @@ class PEPDatabaseAnnotation:
                         pep_schema=project_obj.pep_schema,
                         pop=project_obj.pop,
                         stars_number=project_obj.number_of_stars,
-                        forked_from=f"{project_obj.forked_from_mapping.namespace}/{project_obj.forked_from_mapping.name}:{project_obj.forked_from_mapping.tag}"
-                        if project_obj.forked_from_mapping
-                        else None,
+                        forked_from=(
+                            f"{project_obj.forked_from_mapping.namespace}/{project_obj.forked_from_mapping.name}:{project_obj.forked_from_mapping.tag}"
+                            if project_obj.forked_from_mapping
+                            else None
+                        ),
                     )
                     anno_results.append(annot)
 

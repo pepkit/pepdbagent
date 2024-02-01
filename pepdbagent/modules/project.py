@@ -625,6 +625,11 @@ class PEPDatabaseProject:
                 is_private=update_values.is_private,
                 **update_final.model_dump(exclude_unset=True),
             )
+        if update_values.pop is not None:
+            update_final = UpdateModel(
+                pop=update_values.pop,
+                **update_final.model_dump(exclude_unset=True),
+            )
 
         if update_values.pep_schema is not None:
             update_final = UpdateModel(

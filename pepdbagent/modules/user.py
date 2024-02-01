@@ -180,9 +180,11 @@ class PEPDatabaseUser:
                         pep_schema=prj.pep_schema,
                         pop=prj.pop,
                         stars_number=prj.number_of_stars,
-                        forked_from=f"{prj.forked_from_mapping.namespace}/{prj.forked_from_mapping.name}:{prj.forked_from_mapping.tag}"
-                        if prj.forked_from_mapping
-                        else None,
+                        forked_from=(
+                            f"{prj.forked_from_mapping.namespace}/{prj.forked_from_mapping.name}:{prj.forked_from_mapping.tag}"
+                            if prj.forked_from_mapping
+                            else None
+                        ),
                     )
                 )
         favorite_prj = AnnotationList(

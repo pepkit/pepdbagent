@@ -208,7 +208,7 @@ class Views(Base):
         back_populates="view", cascade="all, delete-orphan"
     )
 
-    _table_args__ = (UniqueConstraint("namespace", "project_id"),)
+    _table_args__ = (UniqueConstraint("name", "project_id"),)
 
 
 class ViewSampleAssociation(Base):

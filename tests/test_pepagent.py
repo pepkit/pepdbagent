@@ -339,7 +339,6 @@ class TestProjectUpdate:
             tag="default",
             update_dict={"project": new_prj},
         )
-
         assert initiate_pepdb_con.project.get(namespace=namespace, name=name) == new_prj
 
     @pytest.mark.parametrize(
