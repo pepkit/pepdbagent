@@ -18,6 +18,7 @@ from pepdbagent.exceptions import (
     SampleAlreadyInView,
     ProjectNotFoundError,
     SampleNotFoundError,
+    ViewAlreadyExistsError,
 )
 
 from pepdbagent.db_utils import BaseEngine, Samples, Projects, Views, ViewSampleAssociation
@@ -188,7 +189,13 @@ class PEPDatabaseView:
                     raise SampleNotFoundError(
                         f"Sample {view_dict.project_namespace}/{view_dict.project_name}:{view_dict.project_tag}:{sample_name} does not exist"
                     )
-                sa_session.add(ViewSampleAssociation(sample_id=sample_id, view=view))
+                try:
+                    sa_session.add(ViewSampleAssociation(sample_id=sample_id, view=view))
+
+                except IntegrityError:
+                    raise ViewAlreadyExistsError(
+                        f"View {view_name} of the project {view_dict.project_namespace}/{view_dict.project_name}:{view_dict.project_tag} already exists"
+                    )
 
             sa_session.commit()
 
@@ -334,10 +341,15 @@ class PEPDatabaseView:
                     ViewSampleAssociation.view_id == view.id,
                 )
             )
-            sa_session.execute(delete_statement)
-            sa_session.commit()
+            try:
+                sa_session.execute(delete_statement)
+                sa_session.commit()
+            except IntegrityError:
+                raise SampleNotFoundError(
+                    f"Sample {namespace}/{name}:{tag}:{sample_name} does not exist in view {view_name}"
+                )
 
-        return None
+            return None
 
     def get_snap_view(
         self, namespace: str, name: str, tag: str, sample_name_list: List[str], raw: bool = False

@@ -510,6 +510,17 @@ class PEPDatabaseProject:
         else:
             raise ProjectNotFoundError("No items will be updated!")
 
+    @staticmethod
+    def _find_duplicates(sample_name_list: List[str]) -> List[str]:
+        seen = set()
+        duplicates = set()
+        for name in sample_name_list:
+            if name in seen:
+                duplicates.add(name)
+            else:
+                seen.add(name)
+        return list(duplicates)
+
     def _update_samples(
         self,
         namespace: str,
@@ -527,6 +538,8 @@ class PEPDatabaseProject:
         :param sample_name_key: key of the sample name
         :return: None
         """
+        # TODO: This function is not ideal and is really slow. We should brainstorm this implementation
+
         new_sample_names = [sample[sample_name_key] for sample in samples_list]
         with Session(self._sa_engine) as session:
             project = session.scalar(
@@ -537,38 +550,98 @@ class PEPDatabaseProject:
                 )
             )
             old_sample_names = [sample.sample_name for sample in project.samples_mapping]
+
+            # delete samples that are not in the new list
+            sample_names_copy = new_sample_names.copy()
             for old_sample in old_sample_names:
-                if old_sample not in new_sample_names:
-                    session.execute(
-                        delete(Samples).where(
+                if old_sample not in sample_names_copy:
+                    this_sample = session.scalars(
+                        select(Samples).where(
                             and_(
                                 Samples.sample_name == old_sample, Samples.project_id == project.id
                             )
                         )
                     )
+                    delete_samples_list = [k for k in this_sample]
+                    session.delete(delete_samples_list[-1])
+                else:
+                    sample_names_copy.remove(old_sample)
 
+            # update or add samples
             order_number = 0
+            added_sample_list = []
             for new_sample in samples_list:
                 order_number += 1
-                if new_sample[sample_name_key] not in old_sample_names:
-                    project.samples_mapping.append(
-                        Samples(
-                            sample=new_sample,
-                            sample_name=new_sample[sample_name_key],
-                            row_number=order_number,
-                        )
-                    )
-                else:
-                    sample_mapping = session.scalar(
-                        select(Samples).where(
-                            and_(
-                                Samples.sample_name == new_sample[sample_name_key],
-                                Samples.project_id == project.id,
+
+                if new_sample[sample_name_key] not in added_sample_list:
+                    added_sample_list.append(new_sample[sample_name_key])
+
+                    if new_sample[sample_name_key] not in old_sample_names:
+                        project.samples_mapping.append(
+                            Samples(
+                                sample=new_sample,
+                                sample_name=new_sample[sample_name_key],
+                                row_number=order_number,
                             )
                         )
-                    )
-                    sample_mapping.sample = new_sample
-                    sample_mapping.row_number = order_number
+                    else:
+                        sample_mapping = session.scalar(
+                            select(Samples).where(
+                                and_(
+                                    Samples.sample_name == new_sample[sample_name_key],
+                                    Samples.project_id == project.id,
+                                )
+                            )
+                        )
+                        sample_mapping.sample = new_sample
+                        sample_mapping.row_number = order_number
+                else:
+                    # if sample_name is duplicated is sample table, find second sample and update or add it.
+                    if new_sample[sample_name_key] in old_sample_names:
+                        sample_mappings = session.scalars(
+                            select(Samples).where(
+                                and_(
+                                    Samples.sample_name == new_sample[sample_name_key],
+                                    Samples.project_id == project.id,
+                                )
+                            )
+                        )
+                        sample_mappings = [sample_mapping for sample_mapping in sample_mappings]
+                        if len(sample_mappings) <= 1:
+                            project.samples_mapping.append(
+                                Samples(
+                                    sample=new_sample,
+                                    sample_name=new_sample[sample_name_key],
+                                    row_number=order_number,
+                                )
+                            )
+                        else:
+                            try:
+                                sample_mapping = sample_mappings[
+                                    added_sample_list.count(new_sample[sample_name_key])
+                                ]
+                                sample_mapping.sample = new_sample
+                                sample_mapping.row_number = order_number
+
+                            except Exception:
+                                project.samples_mapping.append(
+                                    Samples(
+                                        sample=new_sample,
+                                        sample_name=new_sample[sample_name_key],
+                                        row_number=order_number,
+                                    )
+                                )
+                        added_sample_list.append(new_sample[sample_name_key])
+                    else:
+                        project.samples_mapping.append(
+                            Samples(
+                                sample=new_sample,
+                                sample_name=new_sample[sample_name_key],
+                                row_number=order_number,
+                            )
+                        )
+                        added_sample_list.append(new_sample[sample_name_key])
+
             session.commit()
 
     @staticmethod

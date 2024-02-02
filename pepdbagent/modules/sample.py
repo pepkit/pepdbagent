@@ -13,7 +13,7 @@ from pepdbagent.const import (
     DEFAULT_TAG,
     PKG_NAME,
 )
-from pepdbagent.exceptions import SampleNotFoundError
+from pepdbagent.exceptions import SampleNotFoundError, SampleAlreadyExistsError
 
 from pepdbagent.db_utils import BaseEngine, Samples, Projects
 
@@ -241,7 +241,7 @@ class PEPDatabaseSample:
             )
 
             if sample_mapping and not overwrite:
-                raise ValueError(
+                raise SampleAlreadyExistsError(
                     f"Sample {namespace}/{name}:{tag}?{sample_name} already exists in the database"
                 )
             elif sample_mapping and overwrite:
