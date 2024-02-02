@@ -324,7 +324,7 @@ class TestProjectUpdate:
         "namespace, name",
         [
             ["namespace1", "amendments1"],
-            # ["namespace1", "amendments2"],
+            ["namespace3", "subtable1"],
             # ["namespace2", "derive"],
             # ["namespace2", "imply"],
         ],
@@ -383,6 +383,43 @@ class TestProjectUpdate:
             .is_private
         )
         assert is_private is True
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "basic"],
+        ],
+    )
+    def test_project_can_have_2_sample_names(self, initiate_pepdb_con, namespace, name):
+        """
+        In PEP 2.1.0 project can have 2 rows with same sample name,
+        ensure that update works correctly
+        """
+        new_prj = initiate_pepdb_con.project.get(namespace=namespace, name=name)
+        prj_dict = new_prj.to_dict(extended=True, orient="records")
+
+        prj_dict["_sample_dict"].append(
+            {"file": "data/frog23_data.txt", "protocol": "anySample3Type", "sample_name": "frog_2"}
+        )
+        prj_dict["_sample_dict"].append(
+            {
+                "file": "data/frog23_data.txt4",
+                "protocol": "anySample3Type4",
+                "sample_name": "frog_2",
+            }
+        )
+
+        new_prj.description = "new_description"
+        initiate_pepdb_con.project.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            update_dict={"project": peppy.Project.from_dict(prj_dict)},
+        )
+
+        prj = initiate_pepdb_con.project.get(namespace=namespace, name=name, raw=True)
+
+        assert len(prj["_sample_dict"]) == 4
 
 
 @pytest.mark.skipif(
