@@ -83,7 +83,7 @@ class UpdateItems(BaseModel):
     config: Optional[dict] = None
     samples: Optional[List[dict]] = None
     subsamples: Optional[List[List[dict]]] = None
-    pop: Optional[bool] = False
+    pop: Optional[bool] = None
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
