@@ -15,6 +15,7 @@ from pepdbagent.exceptions import (
     SampleNotFoundError,
     ViewNotFoundError,
     SampleAlreadyInView,
+    SampleNotInViewError,
 )
 from .conftest import DNS
 
@@ -1188,6 +1189,9 @@ class TestViews:
         initiate_pepdb_con.view.remove_sample(namespace, name, "default", "view1", sample_name)
         assert len(initiate_pepdb_con.view.get(namespace, name, "default", "view1").samples) == 1
         assert len(initiate_pepdb_con.project.get(namespace, name).samples) == 4
+
+        with pytest.raises(SampleNotInViewError):
+            initiate_pepdb_con.view.remove_sample(namespace, name, "default", "view1", sample_name)
 
     @pytest.mark.parametrize(
         "namespace, name, sample_name",

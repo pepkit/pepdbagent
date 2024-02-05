@@ -19,6 +19,7 @@ from pepdbagent.exceptions import (
     ProjectNotFoundError,
     SampleNotFoundError,
     ViewAlreadyExistsError,
+    SampleNotInViewError,
 )
 
 from pepdbagent.db_utils import BaseEngine, Samples, Projects, Views, ViewSampleAssociation
@@ -163,41 +164,40 @@ class PEPDatabaseView:
                 Projects.tag == view_dict.project_tag,
             )
         )
-
-        with Session(self._sa_engine) as sa_session:
-            project = sa_session.scalar(project_statement)
-            if not project:
-                raise ProjectNotFoundError(
-                    f"Project {view_dict.project_namespace}/{view_dict.project_name}:{view_dict.project_tag} does not exist"
-                )
-            view = Views(
-                name=view_name,
-                description=description,
-                project_mapping=project,
-            )
-            sa_session.add(view)
-
-            for sample_name in view_dict.sample_list:
-                sample_statement = select(Samples.id).where(
-                    and_(
-                        Samples.project_id == project.id,
-                        Samples.sample_name == sample_name,
+        try:
+            with Session(self._sa_engine) as sa_session:
+                project = sa_session.scalar(project_statement)
+                if not project:
+                    raise ProjectNotFoundError(
+                        f"Project {view_dict.project_namespace}/{view_dict.project_name}:{view_dict.project_tag} does not exist"
                     )
+                view = Views(
+                    name=view_name,
+                    description=description,
+                    project_mapping=project,
                 )
-                sample_id = sa_session.execute(sample_statement).one()[0]
-                if not sample_id:
-                    raise SampleNotFoundError(
-                        f"Sample {view_dict.project_namespace}/{view_dict.project_name}:{view_dict.project_tag}:{sample_name} does not exist"
+                sa_session.add(view)
+
+                for sample_name in view_dict.sample_list:
+                    sample_statement = select(Samples.id).where(
+                        and_(
+                            Samples.project_id == project.id,
+                            Samples.sample_name == sample_name,
+                        )
                     )
-                try:
+                    sample_id = sa_session.execute(sample_statement).one()[0]
+                    if not sample_id:
+                        raise SampleNotFoundError(
+                            f"Sample {view_dict.project_namespace}/{view_dict.project_name}:{view_dict.project_tag}:{sample_name} does not exist"
+                        )
+
                     sa_session.add(ViewSampleAssociation(sample_id=sample_id, view=view))
 
-                except IntegrityError:
-                    raise ViewAlreadyExistsError(
-                        f"View {view_name} of the project {view_dict.project_namespace}/{view_dict.project_name}:{view_dict.project_tag} already exists"
-                    )
-
-            sa_session.commit()
+                sa_session.commit()
+        except IntegrityError:
+            raise ViewAlreadyExistsError(
+                f"View {view_name} of the project {view_dict.project_namespace}/{view_dict.project_name}:{view_dict.project_tag} already exists"
+            )
 
     def delete(
         self,
@@ -265,34 +265,32 @@ class PEPDatabaseView:
                 Views.name == view_name,
             )
         )
+        try:
+            with Session(self._sa_engine) as sa_session:
+                view = sa_session.scalar(view_statement)
+                if not view:
+                    raise ViewNotFoundError(
+                        f"View {view_name} of the project {namespace}/{name}:{tag} does not exist"
+                    )
+                for sample_name_one in sample_name:
+                    sample_statement = select(Samples).where(
+                        and_(
+                            Samples.project_id == view.project_mapping.id,
+                            Samples.sample_name == sample_name_one,
+                        )
+                    )
+                    sample = sa_session.scalar(sample_statement)
+                    if not sample:
+                        raise SampleNotFoundError(
+                            f"Sample {namespace}/{name}:{tag}:{sample_name} does not exist"
+                        )
 
-        with Session(self._sa_engine) as sa_session:
-            view = sa_session.scalar(view_statement)
-            if not view:
-                raise ViewNotFoundError(
-                    f"View {view_name} of the project {namespace}/{name}:{tag} does not exist"
-                )
-            for sample_name_one in sample_name:
-                sample_statement = select(Samples).where(
-                    and_(
-                        Samples.project_id == view.project_mapping.id,
-                        Samples.sample_name == sample_name_one,
-                    )
-                )
-                sample = sa_session.scalar(sample_statement)
-                if not sample:
-                    raise SampleNotFoundError(
-                        f"Sample {namespace}/{name}:{tag}:{sample_name} does not exist"
-                    )
-                try:
                     sa_session.add(ViewSampleAssociation(sample=sample, view=view))
                     sa_session.commit()
-                except IntegrityError:
-                    raise SampleAlreadyInView(
-                        f"Sample {namespace}/{name}:{tag}:{sample_name} already in view {view_name}"
-                    )
-
-        return None
+        except IntegrityError:
+            raise SampleAlreadyInView(
+                f"Sample {namespace}/{name}:{tag}:{sample_name} already in view {view_name}"
+            )
 
     def remove_sample(
         self,
@@ -335,21 +333,18 @@ class PEPDatabaseView:
                 )
             )
             sample = sa_session.scalar(sample_statement)
+            if sample.id not in [view_sample.sample_id for view_sample in view.samples]:
+                raise SampleNotInViewError(
+                    f"Sample {namespace}/{name}:{tag}:{sample_name} does not exist in view {view_name}"
+                )
             delete_statement = delete(ViewSampleAssociation).where(
                 and_(
                     ViewSampleAssociation.sample_id == sample.id,
                     ViewSampleAssociation.view_id == view.id,
                 )
             )
-            try:
-                sa_session.execute(delete_statement)
-                sa_session.commit()
-            except IntegrityError:
-                raise SampleNotFoundError(
-                    f"Sample {namespace}/{name}:{tag}:{sample_name} does not exist in view {view_name}"
-                )
-
-            return None
+            sa_session.execute(delete_statement)
+            sa_session.commit()
 
     def get_snap_view(
         self, namespace: str, name: str, tag: str, sample_name_list: List[str], raw: bool = False
