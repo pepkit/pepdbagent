@@ -1,5 +1,7 @@
 import logging
 from typing import List, Union, Tuple
+from collections import Counter
+from datetime import datetime, timedelta
 
 from sqlalchemy import distinct, func, or_, select, text
 from sqlalchemy.sql.selectable import Select
@@ -7,7 +9,13 @@ from sqlalchemy.orm import Session
 
 from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET, PKG_NAME, DEFAULT_LIMIT_INFO
 from pepdbagent.db_utils import Projects, BaseEngine
-from pepdbagent.models import Namespace, NamespaceList, NamespaceInfo, ListOfNamespaceInfo
+from pepdbagent.models import (
+    Namespace,
+    NamespaceList,
+    NamespaceInfo,
+    ListOfNamespaceInfo,
+    NamespaceStats,
+)
 from pepdbagent.utils import tuple_converter
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -203,4 +211,55 @@ class PEPDatabaseNamespace:
             number_of_namespaces=total_number_of_namespaces,
             limit=limit,
             results=list_of_results,
+        )
+
+    def stats(self, namespace: str = None, monthly: bool = False) -> NamespaceStats:
+        """
+        Get statistics for project in the namespace or for all projects in the database.
+
+        :param namespace: namespace name [Default: None (all projects)]
+        :param monthly: if True, get statistics for the last 3 years monthly, else for the last 3 months daily.
+        """
+        if monthly:
+            number_of_month = 3
+        else:
+            number_of_month = 12 * 3
+        today_date = datetime.today().date() + timedelta(days=1)
+        three_month_ago = today_date - timedelta(days=number_of_month * 30 + 1)
+        statement_update = select(Projects.last_update_date).filter(
+            Projects.last_update_date.between(three_month_ago, today_date)
+        )
+        statement_create = select(Projects.submission_date).filter(
+            Projects.submission_date.between(three_month_ago, today_date)
+        )
+        if namespace:
+            statement_update = statement_update.where(Projects.namespace == namespace)
+            statement_create = statement_create.where(Projects.namespace == namespace)
+
+        with Session(self._sa_engine) as session:
+            update_results = session.execute(statement_update).all()
+            create_results = session.execute(statement_create).all()
+
+        if monthly:
+            year_month_str_submission = [
+                dt.submission_date.strftime("%Y-%m") for dt in create_results
+            ]
+            year_month_str_last_update = [
+                dt.last_update_date.strftime("%Y-%m") for dt in update_results
+            ]
+        else:
+            year_month_str_submission = [
+                dt.submission_date.strftime("%Y-%m-%d") for dt in create_results
+            ]
+            year_month_str_last_update = [
+                dt.last_update_date.strftime("%Y-%m-%d") for dt in update_results
+            ]
+
+        counts_submission = dict(Counter(year_month_str_submission))
+        counts_last_update = dict(Counter(year_month_str_last_update))
+
+        return NamespaceStats(
+            namespace=namespace,
+            projects_updated=counts_last_update,
+            projects_created=counts_submission,
         )

@@ -1,5 +1,5 @@
 # file with pydantic models
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from pepdbagent.const import DEFAULT_TAG
@@ -200,3 +200,13 @@ class RegistryPath(BaseModel):
     namespace: str
     name: str
     tag: Optional[str] = "default"
+
+
+class NamespaceStats(BaseModel):
+    """
+    Namespace stats model
+    """
+
+    namespace: Union[str, None] = None
+    projects_updated: Dict[str, int] = None
+    projects_created: Dict[str, int] = None
