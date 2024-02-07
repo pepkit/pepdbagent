@@ -1,13 +1,21 @@
-# pepdbagent
+<h1 align="center">pepdbagent</h1>
+<p align="center">
 
 [![PEP compatible](https://pepkit.github.io/img/PEP-compatible-green.svg)](https://pep.databio.org/)
 ![Run pytests](https://github.com/pepkit/pepdbagent/workflows/Run%20pytests/badge.svg)
 [![pypi-badge](https://img.shields.io/pypi/v/pepdbagent?color=%2334D058)](https://pypi.org/project/pepdbagent)
 [![pypi-version](https://img.shields.io/pypi/pyversions/pepdbagent.svg?color=%2334D058)](https://pypi.org/project/pepdbagent)
 [![Downloads](https://static.pepy.tech/badge/pepdbagent)](https://pepy.tech/project/pepdbagent)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Github badge](https://img.shields.io/badge/source-github-354a75?logo=github)](https://github.com/pepkit/pepdbagent)
 
+</p>
+---
+
+**Documentation**: <a href="https://pep.databio.org" target="_blank">https://pep.databio.org</a>
+
+**Source Code**: <a href="https://github.com/pepkit/pepdbagent" target="_blank">https://github.com/pepkit/pepdbagent</a>
+
+---
 
 `pepdbagent` is a Python library and toolkit that gives a user-friendly 
 interface to connect, upload, update and retrieve information from pep database. This library is designed to work 
