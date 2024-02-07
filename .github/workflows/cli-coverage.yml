@@ -1,0 +1,39 @@
+name: test coverage
+
+on:
+  push:
+    branches: [master, dev]
+
+jobs:
+  cli-coverage-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v1
+        with:
+          python-version: '3.8'
+
+      - run: pip install .
+        working-directory: cli
+      - run: pip install coverage
+
+      - name: get coverage artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: coverage_files
+          path: cli
+
+      - name: build coverage
+        working-directory: cli
+        run: |
+          coverage combine
+          coverage html -i
+
+      - run: smokeshow upload cli/htmlcov
+        env:
+          SMOKESHOW_GITHUB_STATUS_DESCRIPTION: CLI Coverage {coverage-percentage}
+          SMOKESHOW_GITHUB_COVERAGE_THRESHOLD: 50
+          SMOKESHOW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SMOKESHOW_GITHUB_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}

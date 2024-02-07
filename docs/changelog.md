@@ -5,6 +5,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [0.7.3] -- 2023-02-05
 - Fixed POP update
 - Improved error handling in views API
+- Added stats method to Namespace module
+- Updated docs
+- Added coverage
+
 
 ## [0.7.2] -- 2023-02-02
 - Fixed Unique Constraint in the Views
