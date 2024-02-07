@@ -17,6 +17,15 @@
 
 ---
 
+[![PEP compatible](https://pepkit.github.io/img/PEP-compatible-green.svg)](https://pep.databio.org/)
+![Run pytests](https://github.com/pepkit/pepdbagent/workflows/Run%20pytests/badge.svg)
+[![pypi-badge](https://img.shields.io/pypi/v/pepdbagent?color=%2334D058)](https://pypi.org/project/pepdbagent)
+[![pypi-version](https://img.shields.io/pypi/pyversions/pepdbagent.svg?color=%2334D058)](https://pypi.org/project/pepdbagent)
+[![Downloads](https://static.pepy.tech/badge/pepdbagent)](https://pepy.tech/project/pepdbagent)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Github badge](https://img.shields.io/badge/source-github-354a75?logo=github)](https://github.com/pepkit/pepdbagent)
+
+
 `pepdbagent` is a Python library and toolkit that gives a user-friendly 
 interface to connect, upload, update and retrieve information from pep database. This library is designed to work 
 to be used by PEPhub, but it can be used for any other purpose, to manage data in pep database.
