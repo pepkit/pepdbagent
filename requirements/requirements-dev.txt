@@ -2,3 +2,4 @@ black
 pytest
 python-dotenv
 coverage
+smokeshow
