@@ -23,11 +23,6 @@ jobs:
       - name: Run tests
         run: coverage run -m pytest tests
 
-      - name: get coverage artifacts
-        uses: actions/download-artifact@v2
-        with:
-          name: coverage_files
-
       - name: build coverage
         run: coverage html -i
 
