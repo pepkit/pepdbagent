@@ -15,23 +15,23 @@ jobs:
         with:
           python-version: '3.8'
 
+      - name: Install dev dependancies
+        run: if [ -f requirements/requirements-dev.txt ]; then pip install -r requirements/requirements-dev.txt; fi
+
       - run: pip install .
-        working-directory: cli
-      - run: pip install coverage
+
+      - name: Run tests
+        run: coverage run -m pytest tests
 
       - name: get coverage artifacts
         uses: actions/download-artifact@v2
         with:
           name: coverage_files
-          path: cli
 
       - name: build coverage
-        working-directory: cli
-        run: |
-          coverage combine
-          coverage html -i
+        run: coverage html -i
 
-      - run: smokeshow upload cli/htmlcov
+      - run: smokeshow upload htmlcov
         env:
           SMOKESHOW_GITHUB_STATUS_DESCRIPTION: CLI Coverage {coverage-percentage}
           SMOKESHOW_GITHUB_COVERAGE_THRESHOLD: 50
