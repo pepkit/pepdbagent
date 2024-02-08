@@ -1,5 +1,4 @@
 <h1 align="center">pepdbagent</h1>
-<p align="center">
 
 [![PEP compatible](https://pepkit.github.io/img/PEP-compatible-green.svg)](https://pep.databio.org/)
 ![Run pytests](https://github.com/pepkit/pepdbagent/workflows/Run%20pytests/badge.svg)
@@ -8,7 +7,6 @@
 [![Downloads](https://static.pepy.tech/badge/pepdbagent)](https://pepy.tech/project/pepdbagent)
 [![Github badge](https://img.shields.io/badge/source-github-354a75?logo=github)](https://github.com/pepkit/pepdbagent)
 
-</p>
 
 ---
 
@@ -19,12 +17,12 @@
 ---
 
 `pepdbagent` is a Python library and toolkit that gives a user-friendly 
-interface to connect, upload, update and retrieve information from pep database. This library is designed to work 
-to be used by PEPhub, but it can be used for any other purpose, to manage data in pep database.
+interface to connect, upload, update and retrieve information from the pep database. This library is designed to work 
+with PEPhub, but it can be used for any other purpose.
 
-pepdbagent creates a connection to the database and creates table schemas for the PEPhub database if necessary.
+`pepdbagent` creates a connection to the database and creates table schemas for the PEPhub database if necessary.
 Core database is `postgres` database, but it can be easily extended to other relational databases.
-To use `pepdbagent`, you need to have a database instance running with it's credentials.
+To use `pepdbagent`, you need to have a database instance running with its credentials.
 If the version of the database schema is not compatible with the version of `pepdbagent`, it will throw an exception.
 
 ## Installation
@@ -128,7 +126,7 @@ Example:
 # search for a specified pattern of namespace in database.
 agent.namespace.get(query='Namespace')
 
-# By default all get function will retrun namespace information for public projects,
+# By default all get functions will return namespace information for public projects,
 # To get information with private projects, admin list should be provided.
 # admin list means list of namespaces where user has admin rights
 # For example:

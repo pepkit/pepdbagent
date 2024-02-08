@@ -226,19 +226,19 @@ class PEPDatabaseNamespace:
             number_of_month = 12 * 3
         today_date = datetime.today().date() + timedelta(days=1)
         three_month_ago = today_date - timedelta(days=number_of_month * 30 + 1)
-        statement_update = select(Projects.last_update_date).filter(
+        statement_last_update = select(Projects.last_update_date).filter(
             Projects.last_update_date.between(three_month_ago, today_date)
         )
-        statement_create = select(Projects.submission_date).filter(
+        statement_create_date = select(Projects.submission_date).filter(
             Projects.submission_date.between(three_month_ago, today_date)
         )
         if namespace:
-            statement_update = statement_update.where(Projects.namespace == namespace)
-            statement_create = statement_create.where(Projects.namespace == namespace)
+            statement_last_update = statement_last_update.where(Projects.namespace == namespace)
+            statement_create_date = statement_create_date.where(Projects.namespace == namespace)
 
         with Session(self._sa_engine) as session:
-            update_results = session.execute(statement_update).all()
-            create_results = session.execute(statement_create).all()
+            update_results = session.execute(statement_last_update).all()
+            create_results = session.execute(statement_create_date).all()
 
         if monthly:
             year_month_str_submission = [
