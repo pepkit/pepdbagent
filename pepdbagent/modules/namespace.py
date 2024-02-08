@@ -8,6 +8,7 @@ from sqlalchemy.sql.selectable import Select
 from sqlalchemy.orm import Session
 
 from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET, PKG_NAME, DEFAULT_LIMIT_INFO
+from pepdbagent.exceptions import NamespaceNotFoundError
 from pepdbagent.db_utils import Projects, BaseEngine
 from pepdbagent.models import (
     Namespace,
@@ -239,6 +240,9 @@ class PEPDatabaseNamespace:
         with Session(self._sa_engine) as session:
             update_results = session.execute(statement_last_update).all()
             create_results = session.execute(statement_create_date).all()
+
+        if not update_results:
+            raise NamespaceNotFoundError(f"Namespace {namespace} not found in the database")
 
         if monthly:
             year_month_str_submission = [
