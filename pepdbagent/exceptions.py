@@ -71,6 +71,11 @@ class ViewNotFoundError(PEPDatabaseAgentError):
         super().__init__(f"""View does not exist. {msg}""")
 
 
+class SampleNotInViewError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Sample is not in the view. {msg}""")
+
+
 class SampleAlreadyInView(PEPDatabaseAgentError):
     """
     Sample is already in the view exception

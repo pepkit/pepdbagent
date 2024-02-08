@@ -15,6 +15,7 @@ from pepdbagent.exceptions import (
     SampleNotFoundError,
     ViewNotFoundError,
     SampleAlreadyInView,
+    SampleNotInViewError,
 )
 from .conftest import DNS
 
@@ -345,7 +346,6 @@ class TestProjectUpdate:
         "namespace, name, pep_schema",
         [
             ["namespace1", "amendments1", "schema1"],
-            ["namespace1", "amendments2", "schema2"],
             ["namespace2", "derive", "schema3"],
             ["namespace1", "basic", "schema4"],
             ["namespace2", "derive", "schema5"],
@@ -383,6 +383,46 @@ class TestProjectUpdate:
             .is_private
         )
         assert is_private is True
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+        ],
+    )
+    def test_update_project_pop(self, initiate_pepdb_con, namespace, name):
+        initiate_pepdb_con.project.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            update_dict={"pop": True},
+        )
+
+        pop = (
+            initiate_pepdb_con.annotation.get(
+                namespace=namespace, name=name, tag="default", admin=[namespace]
+            )
+            .results[0]
+            .pop
+        )
+        assert pop is True
+
+        # Update to pop = False and check if it is updated
+        initiate_pepdb_con.project.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            update_dict={"pop": False},
+        )
+
+        pop = (
+            initiate_pepdb_con.annotation.get(
+                namespace=namespace, name=name, tag="default", admin=[namespace]
+            )
+            .results[0]
+            .pop
+        )
+        assert pop is False
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -758,6 +798,10 @@ class TestNamespace:
         result = initiate_pepdb_con.namespace.info()
         assert len(result.results) == 4
         assert result.results[3].number_of_projects == 1
+
+    def test_namespace_stats(self, initiate_pepdb_con):
+        stat_result = initiate_pepdb_con.namespace.stats(monthly=True)
+        assert next(iter(stat_result.projects_created.values()), 0) == 30
 
 
 @pytest.mark.skipif(
@@ -1188,6 +1232,9 @@ class TestViews:
         initiate_pepdb_con.view.remove_sample(namespace, name, "default", "view1", sample_name)
         assert len(initiate_pepdb_con.view.get(namespace, name, "default", "view1").samples) == 1
         assert len(initiate_pepdb_con.project.get(namespace, name).samples) == 4
+
+        with pytest.raises(SampleNotInViewError):
+            initiate_pepdb_con.view.remove_sample(namespace, name, "default", "view1", sample_name)
 
     @pytest.mark.parametrize(
         "namespace, name, sample_name",
