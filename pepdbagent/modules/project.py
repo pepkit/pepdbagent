@@ -857,6 +857,8 @@ class PEPDatabaseProject:
             fork_prj.forked_from_id = original_prj.id
             fork_prj.pop = original_prj.pop
             fork_prj.submission_date = original_prj.submission_date
+            fork_prj.pep_schema = original_prj.pep_schema
+            fork_prj.description = description or original_prj.description
 
             session.commit()
         return None

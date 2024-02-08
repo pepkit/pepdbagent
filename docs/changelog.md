@@ -2,7 +2,11 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
-## [0.7.3] -- 2023-02-05
+## [0.7.4] -- 2024-02-XX
+- Fixed forking schema
+
+
+## [0.7.3] -- 2024-02-08
 - Fixed POP update
 - Improved error handling in views API
 - Added stats method to Namespace module
@@ -10,18 +14,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added coverage
 
 
-## [0.7.2] -- 2023-02-02
+## [0.7.2] -- 2024-02-02
 - Fixed Unique Constraint in the Views
 - Fixed update project pop method
 - Fixed bug in duplicating samples
 
 
-## [0.7.1] -- 2023-01-22
+## [0.7.1] -- 2024-01-22
 - Fixed bug in Stars annotation
 - SQL efficiency improvements
 - Added sort by date in stared projects
 
-## [0.7.0] -- 2023-01-17
+## [0.7.0] -- 2024-01-17
 - Added `pop` to project table and annotation model [#107](https://github.com/pepkit/pepdbagent/issues/107)
 - Added `forked_from` feature [#73](https://github.com/pepkit/pepdbagent/issues/73)
 - Switched to pydantic2 [#105](https://github.com/pepkit/pepdbagent/issues/105)
