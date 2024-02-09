@@ -222,9 +222,9 @@ class PEPDatabaseNamespace:
         :param monthly: if True, get statistics for the last 3 years monthly, else for the last 3 months daily.
         """
         if monthly:
-            number_of_month = 3
-        else:
             number_of_month = 12 * 3
+        else:
+            number_of_month = 3
         today_date = datetime.today().date() + timedelta(days=1)
         three_month_ago = today_date - timedelta(days=number_of_month * 30 + 1)
         statement_last_update = select(Projects.last_update_date).filter(
