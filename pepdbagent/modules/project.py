@@ -14,6 +14,7 @@ from peppy.const import (
     SUBSAMPLE_RAW_LIST_KEY,
     CONFIG_KEY,
     SAMPLE_TABLE_INDEX_KEY,
+    SAMPLE_NAME_ATTR,
 )
 
 from pepdbagent.const import (
@@ -24,8 +25,12 @@ from pepdbagent.const import (
 )
 
 from pepdbagent.db_utils import Projects, Samples, Subsamples, BaseEngine
-from pepdbagent.exceptions import ProjectNotFoundError, ProjectUniqueNameError
-from pepdbagent.models import UpdateItems, UpdateModel
+from pepdbagent.exceptions import (
+    ProjectNotFoundError,
+    ProjectUniqueNameError,
+    PEPDatabaseAgentError,
+)
+from pepdbagent.models import UpdateItems, UpdateModel, ProjectDict
 from pepdbagent.utils import create_digest, registry_path_converter
 
 
@@ -210,7 +215,7 @@ class PEPDatabaseProject:
 
     def create(
         self,
-        project: peppy.Project,
+        project: Union[peppy.Project, dict],
         namespace: str,
         name: str = None,
         tag: str = DEFAULT_TAG,
@@ -227,6 +232,13 @@ class PEPDatabaseProject:
         update is set True)
 
         :param peppy.Project project: Project object that has to be uploaded to the DB
+            danger zone:
+                optionally, project can be a dictionary with PEP elements
+                ({
+                    _config: dict,
+                    _sample_dict: Union[list, dict],
+                    _subsample_list: list
+                })
         :param namespace: namespace of the project (Default: 'other')
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
@@ -239,9 +251,19 @@ class PEPDatabaseProject:
         :param description: description of the project
         :return: None
         """
-        proj_dict = project.to_dict(extended=True, orient="records")
+        if isinstance(project, peppy.Project):
+            proj_dict = project.to_dict(extended=True, orient="records")
+        elif isinstance(project, dict):
+            # verify if the dictionary has all necessary elements.
+            # samples should be always presented as list of dicts (orient="records"))
+            proj_dict = ProjectDict(**project).model_dump(by_alias=True)
+        else:
+            raise PEPDatabaseAgentError(
+                "Project has to be peppy.Project object or dictionary with PEP elements"
+            )
+
         if not description:
-            description = project.description
+            description = project.get(description, "")
         proj_dict[CONFIG_KEY][DESCRIPTION_KEY] = description
 
         namespace = namespace.lower()
@@ -255,7 +277,10 @@ class PEPDatabaseProject:
         proj_dict[CONFIG_KEY][NAME_KEY] = proj_name
 
         proj_digest = create_digest(proj_dict)
-        number_of_samples = len(project.samples)
+        try:
+            number_of_samples = len(project.samples)
+        except AttributeError:
+            number_of_samples = len(proj_dict[SAMPLE_RAW_DICT_KEY])
 
         if update_only:
             _LOGGER.info(f"Update_only argument is set True. Updating project {proj_name} ...")
@@ -293,7 +318,9 @@ class PEPDatabaseProject:
                 self._add_samples_to_project(
                     new_prj,
                     proj_dict[SAMPLE_RAW_DICT_KEY],
-                    sample_table_index=project.sample_table_index,
+                    sample_table_index=proj_dict[CONFIG_KEY].get(
+                        SAMPLE_TABLE_INDEX_KEY, SAMPLE_NAME_ATTR
+                    ),
                 )
 
                 if proj_dict[SUBSAMPLE_RAW_LIST_KEY]:
@@ -833,6 +860,7 @@ class PEPDatabaseProject:
                 namespace=original_namespace,
                 name=original_name,
                 tag=original_tag,
+                raw=True,
             ),
             namespace=fork_namespace,
             name=fork_name,
@@ -861,4 +889,23 @@ class PEPDatabaseProject:
             fork_prj.description = description or original_prj.description
 
             session.commit()
+        return None
+
+    def get_config(self, namespace: str, name: str, tag: str) -> Union[dict, None]:
+        """
+        Get project configuration by providing namespace, name, and tag
+
+        :param namespace: project namespace
+        :param name: project name
+        :param tag: project tag
+        :return: project configuration
+        """
+        statement = select(Projects.config).where(
+            and_(Projects.namespace == namespace, Projects.name == name, Projects.tag == tag)
+        )
+        with Session(self._sa_engine) as session:
+            result = session.execute(statement).one_or_none()
+
+        if result:
+            return result[0]
         return None

@@ -1,8 +1,21 @@
 # file with pydantic models
 from typing import List, Optional, Union, Dict
 from pydantic import BaseModel, Field, ConfigDict, field_validator
+from peppy.const import CONFIG_KEY, SUBSAMPLE_RAW_LIST_KEY, SAMPLE_RAW_DICT_KEY
 
 from pepdbagent.const import DEFAULT_TAG
+
+
+class ProjectDict(BaseModel):
+    """
+    Project dict (raw) model
+    """
+
+    config: dict = Field(alias=CONFIG_KEY)
+    subsample_list: Optional[Union[list, None]] = Field(alias=SUBSAMPLE_RAW_LIST_KEY)
+    sample_dict: list = Field(alias=SAMPLE_RAW_DICT_KEY)
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
 class AnnotationModel(BaseModel):

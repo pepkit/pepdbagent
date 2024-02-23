@@ -4,6 +4,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.7.4] -- 2024-02-XX
 - Fixed forking schema
+- Improved forking efficiency [#129](https://github.com/pepkit/pepdbagent/issues/129)
+- Added uploading project from dict 
+- Added get_config method to project module [#128](https://github.com/pepkit/pepdbagent/issues/128)
+- Fixed error handling in views API [#130](https://github.com/pepkit/pepdbagent/issues/130)
+- Added no_fail to views API 
 
 
 ## [0.7.3] -- 2024-02-08
