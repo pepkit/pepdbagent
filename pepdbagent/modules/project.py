@@ -8,6 +8,7 @@ from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
 from sqlalchemy import Select
+import numpy as np
 
 from peppy.const import (
     SAMPLE_RAW_DICT_KEY,
@@ -256,6 +257,9 @@ class PEPDatabaseProject:
         elif isinstance(project, dict):
             # verify if the dictionary has all necessary elements.
             # samples should be always presented as list of dicts (orient="records"))
+            _LOGGER.warning(
+                f"Project f{namespace}/{name}:{tag} is provided as dictionary. Project won't be validated."
+            )
             proj_dict = ProjectDict(**project).model_dump(by_alias=True)
         else:
             raise PEPDatabaseAgentError(
@@ -909,3 +913,56 @@ class PEPDatabaseProject:
         if result:
             return result[0]
         return None
+
+    def get_subsamples(self, namespace: str, name: str, tag: str) -> Union[list, None]:
+        """
+        Get project subsamples by providing namespace, name, and tag
+
+        :param namespace: project namespace
+        :param name: project name
+        :param tag: project tag
+        :return: list with project subsamples
+        """
+        statement = self._create_select_statement(name, namespace, tag)
+
+        with Session(self._sa_engine) as session:
+
+            found_prj = session.scalar(statement)
+
+            if found_prj:
+                _LOGGER.info(f"Project has been found: {found_prj.namespace}, {found_prj.name}")
+                subsample_dict = {}
+                if found_prj.subsamples_mapping:
+                    for subsample in found_prj.subsamples_mapping:
+                        if subsample.subsample_number not in subsample_dict.keys():
+                            subsample_dict[subsample.subsample_number] = []
+                        subsample_dict[subsample.subsample_number].append(subsample.subsample)
+                    return list(subsample_dict.values())
+                else:
+                    return []
+            else:
+                raise ProjectNotFoundError(
+                    f"No project found for supplied input: '{namespace}/{name}:{tag}'. "
+                    f"Did you supply a valid namespace and project?"
+                )
+
+    def get_samples(self, namespace: str, name: str, tag: str, raw: bool = True) -> list:
+        """
+        Get project samples by providing namespace, name, and tag
+
+        :param namespace: project namespace
+        :param name: project name
+        :param tag: project tag
+        :param raw: if True, retrieve unprocessed (raw) PEP dict. [Default: True]
+
+        :return: list with project samples
+        """
+        if raw:
+            return self.get(namespace=namespace, name=name, tag=tag, raw=True).get(
+                SAMPLE_RAW_DICT_KEY
+            )
+        return (
+            self.get(namespace=namespace, name=name, tag=tag, raw=False)
+            .sample_table.replace({np.nan: None})
+            .to_dict(orient="records")
+        )

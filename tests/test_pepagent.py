@@ -5,6 +5,7 @@ import warnings
 import peppy
 import pytest
 from sqlalchemy.exc import OperationalError
+import numpy as np
 
 import pepdbagent
 from pepdbagent.exceptions import (
@@ -104,6 +105,60 @@ class TestProject:
         ff.description = description
         ff.name = name
         assert kk == ff.config
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace3", "subtables"],
+        ],
+    )
+    def test_get_subsamples(self, initiate_pepdb_con, namespace, name):
+        prj_subtables = initiate_pepdb_con.project.get_subsamples(
+            namespace=namespace,
+            name=name,
+            tag="default",
+        )
+        orgiginal_prj = peppy.Project(get_path_to_example_file(namespace, name))
+
+        assert (
+            prj_subtables
+            == orgiginal_prj.to_dict(extended=True, orient="records")["_subsample_list"]
+        )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace3", "subtables"],
+        ],
+    )
+    def test_get_samples_raw(self, initiate_pepdb_con, namespace, name):
+        prj_samples = initiate_pepdb_con.project.get_samples(
+            namespace=namespace, name=name, tag="default", raw=True
+        )
+        orgiginal_prj = peppy.Project(get_path_to_example_file(namespace, name))
+
+        assert (
+            prj_samples == orgiginal_prj.to_dict(extended=True, orient="records")["_sample_dict"]
+        )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace3", "subtables"],
+        ],
+    )
+    def test_get_samples_processed(self, initiate_pepdb_con, namespace, name):
+        prj_samples = initiate_pepdb_con.project.get_samples(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            raw=False,
+        )
+        orgiginal_prj = peppy.Project(get_path_to_example_file(namespace, name))
+
+        assert prj_samples == orgiginal_prj.sample_table.replace({np.nan: None}).to_dict(
+            orient="records"
+        )
 
     @pytest.mark.parametrize(
         "namespace, name,tag",
