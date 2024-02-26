@@ -137,6 +137,7 @@ class PEPDatabaseView:
         view_name: str,
         view_dict: Union[dict, CreateViewDictModel],
         description: str = None,
+        no_fail: bool = False,
     ) -> None:
         """
         Create a view of the project in the database.
@@ -151,6 +152,7 @@ class PEPDatabaseView:
                     sample_list: List[str] # list of sample names
                 }
         :param description: description of the view
+        :param no_fail: if True, skip samples that doesn't exist in the project
         retrun: None
         """
         _LOGGER.debug(f"Creating view {view_name} with provided info: (view_dict: {view_dict})")
@@ -185,11 +187,15 @@ class PEPDatabaseView:
                             Samples.sample_name == sample_name,
                         )
                     )
-                    sample_id = sa_session.execute(sample_statement).one()[0]
-                    if not sample_id:
+                    sample_id_tuple = sa_session.execute(sample_statement).one_or_none()
+                    if sample_id_tuple:
+                        sample_id = sample_id_tuple[0]
+                    elif not sample_id_tuple and not no_fail:
                         raise SampleNotFoundError(
                             f"Sample {view_dict.project_namespace}/{view_dict.project_name}:{view_dict.project_tag}:{sample_name} does not exist"
                         )
+                    else:
+                        continue
 
                     sa_session.add(ViewSampleAssociation(sample_id=sample_id, view=view))
 

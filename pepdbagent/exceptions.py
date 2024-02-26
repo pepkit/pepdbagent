@@ -92,3 +92,8 @@ class ViewAlreadyExistsError(PEPDatabaseAgentError):
 
     def __init__(self, msg=""):
         super().__init__(f"""View already in the project. {msg}""")
+
+
+class NamespaceNotFoundError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Project does not exist. {msg}""")

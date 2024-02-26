@@ -8,6 +8,7 @@ from sqlalchemy.sql.selectable import Select
 from sqlalchemy.orm import Session
 
 from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET, PKG_NAME, DEFAULT_LIMIT_INFO
+from pepdbagent.exceptions import NamespaceNotFoundError
 from pepdbagent.db_utils import Projects, BaseEngine
 from pepdbagent.models import (
     Namespace,
@@ -221,9 +222,9 @@ class PEPDatabaseNamespace:
         :param monthly: if True, get statistics for the last 3 years monthly, else for the last 3 months daily.
         """
         if monthly:
-            number_of_month = 3
-        else:
             number_of_month = 12 * 3
+        else:
+            number_of_month = 3
         today_date = datetime.today().date() + timedelta(days=1)
         three_month_ago = today_date - timedelta(days=number_of_month * 30 + 1)
         statement_last_update = select(Projects.last_update_date).filter(
@@ -239,6 +240,9 @@ class PEPDatabaseNamespace:
         with Session(self._sa_engine) as session:
             update_results = session.execute(statement_last_update).all()
             create_results = session.execute(statement_create_date).all()
+
+        if not update_results:
+            raise NamespaceNotFoundError(f"Namespace {namespace} not found in the database")
 
         if monthly:
             year_month_str_submission = [

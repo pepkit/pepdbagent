@@ -5,6 +5,7 @@ import warnings
 import peppy
 import pytest
 from sqlalchemy.exc import OperationalError
+import numpy as np
 
 import pepdbagent
 from pepdbagent.exceptions import (
@@ -60,6 +61,16 @@ class TestProject:
         )
         assert True
 
+    def test_create_project_from_dict(self, initiate_empty_pepdb_con, list_of_available_peps):
+        prj = peppy.Project(list_of_available_peps["namespace3"]["subtables"])
+        initiate_empty_pepdb_con.project.create(
+            prj.to_dict(extended=True, orient="records"),
+            namespace="test",
+            name="imply",
+            overwrite=True,
+        )
+        assert True
+
     @pytest.mark.parametrize(
         "namespace, name",
         [
@@ -76,6 +87,78 @@ class TestProject:
         kk = initiate_pepdb_con.project.get(namespace=namespace, name=name, tag="default")
         ff = peppy.Project(get_path_to_example_file(namespace, name))
         assert kk == ff
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+        ],
+    )
+    def test_get_config(self, initiate_pepdb_con, namespace, name):
+        description = ""
+        kk = initiate_pepdb_con.project.get_config(
+            namespace=namespace,
+            name=name,
+            tag="default",
+        )
+        ff = peppy.Project(get_path_to_example_file(namespace, name))
+        ff.description = description
+        ff.name = name
+        assert kk == ff.config
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace3", "subtables"],
+        ],
+    )
+    def test_get_subsamples(self, initiate_pepdb_con, namespace, name):
+        prj_subtables = initiate_pepdb_con.project.get_subsamples(
+            namespace=namespace,
+            name=name,
+            tag="default",
+        )
+        orgiginal_prj = peppy.Project(get_path_to_example_file(namespace, name))
+
+        assert (
+            prj_subtables
+            == orgiginal_prj.to_dict(extended=True, orient="records")["_subsample_list"]
+        )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace3", "subtables"],
+        ],
+    )
+    def test_get_samples_raw(self, initiate_pepdb_con, namespace, name):
+        prj_samples = initiate_pepdb_con.project.get_samples(
+            namespace=namespace, name=name, tag="default", raw=True
+        )
+        orgiginal_prj = peppy.Project(get_path_to_example_file(namespace, name))
+
+        assert (
+            prj_samples == orgiginal_prj.to_dict(extended=True, orient="records")["_sample_dict"]
+        )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace3", "subtables"],
+        ],
+    )
+    def test_get_samples_processed(self, initiate_pepdb_con, namespace, name):
+        prj_samples = initiate_pepdb_con.project.get_samples(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            raw=False,
+        )
+        orgiginal_prj = peppy.Project(get_path_to_example_file(namespace, name))
+
+        assert prj_samples == orgiginal_prj.sample_table.replace({np.nan: None}).to_dict(
+            orient="records"
+        )
 
     @pytest.mark.parametrize(
         "namespace, name,tag",
@@ -1146,6 +1229,50 @@ class TestViews:
             },
         )
 
+        project = initiate_pepdb_con.project.get(namespace, name)
+        view_project = initiate_pepdb_con.view.get(namespace, name, "default", view_name)
+        assert len(view_project.samples) == 2
+        assert view_project != project
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name, view_name",
+        [
+            ["namespace1", "amendments1", "pig_0h", "view1"],
+        ],
+    )
+    def test_create_view_with_incorrect_sample(
+        self, initiate_pepdb_con, namespace, name, sample_name, view_name
+    ):
+        with pytest.raises(SampleNotFoundError):
+            initiate_pepdb_con.view.create(
+                "view1",
+                {
+                    "project_namespace": "namespace1",
+                    "project_name": "amendments1",
+                    "project_tag": "default",
+                    "sample_list": ["pig_0h", "pig_1h", "pig_2h"],
+                },
+            )
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name, view_name",
+        [
+            ["namespace1", "amendments1", "pig_0h", "view1"],
+        ],
+    )
+    def test_create_view_with_incorrect_sample_no_fail(
+        self, initiate_pepdb_con, namespace, name, sample_name, view_name
+    ):
+        initiate_pepdb_con.view.create(
+            "view1",
+            {
+                "project_namespace": "namespace1",
+                "project_name": "amendments1",
+                "project_tag": "default",
+                "sample_list": ["pig_0h", "pig_1h", "pig_2h"],
+            },
+            no_fail=True,
+        )
         project = initiate_pepdb_con.project.get(namespace, name)
         view_project = initiate_pepdb_con.view.get(namespace, name, "default", view_name)
         assert len(view_project.samples) == 2
