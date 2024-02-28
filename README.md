@@ -4,7 +4,7 @@
 ![Run pytests](https://github.com/pepkit/pepdbagent/workflows/Run%20pytests/badge.svg)
 [![pypi-badge](https://img.shields.io/pypi/v/pepdbagent?color=%2334D058)](https://pypi.org/project/pepdbagent)
 [![pypi-version](https://img.shields.io/pypi/pyversions/pepdbagent.svg?color=%2334D058)](https://pypi.org/project/pepdbagent)
-[![Downloads](https://static.pepy.tech/badge/pepdbagent)](https://pepy.tech/project/pepdbagent)
+[![Coverage](https://coverage-badge.samuelcolvin.workers.dev/pepkit/pepdbagent.svg)](https://coverage-badge.samuelcolvin.workers.dev/redirect/pepkit/pepdbagent)
 [![Github badge](https://img.shields.io/badge/source-github-354a75?logo=github)](https://github.com/pepkit/pepdbagent)
 
 
