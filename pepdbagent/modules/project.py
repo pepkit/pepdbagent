@@ -5,11 +5,13 @@ from typing import Union, List, NoReturn, Mapping
 import uuid
 
 import peppy
-from sqlalchemy import and_, delete, select, literal
+from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session
 from sqlalchemy import Select
 import numpy as np
+
+from pepdbagent.sql_sample_queries import get_samples_query
 
 from peppy.const import (
     SAMPLE_RAW_DICT_KEY,
@@ -98,169 +100,24 @@ class PEPDatabaseProject:
                     else:
                         subsample_list = []
 
-                    # samples
-                    # select first sample
-                    # result = session.scalar(select(Samples).where(Samples.project_id == found_prj.id and Samples.parent_mapping == None))
+                    samples_results = session.execute(get_samples_query(found_prj.id)).all()
 
-                    ### First try::
-                    # # recursively get all samples
-                    # def create_sample_list(sample_obj: Samples):
-                    #     sample_list = []
-                    #     while sample_obj:
-                    #         sample_list.append(sample_obj.sample)
-                    #         sample_obj = sample_obj.child_mapping
-                    #     return sample_list
-                    #
-                    # sample_list1 = create_sample_list(result)
+                    # TODO: This code is for future
+                    # ordered_samples_dict = {row.guid: row.sample for row in samples_results}
+                    # list(ordered_samples_dict.values())
+                    # samples_results1 = session.execute(get_last_sample_id(found_prj.id)).one()
 
-                    ### Second try:
-
-
-                    # root_sample = session.scalar(select(Samples).where(Samples.project_id == found_prj.id and Samples.parent_mapping == None))
-                    #
-                    # if root_sample is None:
-                    #      raise ValueError("No root sample found")
-                    #
-                    # sample_dict = {
-                    #     sample_sa.guid: sample_sa
-                    #     for sample_sa in found_prj.samples_mapping
-                    # }
-                    #
-                    # ordered_samples = []
-                    # current_sample = root_sample
-                    #
-                    # while current_sample:
-                    #     ordered_samples.append(current_sample)
-                    #     # Find the child of the current sample
-                    #     current_sample = next(
-                    #         (sample for sample in found_prj.samples_mapping if sample.parent_guid == current_sample.guid), None)
-
-                    # Try 3
-
-                    # parent = aliased(Samples)
-                    # child = aliased(Samples)
-                    #
-                    # # Step 1: Identify the root sample
-                    # root_sample_query = (
-                    #     select(parent).
-                    #     where(parent.project_id == found_prj.id, parent.parent_guid is None).
-                    #     cte(name="root_sample")
-                    # )
-                    #
-                    # # Step 2: Recursive CTE to build the hierarchy
-                    # recursive_query = (
-                    #     select(
-                    #         parent.id,
-                    #         parent.sample,
-                    #         parent.row_number,
-                    #         parent.project_id,
-                    #         parent.project_mapping,
-                    #         parent.sample_name,
-                    #         parent.guid,
-                    #         parent.parent_guid,
-                    #         parent.parent_mapping,
-                    #         parent.child_mapping,
-                    #         parent.views,
-                    #         # literal(0).label('depth')
-                    #     ).select_from(root_sample_query)
-                    #     .union_all(
-                    #         select(
-                    #             child.id,
-                    #             child.sample,
-                    #             child.row_number,
-                    #             child.project_id,
-                    #             child.project_mapping,
-                    #             child.sample_name,
-                    #             child.guid,
-                    #             child.parent_guid,
-                    #             child.parent_mapping,
-                    #             child.child_mapping,
-                    #             child.views,
-                    #             # (parent.depth + 1).label('depth')
-                    #         ).select_from(parent)
-                    #         .join(root_sample_query, parent.guid == child.parent_guid)
-                    #     )
-                    # ).cte(name="sample_hierarchy", recursive=True)
-                    #
-                    # # Step 3: Select from the recursive CTE and order by depth
-                    # ordered_samples_query = (
-                    #     select(recursive_query)
-                    #     # .order_by(recursive_query.depth)
-                    # )
-                    #
-                    # # Execute the query
-                    # ordered_samples = session.scalars(ordered_samples_query)
-
-
-                    # try 4
-
-                    parent = aliased(Samples)
-                    child = aliased(Samples)
-
-                    # Step 1: Identify the root sample
-                    root_sample_query = (
-                        select(parent).
-                        where(parent.project_id == found_prj.id, parent.parent_guid is None).
-                        cte(recursive=True, name="root_sample")
-                    )
-
-                    # Step 2: Recursive CTE to build the hierarchy
-                    recursive_query = (
-                        select(
-                            parent.id,
-                            parent.sample,
-                            parent.row_number,
-                            parent.project_id,
-                            parent.project_mapping,
-                            parent.sample_name,
-                            parent.guid,
-                            parent.parent_guid,
-                            parent.parent_mapping,
-                            parent.child_mapping,
-                            parent.views,
-                            # literal(0).label('depth')
-                        ).select_from(root_sample_query)
-                        .union_all(
-                            select(
-                                child.id,
-                                child.sample,
-                                child.row_number,
-                                child.project_id,
-                                child.project_mapping,
-                                child.sample_name,
-                                child.guid,
-                                child.parent_guid,
-                                child.parent_mapping,
-                                child.child_mapping,
-                                child.views,
-                                # (parent.depth + 1).label('depth')
-                            ).select_from(parent)
-                            .join(root_sample_query, parent.guid == child.parent_guid)
-                        )
-                    ).cte(name="sample_hierarchy", recursive=True)
-
-                    # Step 3: Select from the recursive CTE and order by depth
-                    ordered_samples_query = (
-                        select(recursive_query)
-                        # .order_by(recursive_query.depth)
-                    )
-
-                    # Execute the query
-                    ordered_samples = session.scalars(ordered_samples_query)
-
-
+                    ordered_samples_dict = [row.sample for row in samples_results]
                     project_value = {
                         CONFIG_KEY: found_prj.config,
-                        SAMPLE_RAW_DICT_KEY: [sample.sample for sample in ordered_samples],
+                        SAMPLE_RAW_DICT_KEY: ordered_samples_dict,
                         SUBSAMPLE_RAW_LIST_KEY: subsample_list,
                     }
-                    # project_value = found_prj.project_value
-                    is_private = found_prj.private
+
                     if raw:
                         return project_value
                     else:
                         project_obj = peppy.Project().from_dict(project_value)
-                        project_obj.is_private = is_private
                         return project_obj
 
                 else:
@@ -932,7 +789,7 @@ class PEPDatabaseProject:
                 row_number=row_number,
                 sample_name=sample.get(sample_table_index),
                 parent_guid=previous_sample_guid,
-                guid=str(uuid.uuid4())
+                guid=str(uuid.uuid4()),
             )
             projects_sa.samples_mapping.append(sample)
             previous_sample_guid = sample.guid

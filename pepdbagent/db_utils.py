@@ -133,17 +133,21 @@ class Samples(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     sample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
-    row_number: Mapped[int] # TODO: should be removed
+    row_number: Mapped[int]  # TODO: should be removed
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     project_mapping: Mapped["Projects"] = relationship(back_populates="samples_mapping")
     sample_name: Mapped[Optional[str]] = mapped_column()
     guid: Mapped[Optional[str]] = mapped_column(nullable=False, unique=True)
 
-    parent_guid: Mapped[Optional[int]] = mapped_column(ForeignKey("samples.guid", ondelete="CASCADE"),
-                                                        nullable=True,
-                                                        doc="Parent sample id. Used to create a hierarchy of samples.")
+    parent_guid: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("samples.guid", ondelete="CASCADE"),
+        nullable=True,
+        doc="Parent sample id. Used to create a hierarchy of samples.",
+    )
 
-    parent_mapping: Mapped["Samples"] = relationship("Samples", remote_side=guid, back_populates="child_mapping")
+    parent_mapping: Mapped["Samples"] = relationship(
+        "Samples", remote_side=guid, back_populates="child_mapping"
+    )
     child_mapping: Mapped["Samples"] = relationship("Samples", back_populates="parent_mapping")
 
     views: Mapped[Optional[List["ViewSampleAssociation"]]] = relationship(
