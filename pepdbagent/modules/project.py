@@ -132,11 +132,12 @@ class PEPDatabaseProject:
     @staticmethod
     def _create_select_statement(name: str, namespace: str, tag: str = DEFAULT_TAG) -> Select:
         """
+        Create simple select statement for retrieving project from database
 
-        :param name:
-        :param namespace:
-        :param tag:
-        :return:
+        :param name: name of the project
+        :param namespace: namespace of the project
+        :param tag: tag of the project
+        :return: select statement
         """
         statement = select(Projects)
         statement = statement.where(
@@ -802,6 +803,7 @@ class PEPDatabaseProject:
     ) -> NoReturn:
         """
         Add subsamples to the project sa object. (With commit this samples will be added to the 'subsamples table')
+
         :param projects_sa: Projects sa object, in open session
         :param subsamples: list of subsamles to be added to the database
         :return: NoReturn
