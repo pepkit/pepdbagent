@@ -100,14 +100,62 @@ class PEPDatabaseProject:
                     else:
                         subsample_list = []
 
-                    samples_results = session.execute(get_samples_query(found_prj.id)).all()
+                    # samples_results = session.execute(get_samples_query(found_prj.id)).all()
+                    samples_results = session.scalars(
+                        select(Samples).where(Samples.project_id == found_prj.id)
+                    )
+                    result_dict = {}
+                    for sample in samples_results:
+                        result_dict[sample.guid] = {
+                            "sample": sample.sample,
+                            "guid": sample.guid,
+                            "parent_guid": sample.parent_guid,
+                        }
+
+                    def sort_order(results):
+                        # Find the Root Node
+                        # Create a lookup dictionary for nodes by their GUIDs
+                        guid_lookup = {entry["guid"]: entry for entry in results.values()}
+
+                        # Create a dictionary to map each GUID to its child GUID
+                        parent_to_child = {
+                            entry["parent_guid"]: entry["guid"]
+                            for entry in results.values()
+                            if entry["parent_guid"] is not None
+                        }
+
+                        # Find the root node
+                        root = None
+                        for guid, entry in results.items():
+                            if entry["parent_guid"] is None:
+                                root = entry
+                                break
+
+                        if root is None:
+                            raise ValueError("No root node found")
+
+                        ordered_sequence = []
+                        current = root
+
+                        while current is not None:
+                            ordered_sequence.append(current)
+                            current_guid = current["guid"]
+                            if current_guid in parent_to_child:
+                                current = guid_lookup[parent_to_child[current_guid]]
+                            else:
+                                current = None
+
+                        return ordered_sequence
+
+                    result_dict = sort_order(result_dict)
+                    ordered_samples_dict = [sample["sample"] for sample in result_dict]
 
                     # TODO: This code is for future
                     # ordered_samples_dict = {row.guid: row.sample for row in samples_results}
                     # list(ordered_samples_dict.values())
                     # samples_results1 = session.execute(get_last_sample_id(found_prj.id)).one()
 
-                    ordered_samples_dict = [row.sample for row in samples_results]
+                    # ordered_samples_dict = [row.sample for row in samples_results]
                     project_value = {
                         CONFIG_KEY: found_prj.config,
                         SAMPLE_RAW_DICT_KEY: ordered_samples_dict,
