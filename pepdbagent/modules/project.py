@@ -11,8 +11,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import Select
 import numpy as np
 
-from pepdbagent.sql_sample_queries import get_samples_query
-
 from peppy.const import (
     SAMPLE_RAW_DICT_KEY,
     SUBSAMPLE_RAW_LIST_KEY,
@@ -61,6 +59,7 @@ class PEPDatabaseProject:
         name: str,
         tag: str = DEFAULT_TAG,
         raw: bool = False,
+        with_id: bool = True,
     ) -> Union[peppy.Project, dict, None]:
         """
         Retrieve project from database by specifying namespace, name and tag
@@ -106,8 +105,12 @@ class PEPDatabaseProject:
                     )
                     result_dict = {}
                     for sample in samples_results:
+                        sample_dict = sample.sample
+                        if with_id:
+                            sample_dict["ph_id"] = sample.guid
+
                         result_dict[sample.guid] = {
-                            "sample": sample.sample,
+                            "sample": sample_dict,
                             "guid": sample.guid,
                             "parent_guid": sample.parent_guid,
                         }
@@ -144,21 +147,15 @@ class PEPDatabaseProject:
                                 current = guid_lookup[parent_to_child[current_guid]]
                             else:
                                 current = None
-
                         return ordered_sequence
 
                     result_dict = sort_order(result_dict)
-                    ordered_samples_dict = [sample["sample"] for sample in result_dict]
 
-                    # TODO: This code is for future
-                    # ordered_samples_dict = {row.guid: row.sample for row in samples_results}
-                    # list(ordered_samples_dict.values())
-                    # samples_results1 = session.execute(get_last_sample_id(found_prj.id)).one()
+                    ordered_samples_list = [sample["sample"] for sample in result_dict]
 
-                    # ordered_samples_dict = [row.sample for row in samples_results]
                     project_value = {
                         CONFIG_KEY: found_prj.config,
-                        SAMPLE_RAW_DICT_KEY: ordered_samples_dict,
+                        SAMPLE_RAW_DICT_KEY: ordered_samples_list,
                         SUBSAMPLE_RAW_LIST_KEY: subsample_list,
                     }
 
@@ -554,7 +551,16 @@ class PEPDatabaseProject:
                                 found_prj.name = found_prj.config[NAME_KEY]
 
                     if "samples" in update_dict:
-                        self._update_samples(
+                        # self._update_samples(
+                        #     namespace=namespace,
+                        #     name=name,
+                        #     tag=tag,
+                        #     samples_list=update_dict["samples"],
+                        #     sample_name_key=update_dict["config"].get(
+                        #         SAMPLE_TABLE_INDEX_KEY, "sample_name"
+                        #     ),
+                        # )
+                        self._update_samples_with_ids(
                             namespace=namespace,
                             name=name,
                             tag=tag,
@@ -592,6 +598,71 @@ class PEPDatabaseProject:
 
         else:
             raise ProjectNotFoundError("No items will be updated!")
+
+    def _update_samples_with_ids(
+        self,
+        namespace: str,
+        name: str,
+        tag: str,
+        samples_list: List[dict],
+        sample_name_key: str = "sample_name",
+    ) -> None:
+        """
+        Update samples in the project
+        This is a new method that instead of deleting all samples and adding new ones,
+        updates samples and adds new ones if they don't exist
+
+        :param samples_list: list of samples to be updated
+        :param sample_name_key: key of the sample name
+        :return: None
+        """
+        PH_ID = "ph_id"
+        parent_id = None
+
+        project_id = self.get_project_id(namespace, name, tag)
+        with Session(self._sa_engine) as session:
+            old_samples = session.scalars(select(Samples).where(Samples.project_id == project_id))
+
+            old_samples_mapping: dict = {sample.guid: sample for sample in old_samples}
+            old_samples_ids_set: set = set(old_samples_mapping.keys())
+            new_samples_ids_set: set = {new_sample[PH_ID] for new_sample in samples_list}
+            new_samples_dict: dict = {new_sample[PH_ID] or str(uuid.uuid4()): new_sample for new_sample in samples_list}
+
+            # # delete PEPHub sample ids
+            # for new_sample in new_samples_dict.values():
+            #     del new_sample[PH_ID]
+
+            # Check if something was deleted:
+            deleted_ids = old_samples_ids_set - new_samples_ids_set
+
+            parent_id = None
+
+            # Check if something was inserted:
+            for current_id, sample_value in new_samples_dict.items():
+                del sample_value[PH_ID]
+
+                if current_id not in old_samples_ids_set:
+                    session.add(Samples(sample=sample_value,
+                                        guid=current_id,
+                                        sample_name=sample_value[sample_name_key],
+                                        row_number=0,
+                                        project_id=project_id,
+                                        parent_guid=parent_id,
+                                        ))
+                else:
+                    if old_samples_mapping[current_id].sample != sample_value:
+                        old_samples_mapping[current_id].sample = sample_value
+
+                    if old_samples_mapping[current_id].parent_guid != parent_id:
+                        old_samples_mapping[current_id].parent_guid = parent_id
+
+                parent_id = current_id
+
+            for remove_id in deleted_ids:
+                session.delete(old_samples_mapping[remove_id])
+
+            session.commit()
+
 
     def _update_samples(
         self,
