@@ -617,52 +617,53 @@ class PEPDatabaseProject:
         :return: None
         """
         PH_ID = "ph_id"
-        parent_id = None
-
         project_id = self.get_project_id(namespace, name, tag)
+
         with Session(self._sa_engine) as session:
             old_samples = session.scalars(select(Samples).where(Samples.project_id == project_id))
 
             old_samples_mapping: dict = {sample.guid: sample for sample in old_samples}
             old_samples_ids_set: set = set(old_samples_mapping.keys())
             new_samples_ids_set: set = {new_sample[PH_ID] for new_sample in samples_list}
-            new_samples_dict: dict = {new_sample[PH_ID] or str(uuid.uuid4()): new_sample for new_sample in samples_list}
-
-            # # delete PEPHub sample ids
-            # for new_sample in new_samples_dict.values():
-            #     del new_sample[PH_ID]
+            new_samples_dict: dict = {
+                new_sample[PH_ID] or str(uuid.uuid4()): new_sample for new_sample in samples_list
+            }
 
             # Check if something was deleted:
             deleted_ids = old_samples_ids_set - new_samples_ids_set
 
             parent_id = None
+            parent_mapping = None
 
             # Check if something was inserted:
             for current_id, sample_value in new_samples_dict.items():
+                new_sample = None
                 del sample_value[PH_ID]
 
                 if current_id not in old_samples_ids_set:
-                    session.add(Samples(sample=sample_value,
-                                        guid=current_id,
-                                        sample_name=sample_value[sample_name_key],
-                                        row_number=0,
-                                        project_id=project_id,
-                                        parent_guid=parent_id,
-                                        ))
+                    new_sample = Samples(
+                        sample=sample_value,
+                        guid=current_id,
+                        sample_name=sample_value[sample_name_key],
+                        row_number=0,
+                        project_id=project_id,
+                        parent_guid=parent_id,
+                    )
+                    session.add(new_sample)
                 else:
                     if old_samples_mapping[current_id].sample != sample_value:
                         old_samples_mapping[current_id].sample = sample_value
 
                     if old_samples_mapping[current_id].parent_guid != parent_id:
-                        old_samples_mapping[current_id].parent_guid = parent_id
+                        old_samples_mapping[current_id].parent_mapping = parent_mapping
 
                 parent_id = current_id
+                parent_mapping = new_sample or old_samples_mapping[current_id]
 
             for remove_id in deleted_ids:
                 session.delete(old_samples_mapping[remove_id])
 
             session.commit()
-
 
     def _update_samples(
         self,
