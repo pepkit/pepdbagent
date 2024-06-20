@@ -36,7 +36,7 @@ from pepdbagent.exceptions import (
     SampleTableUpdateError,
 )
 from pepdbagent.models import UpdateItems, UpdateModel, ProjectDict
-from pepdbagent.utils import create_digest, registry_path_converter
+from pepdbagent.utils import create_digest, registry_path_converter, order_samples
 
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -103,63 +103,11 @@ class PEPDatabaseProject:
                     else:
                         subsample_list = []
 
-                    # samples_results = session.execute(get_samples_query(found_prj.id)).all()
-                    samples_results = session.scalars(
-                        select(Samples).where(Samples.project_id == found_prj.id)
-                    )
-                    result_dict = {}
-                    for sample in samples_results:
-                        sample_dict = sample.sample
-                        if with_id:
-                            sample_dict["ph_id"] = sample.guid
-
-                        result_dict[sample.guid] = {
-                            "sample": sample_dict,
-                            "guid": sample.guid,
-                            "parent_guid": sample.parent_guid,
-                        }
-
-                    def sort_order(results):
-                        # Find the Root Node
-                        # Create a lookup dictionary for nodes by their GUIDs
-                        guid_lookup = {entry["guid"]: entry for entry in results.values()}
-
-                        # Create a dictionary to map each GUID to its child GUID
-                        parent_to_child = {
-                            entry["parent_guid"]: entry["guid"]
-                            for entry in results.values()
-                            if entry["parent_guid"] is not None
-                        }
-
-                        # Find the root node
-                        root = None
-                        for guid, entry in results.items():
-                            if entry["parent_guid"] is None:
-                                root = entry
-                                break
-
-                        if root is None:
-                            raise ValueError("No root node found")
-
-                        ordered_sequence = []
-                        current = root
-
-                        while current is not None:
-                            ordered_sequence.append(current)
-                            current_guid = current["guid"]
-                            if current_guid in parent_to_child:
-                                current = guid_lookup[parent_to_child[current_guid]]
-                            else:
-                                current = None
-                        return ordered_sequence
-
-                    result_dict = sort_order(result_dict)
-
-                    ordered_samples_list = [sample["sample"] for sample in result_dict]
+                    sample_list = self._get_samples(session=session, prj_id=found_prj.id,  with_id=with_id)
 
                     project_value = {
                         CONFIG_KEY: found_prj.config,
-                        SAMPLE_RAW_DICT_KEY: ordered_samples_list,
+                        SAMPLE_RAW_DICT_KEY: sample_list,
                         SUBSAMPLE_RAW_LIST_KEY: subsample_list,
                     }
 
@@ -178,15 +126,33 @@ class PEPDatabaseProject:
         except NoResultFound:
             raise ProjectNotFoundError
 
-    def _get_samples(self, session: Session, project_id: int) -> Dict[str, dict]:
+    def _get_samples(self, session: Session, prj_id: int, with_id: bool) -> List[Dict]:
         """
         Get samples from the project
 
-        :param session: sqlalchemy session
-        :param project_id: project id
-        :return: dictionary with samples
+        :param session: open session object
+        :param prj_id: project id
+        :param with_id: retrieve sample with id
         """
-        ...
+        samples_results = session.scalars(
+            select(Samples).where(Samples.project_id == prj_id)
+        )
+        result_dict = {}
+        for sample in samples_results:
+            sample_dict = sample.sample
+            if with_id:
+                sample_dict["ph_id"] = sample.guid
+
+            result_dict[sample.guid] = {
+                "sample": sample_dict,
+                "guid": sample.guid,
+                "parent_guid": sample.parent_guid,
+            }
+
+        result_dict = order_samples(result_dict)
+
+        ordered_samples_list = [sample["sample"] for sample in result_dict]
+        return ordered_samples_list
 
     @staticmethod
     def _create_select_statement(name: str, namespace: str, tag: str = DEFAULT_TAG) -> Select:

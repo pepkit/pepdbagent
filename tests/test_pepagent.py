@@ -1287,8 +1287,8 @@ class TestViews:
             },
         )
 
-        project = initiate_pepdb_con.project.get(namespace, name)
-        view_project = initiate_pepdb_con.view.get(namespace, name, "default", view_name)
+        project = initiate_pepdb_con.project.get(namespace, name, raw=False)
+        view_project = initiate_pepdb_con.view.get(namespace, name, "default", view_name, raw=False)
         assert len(view_project.samples) == 2
         assert view_project != project
 
@@ -1382,7 +1382,7 @@ class TestViews:
             },
         )
         initiate_pepdb_con.view.add_sample(namespace, name, "default", "view1", "pig_1h")
-        assert len(initiate_pepdb_con.view.get(namespace, name, "default", "view1").samples) == 2
+        assert len(initiate_pepdb_con.view.get(namespace, name, "default", "view1", raw=False).samples) == 2
 
     @pytest.mark.parametrize(
         "namespace, name, sample_name",
@@ -1403,7 +1403,7 @@ class TestViews:
         initiate_pepdb_con.view.add_sample(
             namespace, name, "default", "view1", ["pig_1h", "frog_0h"]
         )
-        assert len(initiate_pepdb_con.view.get(namespace, name, "default", "view1").samples) == 3
+        assert len(initiate_pepdb_con.view.get(namespace, name, "default", "view1", raw=False).samples) == 3
 
     @pytest.mark.parametrize(
         "namespace, name, sample_name",
@@ -1422,7 +1422,7 @@ class TestViews:
             },
         )
         initiate_pepdb_con.view.remove_sample(namespace, name, "default", "view1", sample_name)
-        assert len(initiate_pepdb_con.view.get(namespace, name, "default", "view1").samples) == 1
+        assert len(initiate_pepdb_con.view.get(namespace, name, "default", "view1", raw=False).samples) == 1
         assert len(initiate_pepdb_con.project.get(namespace, name, raw=False).samples) == 4
 
         with pytest.raises(SampleNotInViewError):
@@ -1489,3 +1489,8 @@ class TestViews:
             len(initiate_pepdb_con.view.get_views_annotation(namespace, name, "default").views)
             == 1
         )
+
+
+class TestProjectSamplesUpdates:
+    ...
+    # TODO: write tests
