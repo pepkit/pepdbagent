@@ -48,7 +48,7 @@ class PEPDatabaseView:
         name: str,
         tag: str = DEFAULT_TAG,
         view_name: str = None,
-        raw: bool = False,
+        raw: bool = True,
     ) -> Union[peppy.Project, dict, None]:
         """
         Retrieve view of the project from the database.
@@ -59,7 +59,7 @@ class PEPDatabaseView:
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag of the project (Default: tag is taken from the project object)
         :param view_name: name of the view
-        :param raw: retrieve unprocessed (raw) PEP dict.
+        :param raw: retrieve unprocessed (raw) PEP dict. [Default: True]
         :return: peppy.Project object with found project or dict with unprocessed
             PEP elements: {
                 name: str

@@ -1,7 +1,7 @@
 import datetime
 import json
 import logging
-from typing import Union, List, NoReturn, Mapping, Dict
+from typing import Union, List, NoReturn, Dict
 import uuid
 
 import peppy
@@ -9,6 +9,7 @@ from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
 from sqlalchemy import Select
+from sqlalchemy.orm.attributes import flag_modified
 import numpy as np
 
 from peppy.const import (
@@ -61,7 +62,7 @@ class PEPDatabaseProject:
         name: str,
         tag: str = DEFAULT_TAG,
         raw: bool = True,
-        with_id: bool = True,
+        with_id: bool = False,
     ) -> Union[peppy.Project, dict, None]:
         """
         Retrieve project from database by specifying namespace, name and tag
@@ -176,6 +177,16 @@ class PEPDatabaseProject:
 
         except NoResultFound:
             raise ProjectNotFoundError
+
+    def _get_samples(self, session: Session, project_id: int) -> Dict[str, dict]:
+        """
+        Get samples from the project
+
+        :param session: sqlalchemy session
+        :param project_id: project id
+        :return: dictionary with samples
+        """
+        ...
 
     @staticmethod
     def _create_select_statement(name: str, namespace: str, tag: str = DEFAULT_TAG) -> Select:
@@ -536,52 +547,61 @@ class PEPDatabaseProject:
             with Session(self._sa_engine) as session:
                 found_prj: Projects = session.scalar(statement)
 
-                if found_prj:
-                    _LOGGER.debug(
-                        f"Project has been found: {found_prj.namespace}, {found_prj.name}"
+                if not found_prj:
+                    raise ProjectNotFoundError(
+                        f"Pep {namespace}/{name}:{tag} was not found. No items will be updated!"
                     )
 
-                    for k, v in update_values.items():
-                        if getattr(found_prj, k) != v:
-                            setattr(found_prj, k, v)
+                for k, v in update_values.items():
+                    if getattr(found_prj, k) != v:
+                        setattr(found_prj, k, v)
 
-                            # standardizing project name
-                            if k == NAME_KEY:
-                                if "config" in update_values:
-                                    update_values["config"][NAME_KEY] = v
-                                else:
-                                    found_prj.config[NAME_KEY] = v
-                                found_prj.name = found_prj.config[NAME_KEY]
+                        # standardizing project name
+                        if k == NAME_KEY:
+                            if "config" in update_values:
+                                update_values["config"][NAME_KEY] = v
+                            else:
+                                found_prj.config[NAME_KEY] = v
+                                flag_modified(found_prj, "config")
+                            found_prj.name = found_prj.config[NAME_KEY]
 
-                    if "samples" in update_dict:
+                        if k == DESCRIPTION_KEY:
+                            if "config" in update_values:
+                                update_values["config"][DESCRIPTION_KEY] = v
+                            else:
+                                found_prj.config[DESCRIPTION_KEY] = v
+                                # This line needed due to: https://github.com/sqlalchemy/sqlalchemy/issues/5218
+                                flag_modified(found_prj, "config")
 
-                        if PEPHUB_SAMPLE_ID_KEY not in update_dict["samples"][0]:
-                            raise SampleTableUpdateError(
-                                f"pephub_sample_id '{PEPHUB_SAMPLE_ID_KEY}' is missing in samples."
-                                f"Please provide it to update samples, or use overwrite method."
-                            )
+                if "samples" in update_dict:
 
-                        self._update_samples_with_ids(
-                            project_id=found_prj.id,
-                            samples_list=update_dict["samples"],
-                            sample_name_key=update_dict["config"].get(
-                                SAMPLE_TABLE_INDEX_KEY, "sample_name"
-                            ),
+                    if PEPHUB_SAMPLE_ID_KEY not in update_dict["samples"][0]:
+                        raise SampleTableUpdateError(
+                            f"pephub_sample_id '{PEPHUB_SAMPLE_ID_KEY}' is missing in samples."
+                            f"Please provide it to update samples, or use overwrite method."
                         )
 
-                    if "subsamples" in update_dict:
-                        if found_prj.subsamples_mapping:
-                            for subsample in found_prj.subsamples_mapping:
-                                _LOGGER.debug(f"deleting subsamples: {str(subsample)}")
-                                session.delete(subsample)
+                    self._update_samples_with_ids(
+                        project_id=found_prj.id,
+                        samples_list=update_dict["samples"],
+                        sample_name_key=update_dict["config"].get(
+                            SAMPLE_TABLE_INDEX_KEY, "sample_name"
+                        ),
+                    )
 
-                        # Adding new subsamples
-                        if update_dict["subsamples"]:
-                            self._add_subsamples_to_project(found_prj, update_dict["subsamples"])
+                if "subsamples" in update_dict:
+                    if found_prj.subsamples_mapping:
+                        for subsample in found_prj.subsamples_mapping:
+                            _LOGGER.debug(f"deleting subsamples: {str(subsample)}")
+                            session.delete(subsample)
 
-                    found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
+                    # Adding new subsamples
+                    if update_dict["subsamples"]:
+                        self._add_subsamples_to_project(found_prj, update_dict["subsamples"])
 
-                    session.commit()
+                found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
+
+                session.commit()
 
             return None
 

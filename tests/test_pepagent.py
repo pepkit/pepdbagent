@@ -17,6 +17,7 @@ from pepdbagent.exceptions import (
     ViewNotFoundError,
     SampleAlreadyInView,
     SampleNotInViewError,
+    SampleTableUpdateError,
 )
 from .conftest import DNS
 
@@ -84,7 +85,9 @@ class TestProject:
         ],
     )
     def test_get_project(self, initiate_pepdb_con, namespace, name):
-        kk = initiate_pepdb_con.project.get(namespace=namespace, name=name, tag="default")
+        kk = initiate_pepdb_con.project.get(
+            namespace=namespace, name=name, tag="default", raw=False
+        )
         ff = peppy.Project(get_path_to_example_file(namespace, name))
         assert kk == ff
 
@@ -184,7 +187,7 @@ class TestProject:
         ],
     )
     def test_overwrite_project(self, initiate_pepdb_con, namespace, name):
-        new_prj = initiate_pepdb_con.project.get(namespace="namespace1", name="basic")
+        new_prj = initiate_pepdb_con.project.get(namespace="namespace1", name="basic", raw=False)
 
         initiate_pepdb_con.project.create(
             project=new_prj,
@@ -194,7 +197,7 @@ class TestProject:
             overwrite=True,
         )
 
-        assert initiate_pepdb_con.project.get(namespace=namespace, name=name) == new_prj
+        assert initiate_pepdb_con.project.get(namespace=namespace, name=name, raw=False) == new_prj
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -344,9 +347,6 @@ class TestProjectUpdate:
         [
             ["namespace1", "amendments1", "name1"],
             ["namespace1", "amendments2", "name2"],
-            ["namespace2", "derive", "name3"],
-            ["namespace1", "basic", "name4"],
-            ["namespace2", "derive", "name5"],
         ],
     )
     def test_update_project_name(self, initiate_pepdb_con, namespace, name, new_name):
@@ -359,13 +359,30 @@ class TestProjectUpdate:
         assert initiate_pepdb_con.project.exists(namespace=namespace, name=new_name, tag="default")
 
     @pytest.mark.parametrize(
+        "namespace, name,new_name",
+        [
+            ["namespace1", "amendments1", "name1"],
+            ["namespace1", "amendments2", "name2"],
+        ],
+    )
+    def test_update_project_name_in_config(self, initiate_pepdb_con, namespace, name, new_name):
+        prj = initiate_pepdb_con.project.get(
+            namespace=namespace, name=name, raw=False, with_id=True
+        )
+        prj.name = new_name
+        initiate_pepdb_con.project.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            update_dict={"project": prj},
+        )
+        assert initiate_pepdb_con.project.exists(namespace=namespace, name=new_name, tag="default")
+
+    @pytest.mark.parametrize(
         "namespace, name, new_tag",
         [
             ["namespace1", "amendments1", "tag1"],
             ["namespace1", "amendments2", "tag2"],
-            ["namespace2", "derive", "tag3"],
-            ["namespace1", "basic", "tag4"],
-            ["namespace2", "derive", "tag5"],
         ],
     )
     def test_update_project_tag(self, initiate_pepdb_con, namespace, name, new_tag):
@@ -381,16 +398,38 @@ class TestProjectUpdate:
         "namespace, name, new_description",
         [
             ["namespace1", "amendments1", "desc1 f"],
-            ["namespace1", "amendments2", "desc2 f"],
-            ["namespace2", "derive", "desc3 f"],
-            ["namespace1", "basic", "desc4 f"],
             ["namespace2", "derive", "desc5 f"],
         ],
     )
     def test_update_project_description(
         self, initiate_pepdb_con, namespace, name, new_description
     ):
-        prj = initiate_pepdb_con.project.get(namespace=namespace, name=name)
+        prj = initiate_pepdb_con.project.get(namespace=namespace, name=name, raw=False)
+        prj.description = new_description
+        initiate_pepdb_con.project.update(
+            namespace=namespace,
+            name=name,
+            tag="default",
+            update_dict={"description": new_description},
+        )
+
+        assert (
+            initiate_pepdb_con.project.get(namespace=namespace, name=name, raw=False).description
+            == new_description
+        )
+
+    @pytest.mark.parametrize(
+        "namespace, name, new_description",
+        [
+            ["namespace1", "amendments1", "desc1 f"],
+        ],
+    )
+    def test_update_project_description_in_config(
+        self, initiate_pepdb_con, namespace, name, new_description
+    ):
+        prj = initiate_pepdb_con.project.get(
+            namespace=namespace, name=name, raw=False, with_id=True
+        )
         prj.description = new_description
         initiate_pepdb_con.project.update(
             namespace=namespace,
@@ -400,7 +439,7 @@ class TestProjectUpdate:
         )
 
         assert (
-            initiate_pepdb_con.project.get(namespace=namespace, name=name).description
+            initiate_pepdb_con.project.get(namespace=namespace, name=name, raw=False).description
             == new_description
         )
 
@@ -409,12 +448,31 @@ class TestProjectUpdate:
         [
             ["namespace1", "amendments1"],
             ["namespace3", "subtable1"],
-            # ["namespace2", "derive"],
-            # ["namespace2", "imply"],
         ],
     )
     def test_update_whole_project(self, initiate_pepdb_con, namespace, name):
-        new_prj = initiate_pepdb_con.project.get(namespace="namespace1", name="basic")
+        new_prj = initiate_pepdb_con.project.get(namespace="namespace1", name="basic", raw=False)
+        # update name. If name is different, it will update name too
+        new_prj.name = name
+        with pytest.raises(SampleTableUpdateError):
+            initiate_pepdb_con.project.update(
+                namespace=namespace,
+                name=name,
+                tag="default",
+                update_dict={"project": new_prj},
+            )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace3", "subtable1"],
+        ],
+    )
+    def test_update_whole_project_with_id(self, initiate_pepdb_con, namespace, name):
+        new_prj = initiate_pepdb_con.project.get(
+            namespace="namespace1", name="basic", raw=False, with_id=True
+        )
         # update name. If name is different, it will update name too
         new_prj.name = name
         initiate_pepdb_con.project.update(
@@ -518,7 +576,7 @@ class TestProjectUpdate:
         In PEP 2.1.0 project can have 2 rows with same sample name,
         ensure that update works correctly
         """
-        new_prj = initiate_pepdb_con.project.get(namespace=namespace, name=name)
+        new_prj = initiate_pepdb_con.project.get(namespace=namespace, name=name, raw=False)
         prj_dict = new_prj.to_dict(extended=True, orient="records")
 
         prj_dict["_sample_dict"].append(
@@ -1273,8 +1331,10 @@ class TestViews:
             },
             no_fail=True,
         )
-        project = initiate_pepdb_con.project.get(namespace, name)
-        view_project = initiate_pepdb_con.view.get(namespace, name, "default", view_name)
+        project = initiate_pepdb_con.project.get(namespace, name, raw=False)
+        view_project = initiate_pepdb_con.view.get(
+            namespace, name, "default", view_name, raw=False
+        )
         assert len(view_project.samples) == 2
         assert view_project != project
 
@@ -1294,11 +1354,16 @@ class TestViews:
                 "sample_list": [sample_name, "pig_1h"],
             },
         )
-        assert len(initiate_pepdb_con.view.get(namespace, name, "default", "view1").samples) == 2
+        assert (
+            len(
+                initiate_pepdb_con.view.get(namespace, name, "default", "view1", raw=False).samples
+            )
+            == 2
+        )
         initiate_pepdb_con.view.delete(namespace, name, "default", "view1")
         with pytest.raises(ViewNotFoundError):
-            initiate_pepdb_con.view.get(namespace, name, "default", "view1")
-        assert len(initiate_pepdb_con.project.get(namespace, name).samples) == 4
+            initiate_pepdb_con.view.get(namespace, name, "default", "view1", raw=False)
+        assert len(initiate_pepdb_con.project.get(namespace, name, raw=False).samples) == 4
 
     @pytest.mark.parametrize(
         "namespace, name, sample_name",
@@ -1358,7 +1423,7 @@ class TestViews:
         )
         initiate_pepdb_con.view.remove_sample(namespace, name, "default", "view1", sample_name)
         assert len(initiate_pepdb_con.view.get(namespace, name, "default", "view1").samples) == 1
-        assert len(initiate_pepdb_con.project.get(namespace, name).samples) == 4
+        assert len(initiate_pepdb_con.project.get(namespace, name, raw=False).samples) == 4
 
         with pytest.raises(SampleNotInViewError):
             initiate_pepdb_con.view.remove_sample(namespace, name, "default", "view1", sample_name)
