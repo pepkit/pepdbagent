@@ -1,7 +1,7 @@
 import datetime
 import json
 import logging
-from typing import Union, List, NoReturn, Mapping
+from typing import Union, List, NoReturn, Mapping, Dict
 import uuid
 
 import peppy
@@ -24,6 +24,7 @@ from pepdbagent.const import (
     DESCRIPTION_KEY,
     NAME_KEY,
     PKG_NAME,
+    PEPHUB_SAMPLE_ID_KEY,
 )
 
 from pepdbagent.db_utils import Projects, Samples, Subsamples, BaseEngine
@@ -31,6 +32,7 @@ from pepdbagent.exceptions import (
     ProjectNotFoundError,
     ProjectUniqueNameError,
     PEPDatabaseAgentError,
+    SampleTableUpdateError,
 )
 from pepdbagent.models import UpdateItems, UpdateModel, ProjectDict
 from pepdbagent.utils import create_digest, registry_path_converter
@@ -58,7 +60,7 @@ class PEPDatabaseProject:
         namespace: str,
         name: str,
         tag: str = DEFAULT_TAG,
-        raw: bool = False,
+        raw: bool = True,
         with_id: bool = True,
     ) -> Union[peppy.Project, dict, None]:
         """
@@ -68,6 +70,7 @@ class PEPDatabaseProject:
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
         :param raw: retrieve unprocessed (raw) PEP dict.
+        :param with_id: retrieve project with id [default: False]
         :return: peppy.Project object with found project or dict with unprocessed
             PEP elements: {
                 name: str
@@ -531,7 +534,7 @@ class PEPDatabaseProject:
             statement = self._create_select_statement(name, namespace, tag)
 
             with Session(self._sa_engine) as session:
-                found_prj = session.scalar(statement)
+                found_prj: Projects = session.scalar(statement)
 
                 if found_prj:
                     _LOGGER.debug(
@@ -551,34 +554,20 @@ class PEPDatabaseProject:
                                 found_prj.name = found_prj.config[NAME_KEY]
 
                     if "samples" in update_dict:
-                        # self._update_samples(
-                        #     namespace=namespace,
-                        #     name=name,
-                        #     tag=tag,
-                        #     samples_list=update_dict["samples"],
-                        #     sample_name_key=update_dict["config"].get(
-                        #         SAMPLE_TABLE_INDEX_KEY, "sample_name"
-                        #     ),
-                        # )
+
+                        if PEPHUB_SAMPLE_ID_KEY not in update_dict["samples"][0]:
+                            raise SampleTableUpdateError(
+                                f"pephub_sample_id '{PEPHUB_SAMPLE_ID_KEY}' is missing in samples."
+                                f"Please provide it to update samples, or use overwrite method."
+                            )
+
                         self._update_samples_with_ids(
-                            namespace=namespace,
-                            name=name,
-                            tag=tag,
+                            project_id=found_prj.id,
                             samples_list=update_dict["samples"],
                             sample_name_key=update_dict["config"].get(
                                 SAMPLE_TABLE_INDEX_KEY, "sample_name"
                             ),
                         )
-                        # if found_prj.samples_mapping:
-                        #     for sample in found_prj.samples_mapping:
-                        #         _LOGGER.debug(f"deleting samples: {str(sample)}")
-                        #         session.delete(sample)
-                        #
-                        # self._add_samples_to_project(
-                        #     found_prj,
-                        #     update_dict["samples"],
-                        #     sample_table_index=update_dict["config"].get(SAMPLE_TABLE_INDEX_KEY),
-                        # )
 
                     if "subsamples" in update_dict:
                         if found_prj.subsamples_mapping:
@@ -601,32 +590,32 @@ class PEPDatabaseProject:
 
     def _update_samples_with_ids(
         self,
-        namespace: str,
-        name: str,
-        tag: str,
-        samples_list: List[dict],
+        project_id: int,
+        samples_list: List[Dict[str, str]],
         sample_name_key: str = "sample_name",
     ) -> None:
         """
         Update samples in the project
-        This is a new method that instead of deleting all samples and adding new ones,
-        updates samples and adds new ones if they don't exist
+        This is linked list method, that first finds differences in old and new samples list
+            and then updates, adds, inserts, deletes, or changes the order.
 
+        :param project_id: project id in PEPhub database
         :param samples_list: list of samples to be updated
         :param sample_name_key: key of the sample name
         :return: None
         """
-        PH_ID = "ph_id"
-        project_id = self.get_project_id(namespace, name, tag)
 
         with Session(self._sa_engine) as session:
             old_samples = session.scalars(select(Samples).where(Samples.project_id == project_id))
 
             old_samples_mapping: dict = {sample.guid: sample for sample in old_samples}
             old_samples_ids_set: set = set(old_samples_mapping.keys())
-            new_samples_ids_set: set = {new_sample[PH_ID] for new_sample in samples_list}
+            new_samples_ids_set: set = {
+                new_sample[PEPHUB_SAMPLE_ID_KEY] for new_sample in samples_list
+            }
             new_samples_dict: dict = {
-                new_sample[PH_ID] or str(uuid.uuid4()): new_sample for new_sample in samples_list
+                new_sample[PEPHUB_SAMPLE_ID_KEY] or str(uuid.uuid4()): new_sample
+                for new_sample in samples_list
             }
 
             # Check if something was deleted:
@@ -635,10 +624,10 @@ class PEPDatabaseProject:
             parent_id = None
             parent_mapping = None
 
-            # Check if something was inserted:
+            # Main loop to update samples
             for current_id, sample_value in new_samples_dict.items():
                 new_sample = None
-                del sample_value[PH_ID]
+                del sample_value[PEPHUB_SAMPLE_ID_KEY]
 
                 if current_id not in old_samples_ids_set:
                     new_sample = Samples(
@@ -647,12 +636,14 @@ class PEPDatabaseProject:
                         sample_name=sample_value[sample_name_key],
                         row_number=0,
                         project_id=project_id,
-                        parent_guid=parent_id,
+                        parent_mapping=parent_mapping,
                     )
                     session.add(new_sample)
+
                 else:
                     if old_samples_mapping[current_id].sample != sample_value:
                         old_samples_mapping[current_id].sample = sample_value
+                        old_samples_mapping[current_id].sample_name = sample_value[sample_name_key]
 
                     if old_samples_mapping[current_id].parent_guid != parent_id:
                         old_samples_mapping[current_id].parent_mapping = parent_mapping
@@ -665,128 +656,128 @@ class PEPDatabaseProject:
 
             session.commit()
 
-    def _update_samples(
-        self,
-        namespace: str,
-        name: str,
-        tag: str,
-        samples_list: List[Mapping],
-        sample_name_key: str = "sample_name",
-    ) -> None:
-        """
-        Update samples in the project
-        This is a new method that instead of deleting all samples and adding new ones,
-        updates samples and adds new ones if they don't exist
-
-        :param samples_list: list of samples to be updated
-        :param sample_name_key: key of the sample name
-        :return: None
-        """
-        # TODO: This function is not ideal and is really slow. We should brainstorm this implementation
-
-        new_sample_names = [sample[sample_name_key] for sample in samples_list]
-        with Session(self._sa_engine) as session:
-            project = session.scalar(
-                select(Projects).where(
-                    and_(
-                        Projects.namespace == namespace, Projects.name == name, Projects.tag == tag
-                    )
-                )
-            )
-            old_sample_names = [sample.sample_name for sample in project.samples_mapping]
-
-            # delete samples that are not in the new list
-            sample_names_copy = new_sample_names.copy()
-            for old_sample in old_sample_names:
-                if old_sample not in sample_names_copy:
-                    this_sample = session.scalars(
-                        select(Samples).where(
-                            and_(
-                                Samples.sample_name == old_sample, Samples.project_id == project.id
-                            )
-                        )
-                    )
-                    delete_samples_list = [k for k in this_sample]
-                    session.delete(delete_samples_list[-1])
-                else:
-                    sample_names_copy.remove(old_sample)
-
-            # update or add samples
-            order_number = 0
-            added_sample_list = []
-            for new_sample in samples_list:
-                order_number += 1
-
-                if new_sample[sample_name_key] not in added_sample_list:
-                    added_sample_list.append(new_sample[sample_name_key])
-
-                    if new_sample[sample_name_key] not in old_sample_names:
-                        project.samples_mapping.append(
-                            Samples(
-                                sample=new_sample,
-                                sample_name=new_sample[sample_name_key],
-                                row_number=order_number,
-                            )
-                        )
-                    else:
-                        sample_mapping = session.scalar(
-                            select(Samples).where(
-                                and_(
-                                    Samples.sample_name == new_sample[sample_name_key],
-                                    Samples.project_id == project.id,
-                                )
-                            )
-                        )
-                        sample_mapping.sample = new_sample
-                        sample_mapping.row_number = order_number
-                else:
-                    # if sample_name is duplicated is sample table, find second sample and update or add it.
-                    if new_sample[sample_name_key] in old_sample_names:
-                        sample_mappings = session.scalars(
-                            select(Samples).where(
-                                and_(
-                                    Samples.sample_name == new_sample[sample_name_key],
-                                    Samples.project_id == project.id,
-                                )
-                            )
-                        )
-                        sample_mappings = [sample_mapping for sample_mapping in sample_mappings]
-                        if len(sample_mappings) <= 1:
-                            project.samples_mapping.append(
-                                Samples(
-                                    sample=new_sample,
-                                    sample_name=new_sample[sample_name_key],
-                                    row_number=order_number,
-                                )
-                            )
-                        else:
-                            try:
-                                sample_mapping = sample_mappings[
-                                    added_sample_list.count(new_sample[sample_name_key])
-                                ]
-                                sample_mapping.sample = new_sample
-                                sample_mapping.row_number = order_number
-
-                            except Exception:
-                                project.samples_mapping.append(
-                                    Samples(
-                                        sample=new_sample,
-                                        sample_name=new_sample[sample_name_key],
-                                        row_number=order_number,
-                                    )
-                                )
-                        added_sample_list.append(new_sample[sample_name_key])
-                    else:
-                        project.samples_mapping.append(
-                            Samples(
-                                sample=new_sample,
-                                sample_name=new_sample[sample_name_key],
-                                row_number=order_number,
-                            )
-                        )
-                        added_sample_list.append(new_sample[sample_name_key])
-
-            session.commit()
+    # def _update_samples(
+    #     self,
+    #     namespace: str,
+    #     name: str,
+    #     tag: str,
+    #     samples_list: List[Mapping],
+    #     sample_name_key: str = "sample_name",
+    # ) -> None:
+    #     """
+    #     Update samples in the project
+    #     This is a new method that instead of deleting all samples and adding new ones,
+    #     updates samples and adds new ones if they don't exist
+    #
+    #     :param samples_list: list of samples to be updated
+    #     :param sample_name_key: key of the sample name
+    #     :return: None
+    #     """
+    #     # TODO: This function is not ideal and is really slow. We should brainstorm this implementation
+    #
+    #     new_sample_names = [sample[sample_name_key] for sample in samples_list]
+    #     with Session(self._sa_engine) as session:
+    #         project = session.scalar(
+    #             select(Projects).where(
+    #                 and_(
+    #                     Projects.namespace == namespace, Projects.name == name, Projects.tag == tag
+    #                 )
+    #             )
+    #         )
+    #         old_sample_names = [sample.sample_name for sample in project.samples_mapping]
+    #
+    #         # delete samples that are not in the new list
+    #         sample_names_copy = new_sample_names.copy()
+    #         for old_sample in old_sample_names:
+    #             if old_sample not in sample_names_copy:
+    #                 this_sample = session.scalars(
+    #                     select(Samples).where(
+    #                         and_(
+    #                             Samples.sample_name == old_sample, Samples.project_id == project.id
+    #                         )
+    #                     )
+    #                 )
+    #                 delete_samples_list = [k for k in this_sample]
+    #                 session.delete(delete_samples_list[-1])
+    #             else:
+    #                 sample_names_copy.remove(old_sample)
+    #
+    #         # update or add samples
+    #         order_number = 0
+    #         added_sample_list = []
+    #         for new_sample in samples_list:
+    #             order_number += 1
+    #
+    #             if new_sample[sample_name_key] not in added_sample_list:
+    #                 added_sample_list.append(new_sample[sample_name_key])
+    #
+    #                 if new_sample[sample_name_key] not in old_sample_names:
+    #                     project.samples_mapping.append(
+    #                         Samples(
+    #                             sample=new_sample,
+    #                             sample_name=new_sample[sample_name_key],
+    #                             row_number=order_number,
+    #                         )
+    #                     )
+    #                 else:
+    #                     sample_mapping = session.scalar(
+    #                         select(Samples).where(
+    #                             and_(
+    #                                 Samples.sample_name == new_sample[sample_name_key],
+    #                                 Samples.project_id == project.id,
+    #                             )
+    #                         )
+    #                     )
+    #                     sample_mapping.sample = new_sample
+    #                     sample_mapping.row_number = order_number
+    #             else:
+    #                 # if sample_name is duplicated is sample table, find second sample and update or add it.
+    #                 if new_sample[sample_name_key] in old_sample_names:
+    #                     sample_mappings = session.scalars(
+    #                         select(Samples).where(
+    #                             and_(
+    #                                 Samples.sample_name == new_sample[sample_name_key],
+    #                                 Samples.project_id == project.id,
+    #                             )
+    #                         )
+    #                     )
+    #                     sample_mappings = [sample_mapping for sample_mapping in sample_mappings]
+    #                     if len(sample_mappings) <= 1:
+    #                         project.samples_mapping.append(
+    #                             Samples(
+    #                                 sample=new_sample,
+    #                                 sample_name=new_sample[sample_name_key],
+    #                                 row_number=order_number,
+    #                             )
+    #                         )
+    #                     else:
+    #                         try:
+    #                             sample_mapping = sample_mappings[
+    #                                 added_sample_list.count(new_sample[sample_name_key])
+    #                             ]
+    #                             sample_mapping.sample = new_sample
+    #                             sample_mapping.row_number = order_number
+    #
+    #                         except Exception:
+    #                             project.samples_mapping.append(
+    #                                 Samples(
+    #                                     sample=new_sample,
+    #                                     sample_name=new_sample[sample_name_key],
+    #                                     row_number=order_number,
+    #                                 )
+    #                             )
+    #                     added_sample_list.append(new_sample[sample_name_key])
+    #                 else:
+    #                     project.samples_mapping.append(
+    #                         Samples(
+    #                             sample=new_sample,
+    #                             sample_name=new_sample[sample_name_key],
+    #                             row_number=order_number,
+    #                         )
+    #                     )
+    #                     added_sample_list.append(new_sample[sample_name_key])
+    #
+    #         session.commit()
 
     @staticmethod
     def __create_update_dict(update_values: UpdateItems) -> dict:
