@@ -315,7 +315,11 @@ class PEPDatabaseSample:
             project_mapping = session.scalar(project_statement)
 
             if sample_mapping:
+                parent_mapping = sample_mapping.parent_mapping
+                child_mapping = sample_mapping.child_mapping
                 session.delete(sample_mapping)
+                if parent_mapping:
+                    child_mapping.parent_mapping = parent_mapping
                 project_mapping.number_of_samples -= 1
                 project_mapping.last_update_date = datetime.datetime.now(datetime.timezone.utc)
                 session.commit()
