@@ -3,6 +3,7 @@ import json
 from collections.abc import Iterable
 from hashlib import md5
 from typing import Tuple, Union, List
+import uuid
 
 import ubiquerg
 from peppy.const import SAMPLE_RAW_DICT_KEY
@@ -150,3 +151,7 @@ def order_samples(results: dict) -> List[dict]:
         else:
             current = None
     return ordered_sequence
+
+
+def generate_guid() -> str:
+    return str(uuid.uuid4())

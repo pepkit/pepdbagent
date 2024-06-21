@@ -2,7 +2,6 @@ import datetime
 import json
 import logging
 from typing import Union, List, NoReturn, Dict
-import uuid
 
 import peppy
 from sqlalchemy import and_, delete, select
@@ -36,7 +35,7 @@ from pepdbagent.exceptions import (
     SampleTableUpdateError,
 )
 from pepdbagent.models import UpdateItems, UpdateModel, ProjectDict
-from pepdbagent.utils import create_digest, registry_path_converter, order_samples
+from pepdbagent.utils import create_digest, registry_path_converter, order_samples, generate_guid
 
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -547,7 +546,7 @@ class PEPDatabaseProject:
                             f"Please provide it to update samples, or use overwrite method."
                         )
 
-                    self._update_samples_with_ids(
+                    self._update_samples(
                         project_id=found_prj.id,
                         samples_list=update_dict["samples"],
                         sample_name_key=update_dict["config"].get(
@@ -574,7 +573,7 @@ class PEPDatabaseProject:
         else:
             raise ProjectNotFoundError("No items will be updated!")
 
-    def _update_samples_with_ids(
+    def _update_samples(
         self,
         project_id: int,
         samples_list: List[Dict[str, str]],
@@ -600,7 +599,7 @@ class PEPDatabaseProject:
                 new_sample[PEPHUB_SAMPLE_ID_KEY] for new_sample in samples_list
             }
             new_samples_dict: dict = {
-                new_sample[PEPHUB_SAMPLE_ID_KEY] or str(uuid.uuid4()): new_sample
+                new_sample[PEPHUB_SAMPLE_ID_KEY] or generate_guid(): new_sample
                 for new_sample in samples_list
             }
 
@@ -887,7 +886,7 @@ class PEPDatabaseProject:
                 row_number=row_number,
                 sample_name=sample.get(sample_table_index),
                 parent_guid=previous_sample_guid,
-                guid=str(uuid.uuid4()),
+                guid=generate_guid(),
             )
             projects_sa.samples_mapping.append(sample)
             previous_sample_guid = sample.guid

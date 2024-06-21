@@ -1103,7 +1103,7 @@ class TestSamples:
             sample_name=sample_name,
             update_dict={"organism": "butterfly"},
         )
-        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name)
+        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name, raw=False)
         assert one_sample.organism == "butterfly"
 
     @pytest.mark.parametrize(
@@ -1120,7 +1120,7 @@ class TestSamples:
             sample_name=sample_name,
             update_dict={"sample_name": "butterfly"},
         )
-        one_sample = initiate_pepdb_con.sample.get(namespace, name, "butterfly")
+        one_sample = initiate_pepdb_con.sample.get(namespace, name, "butterfly", raw=False)
         assert one_sample.sample_name == "butterfly"
 
     @pytest.mark.parametrize(
@@ -1212,10 +1212,10 @@ class TestSamples:
         ],
     )
     def test_add_sample(self, initiate_pepdb_con, namespace, name, tag, sample_dict):
-        prj = initiate_pepdb_con.project.get(namespace, name)
+        prj = initiate_pepdb_con.project.get(namespace, name, raw=False)
         initiate_pepdb_con.sample.add(namespace, name, tag, sample_dict)
 
-        prj2 = initiate_pepdb_con.project.get(namespace, name)
+        prj2 = initiate_pepdb_con.project.get(namespace, name, raw=False)
 
         assert len(prj.samples) + 1 == len(prj2.samples)
         assert prj2.samples[-1].sample_name == sample_dict["sample_name"]

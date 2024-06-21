@@ -139,7 +139,7 @@ class Samples(Base):
     sample_name: Mapped[Optional[str]] = mapped_column()
     guid: Mapped[Optional[str]] = mapped_column(nullable=False, unique=True)
 
-    parent_guid: Mapped[Optional[int]] = mapped_column(
+    parent_guid: Mapped[Optional[str]] = mapped_column(
         ForeignKey("samples.guid", ondelete="CASCADE"),
         nullable=True,
         doc="Parent sample id. Used to create a hierarchy of samples.",
