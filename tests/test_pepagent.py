@@ -18,6 +18,7 @@ from pepdbagent.exceptions import (
     SampleAlreadyInView,
     SampleNotInViewError,
     SampleTableUpdateError,
+    ProjectDuplicatedSampleGUIDsError,
 )
 from .conftest import DNS
 
@@ -600,6 +601,29 @@ class TestUpdateProjectWithId:
         pass
 
     # TODO: write more tests
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            # ["namespace3", "subtable1"],
+        ],
+    )
+    def test_update_project_with_duplicated_sample_guids(
+        self, initiate_pepdb_con, namespace, name
+    ):
+        new_prj = initiate_pepdb_con.project.get(
+            namespace=namespace, name=name, raw=True, with_id=True
+        )
+        new_prj["_sample_dict"].append(new_prj["_sample_dict"][0])
+
+        with pytest.raises(ProjectDuplicatedSampleGUIDsError):
+            initiate_pepdb_con.project.update(
+                namespace=namespace,
+                name=name,
+                tag="default",
+                update_dict={"project": peppy.Project.from_dict(new_prj)},
+            )
 
 
 @pytest.mark.skipif(
