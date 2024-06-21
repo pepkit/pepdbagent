@@ -40,7 +40,7 @@ class PEPDatabaseSample:
         name: str,
         sample_name: str,
         tag: str = DEFAULT_TAG,
-        raw: bool = False,
+        raw: bool = True,
     ) -> Union[peppy.Sample, dict, None]:
         """
         Retrieve sample from the database using namespace, name, tag, and sample_name
@@ -49,7 +49,7 @@ class PEPDatabaseSample:
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
         :param sample_name: sample_name of the sample
-        :param raw: return raw dict or peppy.Sample object
+        :param raw: return raw dict or peppy.Sample object [Default: True]
         :return: peppy.Project object with found project or dict with unprocessed
             PEP elements: {
                 name: str

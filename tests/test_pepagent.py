@@ -576,7 +576,9 @@ class TestProjectUpdate:
         In PEP 2.1.0 project can have 2 rows with same sample name,
         ensure that update works correctly
         """
-        new_prj = initiate_pepdb_con.project.get(namespace=namespace, name=name, raw=False)
+        new_prj = initiate_pepdb_con.project.get(
+            namespace=namespace, name=name, raw=False, with_id=True
+        )
         prj_dict = new_prj.to_dict(extended=True, orient="records")
 
         prj_dict["_sample_dict"].append(
@@ -1059,7 +1061,7 @@ class TestSamples:
         ],
     )
     def test_retrieve_one_sample(self, initiate_pepdb_con, namespace, name, sample_name):
-        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name)
+        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name, raw=False)
         assert isinstance(one_sample, peppy.Sample)
         assert one_sample.sample_name == sample_name
 
@@ -1070,7 +1072,7 @@ class TestSamples:
         ],
     )
     def test_retrieve_raw_sample(self, initiate_pepdb_con, namespace, name, sample_name):
-        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name, raw=True)
+        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name)
         assert isinstance(one_sample, dict)
         assert one_sample["sample_name"] == sample_name
 
@@ -1083,7 +1085,7 @@ class TestSamples:
     def test_retrieve_sample_with_modified_sample_id(
         self, initiate_pepdb_con, namespace, name, sample_name
     ):
-        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name)
+        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name, raw=False)
         assert isinstance(one_sample, peppy.Sample)
         assert one_sample.sample_id == "frog_1"
 
@@ -1152,7 +1154,7 @@ class TestSamples:
             sample_name=sample_name,
             update_dict={"new_attr": "butterfly"},
         )
-        prj = initiate_pepdb_con.project.get(namespace, name)
+        prj = initiate_pepdb_con.project.get(namespace, name, raw=False)
 
         assert prj.get_sample(sample_name).new_attr == "butterfly"
 
@@ -1185,13 +1187,15 @@ class TestSamples:
         ],
     )
     def test_delete_sample(self, initiate_pepdb_con, namespace, name, sample_name):
-        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name)
+        one_sample = initiate_pepdb_con.sample.get(namespace, name, sample_name, raw=False)
         assert isinstance(one_sample, peppy.Sample)
 
         initiate_pepdb_con.sample.delete(namespace, name, tag="default", sample_name=sample_name)
 
         with pytest.raises(SampleNotFoundError):
-            initiate_pepdb_con.sample.get(namespace, name, tag="default", sample_name=sample_name)
+            initiate_pepdb_con.sample.get(
+                namespace, name, tag="default", sample_name=sample_name, raw=False
+            )
 
     @pytest.mark.parametrize(
         "namespace, name, tag, sample_dict",
@@ -1235,7 +1239,8 @@ class TestSamples:
         initiate_pepdb_con.sample.add(namespace, name, tag, sample_dict, overwrite=True)
 
         assert (
-            initiate_pepdb_con.project.get(namespace, name).get_sample("pig_0h").time == "new_time"
+            initiate_pepdb_con.project.get(namespace, name, raw=False).get_sample("pig_0h").time
+            == "new_time"
         )
 
     @pytest.mark.parametrize(
@@ -1288,7 +1293,9 @@ class TestViews:
         )
 
         project = initiate_pepdb_con.project.get(namespace, name, raw=False)
-        view_project = initiate_pepdb_con.view.get(namespace, name, "default", view_name, raw=False)
+        view_project = initiate_pepdb_con.view.get(
+            namespace, name, "default", view_name, raw=False
+        )
         assert len(view_project.samples) == 2
         assert view_project != project
 
@@ -1382,7 +1389,12 @@ class TestViews:
             },
         )
         initiate_pepdb_con.view.add_sample(namespace, name, "default", "view1", "pig_1h")
-        assert len(initiate_pepdb_con.view.get(namespace, name, "default", "view1", raw=False).samples) == 2
+        assert (
+            len(
+                initiate_pepdb_con.view.get(namespace, name, "default", "view1", raw=False).samples
+            )
+            == 2
+        )
 
     @pytest.mark.parametrize(
         "namespace, name, sample_name",
@@ -1403,7 +1415,12 @@ class TestViews:
         initiate_pepdb_con.view.add_sample(
             namespace, name, "default", "view1", ["pig_1h", "frog_0h"]
         )
-        assert len(initiate_pepdb_con.view.get(namespace, name, "default", "view1", raw=False).samples) == 3
+        assert (
+            len(
+                initiate_pepdb_con.view.get(namespace, name, "default", "view1", raw=False).samples
+            )
+            == 3
+        )
 
     @pytest.mark.parametrize(
         "namespace, name, sample_name",
@@ -1422,7 +1439,12 @@ class TestViews:
             },
         )
         initiate_pepdb_con.view.remove_sample(namespace, name, "default", "view1", sample_name)
-        assert len(initiate_pepdb_con.view.get(namespace, name, "default", "view1", raw=False).samples) == 1
+        assert (
+            len(
+                initiate_pepdb_con.view.get(namespace, name, "default", "view1", raw=False).samples
+            )
+            == 1
+        )
         assert len(initiate_pepdb_con.project.get(namespace, name, raw=False).samples) == 4
 
         with pytest.raises(SampleNotInViewError):

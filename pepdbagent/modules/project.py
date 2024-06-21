@@ -103,7 +103,9 @@ class PEPDatabaseProject:
                     else:
                         subsample_list = []
 
-                    sample_list = self._get_samples(session=session, prj_id=found_prj.id,  with_id=with_id)
+                    sample_list = self._get_samples(
+                        session=session, prj_id=found_prj.id, with_id=with_id
+                    )
 
                     project_value = {
                         CONFIG_KEY: found_prj.config,
@@ -134,9 +136,7 @@ class PEPDatabaseProject:
         :param prj_id: project id
         :param with_id: retrieve sample with id
         """
-        samples_results = session.scalars(
-            select(Samples).where(Samples.project_id == prj_id)
-        )
+        samples_results = session.scalars(select(Samples).where(Samples.project_id == prj_id))
         result_dict = {}
         for sample in samples_results:
             sample_dict = sample.sample
