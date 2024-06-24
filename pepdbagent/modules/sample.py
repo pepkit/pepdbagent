@@ -1,20 +1,16 @@
+import datetime
 import logging
 from typing import Union
-import datetime
 
 import peppy
 from peppy.const import SAMPLE_TABLE_INDEX_KEY
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from pepdbagent.const import (
-    DEFAULT_TAG,
-    PKG_NAME,
-)
-from pepdbagent.exceptions import SampleNotFoundError, SampleAlreadyExistsError
-
-from pepdbagent.db_utils import BaseEngine, Samples, Projects
+from pepdbagent.const import DEFAULT_TAG, PKG_NAME
+from pepdbagent.db_utils import BaseEngine, Projects, Samples
+from pepdbagent.exceptions import SampleAlreadyExistsError, SampleNotFoundError
 from pepdbagent.utils import generate_guid, order_samples
 
 _LOGGER = logging.getLogger(PKG_NAME)

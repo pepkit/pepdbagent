@@ -1,43 +1,33 @@
 import datetime
 import json
 import logging
-from typing import Union, List, NoReturn, Dict
+from typing import Dict, List, NoReturn, Union
 
+import numpy as np
 import peppy
-from sqlalchemy import and_, delete, select
+from peppy.const import (
+    CONFIG_KEY,
+    SAMPLE_NAME_ATTR,
+    SAMPLE_RAW_DICT_KEY,
+    SAMPLE_TABLE_INDEX_KEY,
+    SUBSAMPLE_RAW_LIST_KEY,
+)
+from sqlalchemy import Select, and_, delete, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
-from sqlalchemy import Select
 from sqlalchemy.orm.attributes import flag_modified
-import numpy as np
 
-from peppy.const import (
-    SAMPLE_RAW_DICT_KEY,
-    SUBSAMPLE_RAW_LIST_KEY,
-    CONFIG_KEY,
-    SAMPLE_TABLE_INDEX_KEY,
-    SAMPLE_NAME_ATTR,
-)
-
-from pepdbagent.const import (
-    DEFAULT_TAG,
-    DESCRIPTION_KEY,
-    NAME_KEY,
-    PKG_NAME,
-    PEPHUB_SAMPLE_ID_KEY,
-)
-
-from pepdbagent.db_utils import Projects, Samples, Subsamples, BaseEngine
+from pepdbagent.const import DEFAULT_TAG, DESCRIPTION_KEY, NAME_KEY, PEPHUB_SAMPLE_ID_KEY, PKG_NAME
+from pepdbagent.db_utils import BaseEngine, Projects, Samples, Subsamples
 from pepdbagent.exceptions import (
+    PEPDatabaseAgentError,
+    ProjectDuplicatedSampleGUIDsError,
     ProjectNotFoundError,
     ProjectUniqueNameError,
-    PEPDatabaseAgentError,
     SampleTableUpdateError,
-    ProjectDuplicatedSampleGUIDsError,
 )
-from pepdbagent.models import UpdateItems, UpdateModel, ProjectDict
-from pepdbagent.utils import create_digest, registry_path_converter, order_samples, generate_guid
-
+from pepdbagent.models import ProjectDict, UpdateItems, UpdateModel
+from pepdbagent.utils import create_digest, generate_guid, order_samples, registry_path_converter
 
 _LOGGER = logging.getLogger(PKG_NAME)
 

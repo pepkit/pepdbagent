@@ -1,7 +1,8 @@
 # file with pydantic models
-from typing import List, Optional, Union, Dict
-from pydantic import BaseModel, Field, ConfigDict, field_validator
-from peppy.const import CONFIG_KEY, SUBSAMPLE_RAW_LIST_KEY, SAMPLE_RAW_DICT_KEY
+from typing import Dict, List, Optional, Union
+
+from peppy.const import CONFIG_KEY, SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_LIST_KEY
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from pepdbagent.const import DEFAULT_TAG
 

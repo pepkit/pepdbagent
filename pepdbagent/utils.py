@@ -1,9 +1,9 @@
 import datetime
 import json
+import uuid
 from collections.abc import Iterable
 from hashlib import md5
-from typing import Tuple, Union, List
-import uuid
+from typing import List, Tuple, Union
 
 import ubiquerg
 from peppy.const import SAMPLE_RAW_DICT_KEY

@@ -3,8 +3,8 @@ from pepdbagent.db_utils import BaseEngine
 from pepdbagent.modules.annotation import PEPDatabaseAnnotation
 from pepdbagent.modules.namespace import PEPDatabaseNamespace
 from pepdbagent.modules.project import PEPDatabaseProject
-from pepdbagent.modules.user import PEPDatabaseUser
 from pepdbagent.modules.sample import PEPDatabaseSample
+from pepdbagent.modules.user import PEPDatabaseUser
 from pepdbagent.modules.view import PEPDatabaseView
 
 

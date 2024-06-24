@@ -1,32 +1,26 @@
 import datetime
 import logging
-from typing import Optional, List
+from typing import List, Optional
 
 from sqlalchemy import (
+    TIMESTAMP,
     BigInteger,
     FetchedValue,
+    ForeignKey,
     Result,
     Select,
     String,
+    UniqueConstraint,
     event,
     select,
-    TIMESTAMP,
-    ForeignKey,
-    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, create_engine
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.orm import (
-    DeclarativeBase,
-    Mapped,
-    Session,
-    mapped_column,
-    relationship,
-)
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 
-from pepdbagent.const import POSTGRES_DIALECT, PKG_NAME
+from pepdbagent.const import PKG_NAME, POSTGRES_DIALECT
 from pepdbagent.exceptions import SchemaError
 
 _LOGGER = logging.getLogger(PKG_NAME)

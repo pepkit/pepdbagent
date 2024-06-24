@@ -1,29 +1,24 @@
 # View of the PEP. In other words, it is a part of the PEP, or subset of the samples in the PEP.
 
 import logging
-from typing import Union, List
+from typing import List, Union
 
 import peppy
-from sqlalchemy import select, and_, delete
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-
-from pepdbagent.const import (
-    DEFAULT_TAG,
-    PKG_NAME,
-)
+from pepdbagent.const import DEFAULT_TAG, PKG_NAME
+from pepdbagent.db_utils import BaseEngine, Projects, Samples, Views, ViewSampleAssociation
 from pepdbagent.exceptions import (
-    ViewNotFoundError,
-    SampleAlreadyInView,
     ProjectNotFoundError,
+    SampleAlreadyInView,
     SampleNotFoundError,
-    ViewAlreadyExistsError,
     SampleNotInViewError,
+    ViewAlreadyExistsError,
+    ViewNotFoundError,
 )
-
-from pepdbagent.db_utils import BaseEngine, Samples, Projects, Views, ViewSampleAssociation
-from pepdbagent.models import ViewAnnotation, CreateViewDictModel, ProjectViews
+from pepdbagent.models import CreateViewDictModel, ProjectViews, ViewAnnotation
 
 _LOGGER = logging.getLogger(PKG_NAME)
 

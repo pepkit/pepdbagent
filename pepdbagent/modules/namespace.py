@@ -1,20 +1,20 @@
 import logging
-from typing import List, Union, Tuple
 from collections import Counter
 from datetime import datetime, timedelta
+from typing import List, Tuple, Union
 
 from sqlalchemy import distinct, func, or_, select, text
-from sqlalchemy.sql.selectable import Select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.selectable import Select
 
-from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_OFFSET, PKG_NAME, DEFAULT_LIMIT_INFO
+from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_LIMIT_INFO, DEFAULT_OFFSET, PKG_NAME
+from pepdbagent.db_utils import BaseEngine, Projects
 from pepdbagent.exceptions import NamespaceNotFoundError
-from pepdbagent.db_utils import Projects, BaseEngine
 from pepdbagent.models import (
-    Namespace,
-    NamespaceList,
-    NamespaceInfo,
     ListOfNamespaceInfo,
+    Namespace,
+    NamespaceInfo,
+    NamespaceList,
     NamespaceStats,
 )
 from pepdbagent.utils import tuple_converter

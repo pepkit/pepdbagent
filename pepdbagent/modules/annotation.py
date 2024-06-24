@@ -3,16 +3,16 @@ from datetime import datetime
 from typing import List, Literal, Optional, Union
 
 from sqlalchemy import and_, func, or_, select
-from sqlalchemy.sql.selectable import Select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.selectable import Select
 
 from pepdbagent.const import (
     DEFAULT_LIMIT,
     DEFAULT_OFFSET,
     DEFAULT_TAG,
+    LAST_UPDATE_DATE_KEY,
     PKG_NAME,
     SUBMISSION_DATE_KEY,
-    LAST_UPDATE_DATE_KEY,
 )
 from pepdbagent.db_utils import BaseEngine, Projects
 from pepdbagent.exceptions import FilterError, ProjectNotFoundError, RegistryPathError

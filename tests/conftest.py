@@ -1,9 +1,8 @@
-import peppy
-import pytest
 import os
 
-from sqlalchemy import create_engine
-from sqlalchemy import text
+import peppy
+import pytest
+from sqlalchemy import create_engine, text
 
 from pepdbagent import PEPDatabaseAgent
 
