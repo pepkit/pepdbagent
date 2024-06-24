@@ -324,3 +324,15 @@ class BaseEngine:
             self.session_execute(select(Projects).limit(1))
         except ProgrammingError:
             raise SchemaError()
+
+    def delete_schema(self, engine=None) -> None:
+        """
+        Delete sql schema in the database.
+
+        :param engine: sqlalchemy engine [Default: None]
+        :return: None
+        """
+        if not engine:
+            engine = self._engine
+        Base.metadata.drop_all(engine)
+        return None

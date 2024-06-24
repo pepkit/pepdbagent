@@ -45,47 +45,48 @@ class PEPDatabaseAgent(object):
         )
         sa_engine = pep_db_engine.engine
 
-        self.__sa_engine = sa_engine
+        self.pep_db_engine = pep_db_engine
+        self._sa_engine = sa_engine
 
-        self.__project = PEPDatabaseProject(pep_db_engine)
-        self.__annotation = PEPDatabaseAnnotation(pep_db_engine)
-        self.__namespace = PEPDatabaseNamespace(pep_db_engine)
-        self.__sample = PEPDatabaseSample(pep_db_engine)
-        self.__user = PEPDatabaseUser(pep_db_engine)
-        self.__view = PEPDatabaseView(pep_db_engine)
+        self._project = PEPDatabaseProject(pep_db_engine)
+        self._annotation = PEPDatabaseAnnotation(pep_db_engine)
+        self._namespace = PEPDatabaseNamespace(pep_db_engine)
+        self._sample = PEPDatabaseSample(pep_db_engine)
+        self._user = PEPDatabaseUser(pep_db_engine)
+        self._view = PEPDatabaseView(pep_db_engine)
 
-        self.__db_name = database
+        self._db_name = database
 
     @property
     def project(self) -> PEPDatabaseProject:
-        return self.__project
+        return self._project
 
     @property
     def annotation(self) -> PEPDatabaseAnnotation:
-        return self.__annotation
+        return self._annotation
 
     @property
     def namespace(self) -> PEPDatabaseNamespace:
-        return self.__namespace
+        return self._namespace
 
     @property
     def user(self) -> PEPDatabaseUser:
-        return self.__user
+        return self._user
 
     @property
     def sample(self) -> PEPDatabaseSample:
-        return self.__sample
+        return self._sample
 
     @property
     def view(self) -> PEPDatabaseView:
-        return self.__view
+        return self._view
 
     def __str__(self):
         return f"Connection to the database: '{self.__db_name}' is set!"
 
     def __exit__(self):
-        self.__sa_engine.__exit__()
+        self._sa_engine.__exit__()
 
     @property
     def connection(self):
-        return self.__sa_engine
+        return self._sa_engine
