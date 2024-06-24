@@ -820,7 +820,7 @@ class PEPDatabaseProject:
         fork_tag: str = None,
         description: str = None,
         private: bool = False,
-    ):
+    ) -> None:
         """
         Fork project from one namespace to another
 
@@ -834,6 +834,7 @@ class PEPDatabaseProject:
         :param private: boolean value if the project should be visible just for user that creates it.
         :return: None
         """
+
         self.create(
             project=self.get(
                 namespace=original_namespace,
@@ -848,19 +849,24 @@ class PEPDatabaseProject:
             is_private=private,
         )
         original_statement = select(Projects).where(
-            Projects.namespace == original_namespace,
-            Projects.name == original_name,
-            Projects.tag == original_tag,
+            and_(
+                Projects.namespace == original_namespace,
+                Projects.name == original_name,
+                Projects.tag == original_tag,
+            )
         )
         fork_statement = select(Projects).where(
-            Projects.namespace == fork_namespace,
-            Projects.name == fork_name,
-            Projects.tag == fork_tag,
+            and_(
+                Projects.namespace == fork_namespace,
+                Projects.name == fork_name,
+                Projects.tag == fork_tag,
+            )
         )
 
         with Session(self._sa_engine) as session:
             original_prj = session.scalar(original_statement)
             fork_prj = session.scalar(fork_statement)
+
             fork_prj.forked_from_id = original_prj.id
             fork_prj.pop = original_prj.pop
             fork_prj.submission_date = original_prj.submission_date
@@ -868,7 +874,6 @@ class PEPDatabaseProject:
             fork_prj.description = description or original_prj.description
 
             session.commit()
-        return None
 
     def get_config(self, namespace: str, name: str, tag: str) -> Union[dict, None]:
         """
@@ -921,7 +926,9 @@ class PEPDatabaseProject:
                     f"Did you supply a valid namespace and project?"
                 )
 
-    def get_samples(self, namespace: str, name: str, tag: str, raw: bool = True) -> list:
+    def get_samples(
+        self, namespace: str, name: str, tag: str, raw: bool = True, with_ids: bool = False
+    ) -> list:
         """
         Get project samples by providing namespace, name, and tag
 
@@ -929,15 +936,16 @@ class PEPDatabaseProject:
         :param name: project name
         :param tag: project tag
         :param raw: if True, retrieve unprocessed (raw) PEP dict. [Default: True]
+        :param with_ids: if True, retrieve samples with ids. [Default: False]
 
         :return: list with project samples
         """
         if raw:
-            return self.get(namespace=namespace, name=name, tag=tag, raw=True).get(
-                SAMPLE_RAW_DICT_KEY
-            )
+            return self.get(
+                namespace=namespace, name=name, tag=tag, raw=True, with_id=with_ids
+            ).get(SAMPLE_RAW_DICT_KEY)
         return (
-            self.get(namespace=namespace, name=name, tag=tag, raw=False)
+            self.get(namespace=namespace, name=name, tag=tag, raw=False, with_id=with_ids)
             .sample_table.replace({np.nan: None})
             .to_dict(orient="records")
         )
