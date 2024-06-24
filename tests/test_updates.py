@@ -4,6 +4,7 @@ from pepdbagent.exceptions import ProjectDuplicatedSampleGUIDsError, SampleTable
 
 from .utils import PEPDBAgentContextManager
 
+
 @pytest.mark.skipif(
     not PEPDBAgentContextManager().db_setup(),
     reason="DB is not setup",
@@ -35,9 +36,7 @@ class TestProjectUpdate:
     )
     def test_update_project_name_in_config(self, namespace, name, new_name):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            prj = agent.project.get(
-                namespace=namespace, name=name, raw=False, with_id=True
-            )
+            prj = agent.project.get(namespace=namespace, name=name, raw=False, with_id=True)
             prj.name = new_name
             agent.project.update(
                 namespace=namespace,
@@ -71,9 +70,7 @@ class TestProjectUpdate:
             ["namespace2", "derive", "desc5 f"],
         ],
     )
-    def test_update_project_description(
-        self, namespace, name, new_description
-    ):
+    def test_update_project_description(self, namespace, name, new_description):
         with PEPDBAgentContextManager(add_data=True) as agent:
             prj = agent.project.get(namespace=namespace, name=name, raw=False)
             prj.description = new_description
@@ -95,13 +92,9 @@ class TestProjectUpdate:
             ["namespace1", "amendments1", "desc1 f"],
         ],
     )
-    def test_update_project_description_in_config(
-        self, namespace, name, new_description
-    ):
+    def test_update_project_description_in_config(self, namespace, name, new_description):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            prj = agent.project.get(
-                namespace=namespace, name=name, raw=False, with_id=True
-            )
+            prj = agent.project.get(namespace=namespace, name=name, raw=False, with_id=True)
             prj.description = new_description
             agent.project.update(
                 namespace=namespace,
@@ -230,13 +223,15 @@ class TestProjectUpdate:
         ensure that update works correctly
         """
         with PEPDBAgentContextManager(add_data=True) as agent:
-            new_prj = agent.project.get(
-                namespace=namespace, name=name, raw=False, with_id=True
-            )
+            new_prj = agent.project.get(namespace=namespace, name=name, raw=False, with_id=True)
             prj_dict = new_prj.to_dict(extended=True, orient="records")
 
             prj_dict["_sample_dict"].append(
-                {"file": "data/frog23_data.txt", "protocol": "anySample3Type", "sample_name": "frog_2"}
+                {
+                    "file": "data/frog23_data.txt",
+                    "protocol": "anySample3Type",
+                    "sample_name": "frog_2",
+                }
             )
             prj_dict["_sample_dict"].append(
                 {
@@ -282,13 +277,9 @@ class TestUpdateProjectWithId:
             ["namespace1", "amendments1"],
         ],
     )
-    def test_update_project_with_duplicated_sample_guids(
-        self, namespace, name
-    ):
+    def test_update_project_with_duplicated_sample_guids(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            new_prj = agent.project.get(
-                namespace=namespace, name=name, raw=True, with_id=True
-            )
+            new_prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
             new_prj["_sample_dict"].append(new_prj["_sample_dict"][0])
 
             with pytest.raises(ProjectDuplicatedSampleGUIDsError):

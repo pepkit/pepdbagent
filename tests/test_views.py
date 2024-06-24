@@ -38,9 +38,7 @@ class TestViews:
             )
 
             project = agent.project.get(namespace, name, raw=False)
-            view_project = agent.view.get(
-                namespace, name, "default", view_name, raw=False
-            )
+            view_project = agent.view.get(namespace, name, "default", view_name, raw=False)
             assert len(view_project.samples) == 2
             assert view_project != project
 
@@ -50,9 +48,7 @@ class TestViews:
             ["namespace1", "amendments1", "pig_0h", "view1"],
         ],
     )
-    def test_create_view_with_incorrect_sample(
-        self, namespace, name, sample_name, view_name
-    ):
+    def test_create_view_with_incorrect_sample(self, namespace, name, sample_name, view_name):
         with PEPDBAgentContextManager(add_data=True) as agent:
             with pytest.raises(SampleNotFoundError):
                 agent.view.create(
@@ -86,9 +82,7 @@ class TestViews:
                 no_fail=True,
             )
             project = agent.project.get(namespace, name, raw=False)
-            view_project = agent.view.get(
-                namespace, name, "default", view_name, raw=False
-            )
+            view_project = agent.view.get(namespace, name, "default", view_name, raw=False)
             assert len(view_project.samples) == 2
             assert view_project != project
 
@@ -109,12 +103,7 @@ class TestViews:
                     "sample_list": [sample_name, "pig_1h"],
                 },
             )
-            assert (
-                len(
-                    agent.view.get(namespace, name, "default", "view1", raw=False).samples
-                )
-                == 2
-            )
+            assert len(agent.view.get(namespace, name, "default", "view1", raw=False).samples) == 2
             agent.view.delete(namespace, name, "default", "view1")
             with pytest.raises(ViewNotFoundError):
                 agent.view.get(namespace, name, "default", "view1", raw=False)
@@ -138,12 +127,7 @@ class TestViews:
                 },
             )
             agent.view.add_sample(namespace, name, "default", "view1", "pig_1h")
-            assert (
-                len(
-                    agent.view.get(namespace, name, "default", "view1", raw=False).samples
-                )
-                == 2
-            )
+            assert len(agent.view.get(namespace, name, "default", "view1", raw=False).samples) == 2
 
     @pytest.mark.parametrize(
         "namespace, name, sample_name",
@@ -162,15 +146,8 @@ class TestViews:
                     "sample_list": [sample_name],
                 },
             )
-            agent.view.add_sample(
-                namespace, name, "default", "view1", ["pig_1h", "frog_0h"]
-            )
-            assert (
-                len(
-                    agent.view.get(namespace, name, "default", "view1", raw=False).samples
-                )
-                == 3
-            )
+            agent.view.add_sample(namespace, name, "default", "view1", ["pig_1h", "frog_0h"])
+            assert len(agent.view.get(namespace, name, "default", "view1", raw=False).samples) == 3
 
     @pytest.mark.parametrize(
         "namespace, name, sample_name",
@@ -190,12 +167,7 @@ class TestViews:
                 },
             )
             agent.view.remove_sample(namespace, name, "default", "view1", sample_name)
-            assert (
-                len(
-                    agent.view.get(namespace, name, "default", "view1", raw=False).samples
-                )
-                == 1
-            )
+            assert len(agent.view.get(namespace, name, "default", "view1", raw=False).samples) == 1
             assert len(agent.project.get(namespace, name, raw=False).samples) == 4
 
             with pytest.raises(SampleNotInViewError):
@@ -244,14 +216,9 @@ class TestViews:
             ["namespace1", "amendments1", "pig_0h", "view1"],
         ],
     )
-    def test_get_view_list_from_project(
-        self, namespace, name, sample_name, view_name
-    ):
+    def test_get_view_list_from_project(self, namespace, name, sample_name, view_name):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            assert (
-                len(agent.view.get_views_annotation(namespace, name, "default").views)
-                == 0
-            )
+            assert len(agent.view.get_views_annotation(namespace, name, "default").views) == 0
             agent.view.create(
                 "view1",
                 {
@@ -261,7 +228,4 @@ class TestViews:
                     "sample_list": [sample_name, "pig_1h"],
                 },
             )
-            assert (
-                len(agent.view.get_views_annotation(namespace, name, "default").views)
-                == 1
-            )
+            assert len(agent.view.get_views_annotation(namespace, name, "default").views) == 1

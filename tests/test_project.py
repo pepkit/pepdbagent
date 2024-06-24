@@ -19,9 +19,7 @@ class TestProject:
     def test_create_project(self):
         with PEPDBAgentContextManager(add_data=False) as agent:
             prj = peppy.Project(list_of_available_peps()["namespace3"]["subtables"])
-            agent.project.create(
-                prj, namespace="test", name="imply", overwrite=True
-            )
+            agent.project.create(prj, namespace="test", name="imply", overwrite=True)
             assert True
 
     def test_create_project_from_dict(self):
@@ -49,9 +47,7 @@ class TestProject:
     )
     def test_get_project(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            kk = agent.project.get(
-                namespace=namespace, name=name, tag="default", raw=False
-            )
+            kk = agent.project.get(namespace=namespace, name=name, tag="default", raw=False)
             ff = peppy.Project(get_path_to_example_file(namespace, name))
             assert kk == ff
 
@@ -108,7 +104,8 @@ class TestProject:
             orgiginal_prj = peppy.Project(get_path_to_example_file(namespace, name))
 
             assert (
-                prj_samples == orgiginal_prj.to_dict(extended=True, orient="records")["_sample_dict"]
+                prj_samples
+                == orgiginal_prj.to_dict(extended=True, orient="records")["_sample_dict"]
             )
 
     @pytest.mark.parametrize(
@@ -205,9 +202,7 @@ class TestProject:
                 fork_tag="new_tag",
             )
 
-            assert agent.project.exists(
-                namespace="new_namespace", name="new_name", tag="new_tag"
-            )
+            assert agent.project.exists(namespace="new_namespace", name="new_name", tag="new_tag")
             result = agent.annotation.get(
                 namespace="new_namespace", name="new_name", tag="new_tag"
             )
@@ -234,13 +229,9 @@ class TestProject:
                 fork_tag="new_tag",
             )
 
-            assert agent.project.exists(
-                namespace="new_namespace", name="new_name", tag="new_tag"
-            )
+            assert agent.project.exists(namespace="new_namespace", name="new_name", tag="new_tag")
             agent.project.delete(namespace=namespace, name=name, tag="default")
-            assert agent.project.exists(
-                namespace="new_namespace", name="new_name", tag="new_tag"
-            )
+            assert agent.project.exists(namespace="new_namespace", name="new_name", tag="new_tag")
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -263,13 +254,9 @@ class TestProject:
                 fork_tag="new_tag",
             )
 
-            assert agent.project.exists(
-                namespace="new_namespace", name="new_name", tag="new_tag"
-            )
+            assert agent.project.exists(namespace="new_namespace", name="new_name", tag="new_tag")
             assert agent.project.exists(namespace=namespace, name=name, tag="default")
-            agent.project.delete(
-                namespace="new_namespace", name="new_name", tag="new_tag"
-            )
+            agent.project.delete(namespace="new_namespace", name="new_name", tag="new_tag")
             assert agent.project.exists(namespace=namespace, name=name, tag="default")
 
     @pytest.mark.parametrize(

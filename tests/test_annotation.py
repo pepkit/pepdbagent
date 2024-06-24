@@ -112,9 +112,7 @@ class TestAnnotation:
     @pytest.mark.parametrize("admin", ["private_test"])
     def test_order_by(self, namespace, admin, order_by, first_name):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            result = agent.annotation.get(
-                namespace=namespace, admin=admin, order_by=order_by
-            )
+            result = agent.annotation.get(namespace=namespace, admin=admin, order_by=order_by)
             assert result.results[0].name == first_name
 
     @pytest.mark.parametrize(
@@ -164,9 +162,7 @@ class TestAnnotation:
     )
     def test_name_search_private(self, namespace, query, found_number):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            result = agent.annotation.get(
-                namespace=namespace, query=query, admin="private_test"
-            )
+            result = agent.annotation.get(namespace=namespace, query=query, admin="private_test")
             assert len(result.results) == found_number
 
     @pytest.mark.parametrize(
@@ -250,9 +246,7 @@ class TestAnnotation:
             ["namespace1", "ame", 2],
         ],
     )
-    def test_search_incorrect_filter_by_string(
-        self, namespace, query, found_number
-    ):
+    def test_search_incorrect_filter_by_string(self, namespace, query, found_number):
         with PEPDBAgentContextManager(add_data=True) as agent:
             date_now = datetime.datetime.now() - datetime.timedelta(days=2)
             date_old = date_now - datetime.timedelta(days=2)
@@ -308,9 +302,7 @@ class TestAnnotation:
             ["namespace1", "ame", 2],
         ],
     )
-    def test_search_incorrect_incorrect_pep_type(
-        self, namespace, query, found_number
-    ):
+    def test_search_incorrect_incorrect_pep_type(self, namespace, query, found_number):
         with PEPDBAgentContextManager(add_data=True) as agent:
 
             with pytest.raises(ValueError):
@@ -322,9 +314,7 @@ class TestAnnotation:
             ["namespace1", "ame", 2],
         ],
     )
-    def test_project_list_without_annotation(
-        self, namespace, query, found_number
-    ):
+    def test_project_list_without_annotation(self, namespace, query, found_number):
         with PEPDBAgentContextManager(add_data=True) as agent:
             result = agent.annotation.get_projects_list(
                 namespace=namespace,

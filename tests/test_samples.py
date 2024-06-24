@@ -4,6 +4,7 @@ from pepdbagent.exceptions import SampleNotFoundError
 
 from .utils import PEPDBAgentContextManager
 
+
 @pytest.mark.skipif(
     not PEPDBAgentContextManager().db_setup(),
     reason="DB is not setup",
@@ -39,9 +40,7 @@ class TestSamples:
             ["namespace2", "custom_index", "frog_1"],
         ],
     )
-    def test_retrieve_sample_with_modified_sample_id(
-        self, namespace, name, sample_name
-    ):
+    def test_retrieve_sample_with_modified_sample_id(self, namespace, name, sample_name):
         with PEPDBAgentContextManager(add_data=True) as agent:
             one_sample = agent.sample.get(namespace, name, sample_name, raw=False)
             assert isinstance(one_sample, peppy.Sample)
@@ -141,7 +140,9 @@ class TestSamples:
             )
             annotation2 = agent.annotation.get(namespace, name, "default")
 
-            assert annotation1.results[0].last_update_date != annotation2.results[0].last_update_date
+            assert (
+                annotation1.results[0].last_update_date != annotation2.results[0].last_update_date
+            )
 
     @pytest.mark.parametrize(
         "namespace, name, sample_name",
@@ -201,10 +202,7 @@ class TestSamples:
     )
     def test_overwrite_sample(self, namespace, name, tag, sample_dict):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            assert (
-                agent.project.get(namespace, name, raw=False).get_sample("pig_0h").time
-                == "0"
-            )
+            assert agent.project.get(namespace, name, raw=False).get_sample("pig_0h").time == "0"
             agent.sample.add(namespace, name, tag, sample_dict, overwrite=True)
 
             assert (
