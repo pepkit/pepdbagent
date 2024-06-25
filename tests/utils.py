@@ -2,9 +2,7 @@ import os
 import peppy
 import warnings
 from sqlalchemy.exc import OperationalError
-from typing import Union
 
-from pepdbagent.db_utils import BaseEngine
 from pepdbagent import PEPDatabaseAgent
 
 DSN = "postgresql+psycopg://postgres:docker@localhost:5432/pep-db"

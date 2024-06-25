@@ -8,7 +8,7 @@ from typing import List, Tuple, Union
 import ubiquerg
 from peppy.const import SAMPLE_RAW_DICT_KEY
 
-from .exceptions import RegistryPathError
+from pepdbagent.exceptions import RegistryPathError
 
 
 def is_valid_registry_path(rpath: str) -> bool:
@@ -101,7 +101,7 @@ def convert_date_string_to_date(date_string: str) -> datetime.datetime:
     """
     Convert string into datetime format
 
-    :param date_str: date string in format [YYYY/MM/DD]. e.g. 2022/02/22
+    :param date_string: date string in format [YYYY/MM/DD]. e.g. 2022/02/22
     :return: datetime format
     """
     return datetime.datetime.strptime(date_string, "%Y/%m/%d") + datetime.timedelta(days=1)
@@ -110,6 +110,8 @@ def convert_date_string_to_date(date_string: str) -> datetime.datetime:
 def order_samples(results: dict) -> List[dict]:
     """
     Order samples by their parent_guid
+
+    # TODO: To make this function more efficient, we should write it in Rust!
 
     :param results: dictionary of samples. Structure: {
                             "sample": sample_dict,
