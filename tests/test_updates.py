@@ -1,6 +1,8 @@
 import peppy
 import pytest
+from peppy.exceptions import IllegalStateException
 from pepdbagent.exceptions import ProjectDuplicatedSampleGUIDsError, SampleTableUpdateError
+from pepdbagent.const import PEPHUB_SAMPLE_ID_KEY
 
 from .utils import PEPDBAgentContextManager
 
@@ -267,9 +269,319 @@ class TestUpdateProjectWithId:
         ],
     )
     def test_update_whole_project_with_id(self, namespace, name):
-        pass
+        """
+        General test for updating whole project with id (inserting one project without id)
+        """
+        with PEPDBAgentContextManager(add_data=True) as agent:
+            peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
+            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
 
-    # TODO: write more tests
+            new_sample = {
+                "sample_name": "new_sample",
+                "protocol": "new_protocol",
+                PEPHUB_SAMPLE_ID_KEY: None,
+            }
+
+            prj["_sample_dict"].append(new_sample.copy())
+            prj["_sample_dict"][0]["sample_name"] = "new_sample_name2"
+            del prj["_sample_dict"][1]
+
+            agent.project.update(
+                namespace=namespace,
+                name=name,
+                tag="default",
+                update_dict={"project": peppy.Project.from_dict(prj)},
+            )
+
+            del new_sample[PEPHUB_SAMPLE_ID_KEY]
+            peppy_prj["_sample_dict"].append(new_sample.copy())  # add sample without id
+            peppy_prj["_sample_dict"][0]["sample_name"] = "new_sample_name2"  # modify sample
+            del peppy_prj["_sample_dict"][1]  # delete sample
+
+            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+                namespace=namespace, name=name, raw=False
+            )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace3", "subtable1"],
+        ],
+    )
+    def test_insert_new_row(self, namespace, name):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+            peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
+            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+
+            new_sample = {
+                "sample_name": "new_sample",
+                "protocol": "new_protocol",
+                PEPHUB_SAMPLE_ID_KEY: None,
+            }
+
+            prj["_sample_dict"].append(new_sample.copy())
+
+            agent.project.update(
+                namespace=namespace,
+                name=name,
+                tag="default",
+                update_dict={"project": peppy.Project.from_dict(prj)},
+            )
+
+            del new_sample[PEPHUB_SAMPLE_ID_KEY]
+            peppy_prj["_sample_dict"].append(new_sample.copy())  # add sample without id
+
+            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+                namespace=namespace, name=name, raw=False
+            )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace3", "subtable1"],
+        ],
+    )
+    def test_insert_new_multiple_rows(self, namespace, name):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+            peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
+            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+
+            new_sample1 = {
+                "sample_name": "new_sample",
+                "protocol": "new_protocol",
+                PEPHUB_SAMPLE_ID_KEY: None,
+            }
+            new_sample2 = {
+                "sample_name": "new_sample2",
+                "protocol": "new_protocol2",
+                PEPHUB_SAMPLE_ID_KEY: None,
+            }
+
+            prj["_sample_dict"].append(new_sample1.copy())
+            prj["_sample_dict"].append(new_sample2.copy())
+
+            agent.project.update(
+                namespace=namespace,
+                name=name,
+                tag="default",
+                update_dict={"project": peppy.Project.from_dict(prj)},
+            )
+
+            del new_sample1[PEPHUB_SAMPLE_ID_KEY]
+            del new_sample2[PEPHUB_SAMPLE_ID_KEY]
+            peppy_prj["_sample_dict"].append(new_sample1.copy())  # add sample without id
+            peppy_prj["_sample_dict"].append(new_sample2.copy())  # add sample without id
+
+            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+                namespace=namespace, name=name, raw=False
+            )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace3", "subtable1"],
+        ],
+    )
+    def test_insert_new_multiple_rows_duplicated_samples(self, namespace, name):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+
+            new_sample1 = {
+                "sample_name": "new_sample",
+                "protocol": "new_protocol",
+                PEPHUB_SAMPLE_ID_KEY: None,
+            }
+            new_sample2 = {
+                "sample_name": "new_sample",
+                "protocol": "new_protocol",
+                PEPHUB_SAMPLE_ID_KEY: None,
+            }
+
+            prj["_sample_dict"].append(new_sample1.copy())
+            prj["_sample_dict"].append(new_sample2.copy())
+
+            with pytest.raises(IllegalStateException):
+                agent.project.update(
+                    namespace=namespace,
+                    name=name,
+                    tag="default",
+                    update_dict={"project": peppy.Project.from_dict(prj)},
+                )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace3", "subtable2"],
+            ["namespace1", "append"],
+        ],
+    )
+    def test_delete_multiple_rows(self, namespace, name):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+            peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
+            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+
+            del prj["_sample_dict"][1]
+            del prj["_sample_dict"][2]
+
+            agent.project.update(
+                namespace=namespace,
+                name=name,
+                tag="default",
+                update_dict={"project": peppy.Project.from_dict(prj)},
+            )
+
+            del peppy_prj["_sample_dict"][1]  # delete sample
+            del peppy_prj["_sample_dict"][2]  # delete sample
+
+            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+                namespace=namespace, name=name, raw=False
+            )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace3", "subtable1"],
+        ],
+    )
+    def test_modify_one_row(self, namespace, name):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+            peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
+            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+
+            prj["_sample_dict"][0]["sample_name"] = "new_sample_name2"
+
+            agent.project.update(
+                namespace=namespace,
+                name=name,
+                tag="default",
+                update_dict={"project": peppy.Project.from_dict(prj)},
+            )
+
+            peppy_prj["_sample_dict"][0]["sample_name"] = "new_sample_name2"  # modify sample
+
+            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+                namespace=namespace, name=name, raw=False
+            )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace3", "subtable1"],
+        ],
+    )
+    def test_modify_multiple_rows(self, namespace, name):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+            peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
+            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+
+            prj["_sample_dict"][0]["sample_name"] = "new_sample_name2"
+            prj["_sample_dict"][1]["sample_name"] = "new_sample_name3"
+
+            agent.project.update(
+                namespace=namespace,
+                name=name,
+                tag="default",
+                update_dict={"project": peppy.Project.from_dict(prj)},
+            )
+
+            peppy_prj["_sample_dict"][0]["sample_name"] = "new_sample_name2"  # modify sample
+            peppy_prj["_sample_dict"][1]["sample_name"] = "new_sample_name3"  # modify sample
+
+            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+                namespace=namespace, name=name, raw=False
+            )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace3", "subtable1"],
+        ],
+    )
+    def test_add_new_first_sample(self, namespace, name):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+            peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
+            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+
+            new_sample = {
+                "sample_name": "new_sample",
+                "protocol": "new_protocol",
+                PEPHUB_SAMPLE_ID_KEY: None,
+            }
+
+            prj["_sample_dict"].insert(0, new_sample.copy())
+
+            agent.project.update(
+                namespace=namespace,
+                name=name,
+                tag="default",
+                update_dict={"project": peppy.Project.from_dict(prj)},
+            )
+
+            del new_sample[PEPHUB_SAMPLE_ID_KEY]
+            peppy_prj["_sample_dict"].insert(0, new_sample.copy())  # add sample without id
+
+            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+                namespace=namespace, name=name, raw=False
+            )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace3", "subtable1"],
+        ],
+    )
+    def test_change_sample_order(self, namespace, name):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+            peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
+            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+
+            sample1 = prj["_sample_dict"][0].copy()
+            sample2 = prj["_sample_dict"][1].copy()
+
+            prj["_sample_dict"][0] = sample2
+            prj["_sample_dict"][1] = sample1
+
+            agent.project.update(
+                namespace=namespace,
+                name=name,
+                tag="default",
+                update_dict={"project": peppy.Project.from_dict(prj)},
+            )
+
+            peppy_prj["_sample_dict"][0] = sample2
+            peppy_prj["_sample_dict"][1] = sample1
+
+            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+                namespace=namespace, name=name, raw=False
+            )
+
+    @pytest.mark.parametrize(
+        "namespace, name",
+        [
+            ["namespace1", "amendments1"],
+            ["namespace3", "subtable1"],
+        ],
+    )
+    def test_update_porject_without_ids(self, namespace, name):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=False)
+
+            prj["_sample_dict"][0]["sample_name"] = "new_sample_name2"
+
+            with pytest.raises(SampleTableUpdateError):
+
+                agent.project.update(
+                    namespace=namespace,
+                    name=name,
+                    tag="default",
+                    update_dict={"project": peppy.Project.from_dict(prj)},
+                )
 
     @pytest.mark.parametrize(
         "namespace, name",

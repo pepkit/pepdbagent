@@ -477,6 +477,13 @@ class PEPDatabaseProject:
                     is_private: Optional[bool]
                     tag: Optional[str]
                     name: Optional[str]
+                    description: Optional[str]
+                    is_private: Optional[bool]
+                    pep_schema: Optional[str]
+                    config: Optional[dict]
+                    samples: Optional[List[dict]]
+                    subsamples: Optional[List[List[dict]]]
+                    pop: Optional[bool]
             }
         :param namespace: project namespace
         :param name: project name
