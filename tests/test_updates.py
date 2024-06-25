@@ -557,6 +557,9 @@ class TestUpdateProjectWithId:
             peppy_prj["_sample_dict"][0] = sample2
             peppy_prj["_sample_dict"][1] = sample1
 
+            del peppy_prj["_sample_dict"][0][PEPHUB_SAMPLE_ID_KEY]
+            del peppy_prj["_sample_dict"][1][PEPHUB_SAMPLE_ID_KEY]
+
             assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
                 namespace=namespace, name=name, raw=False
             )

@@ -132,7 +132,7 @@ class PEPDatabaseProject:
         for sample in samples_results:
             sample_dict = sample.sample
             if with_id:
-                sample_dict["ph_id"] = sample.guid
+                sample_dict[PEPHUB_SAMPLE_ID_KEY] = sample.guid
 
             result_dict[sample.guid] = {
                 "sample": sample_dict,
