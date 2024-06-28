@@ -132,7 +132,7 @@ class PEPDatabaseProject:
         for sample in samples_results:
             sample_dict = sample.sample
             if with_id:
-                sample_dict["ph_id"] = sample.guid
+                sample_dict[PEPHUB_SAMPLE_ID_KEY] = sample.guid
 
             result_dict[sample.guid] = {
                 "sample": sample_dict,
@@ -477,6 +477,13 @@ class PEPDatabaseProject:
                     is_private: Optional[bool]
                     tag: Optional[str]
                     name: Optional[str]
+                    description: Optional[str]
+                    is_private: Optional[bool]
+                    pep_schema: Optional[str]
+                    config: Optional[dict]
+                    samples: Optional[List[dict]]
+                    subsamples: Optional[List[List[dict]]]
+                    pop: Optional[bool]
             }
         :param namespace: project namespace
         :param name: project name

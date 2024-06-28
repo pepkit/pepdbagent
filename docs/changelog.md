@@ -2,6 +2,12 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.9.0] -- 2024-06-25
+- Introduced new sample ordering with linked list [#133](https://github.com/pepkit/pepdbagent/issues/133)
+- Efficiency improvements of project update function 
+- Test restructuring 
+
+
 ## [0.8.0] -- 2024-02-26
 - Fixed forking schema
 - Improved forking efficiency [#129](https://github.com/pepkit/pepdbagent/issues/129)
