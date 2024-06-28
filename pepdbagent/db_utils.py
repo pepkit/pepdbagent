@@ -1,32 +1,26 @@
 import datetime
 import logging
-from typing import Optional, List
+from typing import List, Optional
 
 from sqlalchemy import (
+    TIMESTAMP,
     BigInteger,
     FetchedValue,
+    ForeignKey,
     Result,
     Select,
     String,
+    UniqueConstraint,
     event,
     select,
-    TIMESTAMP,
-    ForeignKey,
-    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, create_engine
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.orm import (
-    DeclarativeBase,
-    Mapped,
-    Session,
-    mapped_column,
-    relationship,
-)
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 
-from pepdbagent.const import POSTGRES_DIALECT, PKG_NAME
+from pepdbagent.const import PKG_NAME, POSTGRES_DIALECT
 from pepdbagent.exceptions import SchemaError
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -93,7 +87,7 @@ class Projects(Base):
     pep_schema: Mapped[Optional[str]]
     pop: Mapped[Optional[bool]] = mapped_column(default=False)
     samples_mapping: Mapped[List["Samples"]] = relationship(
-        back_populates="sample_mapping", cascade="all, delete-orphan"
+        back_populates="project_mapping", cascade="all, delete-orphan"
     )
     subsamples_mapping: Mapped[List["Subsamples"]] = relationship(
         back_populates="subsample_mapping", cascade="all, delete-orphan"
@@ -133,10 +127,22 @@ class Samples(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     sample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
-    row_number: Mapped[int]
+    row_number: Mapped[int]  # TODO: should be removed
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    project_mapping: Mapped["Projects"] = relationship(back_populates="samples_mapping")
     sample_name: Mapped[Optional[str]] = mapped_column()
-    sample_mapping: Mapped["Projects"] = relationship(back_populates="samples_mapping")
+    guid: Mapped[Optional[str]] = mapped_column(nullable=False, unique=True)
+
+    parent_guid: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("samples.guid", ondelete="CASCADE"),
+        nullable=True,
+        doc="Parent sample id. Used to create a hierarchy of samples.",
+    )
+
+    parent_mapping: Mapped["Samples"] = relationship(
+        "Samples", remote_side=guid, back_populates="child_mapping"
+    )
+    child_mapping: Mapped["Samples"] = relationship("Samples", back_populates="parent_mapping")
 
     views: Mapped[Optional[List["ViewSampleAssociation"]]] = relationship(
         back_populates="sample", cascade="all, delete-orphan"
@@ -318,3 +324,15 @@ class BaseEngine:
             self.session_execute(select(Projects).limit(1))
         except ProgrammingError:
             raise SchemaError()
+
+    def delete_schema(self, engine=None) -> None:
+        """
+        Delete sql schema in the database.
+
+        :param engine: sqlalchemy engine [Default: None]
+        :return: None
+        """
+        if not engine:
+            engine = self._engine
+        Base.metadata.drop_all(engine)
+        return None

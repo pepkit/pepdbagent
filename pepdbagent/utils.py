@@ -1,13 +1,14 @@
 import datetime
 import json
+import uuid
 from collections.abc import Iterable
 from hashlib import md5
-from typing import Tuple, Union
+from typing import List, Tuple, Union
 
 import ubiquerg
 from peppy.const import SAMPLE_RAW_DICT_KEY
 
-from .exceptions import RegistryPathError
+from pepdbagent.exceptions import RegistryPathError
 
 
 def is_valid_registry_path(rpath: str) -> bool:
@@ -100,7 +101,59 @@ def convert_date_string_to_date(date_string: str) -> datetime.datetime:
     """
     Convert string into datetime format
 
-    :param date_str: date string in format [YYYY/MM/DD]. e.g. 2022/02/22
+    :param date_string: date string in format [YYYY/MM/DD]. e.g. 2022/02/22
     :return: datetime format
     """
     return datetime.datetime.strptime(date_string, "%Y/%m/%d") + datetime.timedelta(days=1)
+
+
+def order_samples(results: dict) -> List[dict]:
+    """
+    Order samples by their parent_guid
+
+    # TODO: To make this function more efficient, we should write it in Rust!
+
+    :param results: dictionary of samples. Structure: {
+                            "sample": sample_dict,
+                            "guid": sample.guid,
+                            "parent_guid": sample.parent_guid,
+                        }
+
+    :return: ordered list of samples
+    """
+    # Find the Root Node
+    # Create a lookup dictionary for nodes by their GUIDs
+    guid_lookup = {entry["guid"]: entry for entry in results.values()}
+
+    # Create a dictionary to map each GUID to its child GUID
+    parent_to_child = {
+        entry["parent_guid"]: entry["guid"]
+        for entry in results.values()
+        if entry["parent_guid"] is not None
+    }
+
+    # Find the root node
+    root = None
+    for guid, entry in results.items():
+        if entry["parent_guid"] is None:
+            root = entry
+            break
+
+    if root is None:
+        raise ValueError("No root node found")
+
+    ordered_sequence = []
+    current = root
+
+    while current is not None:
+        ordered_sequence.append(current)
+        current_guid = current["guid"]
+        if current_guid in parent_to_child:
+            current = guid_lookup[parent_to_child[current_guid]]
+        else:
+            current = None
+    return ordered_sequence
+
+
+def generate_guid() -> str:
+    return str(uuid.uuid4())

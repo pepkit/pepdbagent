@@ -2,17 +2,13 @@ import logging
 from typing import Union
 
 from sqlalchemy import and_, delete, select
-from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-from pepdbagent.const import (
-    PKG_NAME,
-)
-
-from pepdbagent.db_utils import BaseEngine, User, Stars, Projects
+from pepdbagent.const import PKG_NAME
+from pepdbagent.db_utils import BaseEngine, Projects, Stars, User
+from pepdbagent.exceptions import ProjectAlreadyInFavorites, ProjectNotInFavorites
 from pepdbagent.models import AnnotationList, AnnotationModel
-from pepdbagent.exceptions import ProjectNotInFavorites, ProjectAlreadyInFavorites
-
 
 _LOGGER = logging.getLogger(PKG_NAME)
 

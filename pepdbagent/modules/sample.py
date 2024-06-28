@@ -1,21 +1,17 @@
+import datetime
 import logging
 from typing import Union
-import datetime
 
 import peppy
 from peppy.const import SAMPLE_TABLE_INDEX_KEY
-from sqlalchemy import select, and_, func
+from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-
-from pepdbagent.const import (
-    DEFAULT_TAG,
-    PKG_NAME,
-)
-from pepdbagent.exceptions import SampleNotFoundError, SampleAlreadyExistsError
-
-from pepdbagent.db_utils import BaseEngine, Samples, Projects
+from pepdbagent.const import DEFAULT_TAG, PKG_NAME
+from pepdbagent.db_utils import BaseEngine, Projects, Samples
+from pepdbagent.exceptions import SampleAlreadyExistsError, SampleNotFoundError
+from pepdbagent.utils import generate_guid, order_samples
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -40,7 +36,7 @@ class PEPDatabaseSample:
         name: str,
         sample_name: str,
         tag: str = DEFAULT_TAG,
-        raw: bool = False,
+        raw: bool = True,
     ) -> Union[peppy.Sample, dict, None]:
         """
         Retrieve sample from the database using namespace, name, tag, and sample_name
@@ -49,7 +45,7 @@ class PEPDatabaseSample:
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
         :param sample_name: sample_name of the sample
-        :param raw: return raw dict or peppy.Sample object
+        :param raw: return raw dict or peppy.Sample object [Default: True]
         :return: peppy.Project object with found project or dict with unprocessed
             PEP elements: {
                 name: str
@@ -216,29 +212,10 @@ class PEPDatabaseSample:
                 raise KeyError(
                     f"Sample index key {project_mapping.config.get(SAMPLE_TABLE_INDEX_KEY, 'sample_name')} not found in sample dict"
                 )
-            project_where_statement = (
-                Samples.project_id
-                == select(Projects.id)
-                .where(
-                    and_(
-                        Projects.namespace == namespace,
-                        Projects.name == name,
-                        Projects.tag == tag,
-                    ),
-                )
-                .scalar_subquery()
-            )
             statement = select(Samples).where(
-                and_(project_where_statement, Samples.sample_name == sample_name)
+                and_(Samples.project_id == project_mapping.id, Samples.sample_name == sample_name)
             )
-
             sample_mapping = session.scalar(statement)
-            row_number = (
-                session.execute(
-                    select(func.max(Samples.row_number)).where(project_where_statement)
-                ).one()[0]
-                or 0
-            )
 
             if sample_mapping and not overwrite:
                 raise SampleAlreadyExistsError(
@@ -257,15 +234,39 @@ class PEPDatabaseSample:
             else:
                 sample_mapping = Samples(
                     sample=sample_dict,
-                    row_number=row_number + 1,
+                    row_number=0,
                     project_id=project_mapping.id,
                     sample_name=sample_name,
+                    guid=generate_guid(),
+                    parent_guid=self._get_last_sample_guid(project_mapping.id),
                 )
                 project_mapping.number_of_samples += 1
                 project_mapping.last_update_date = datetime.datetime.now(datetime.timezone.utc)
 
                 session.add(sample_mapping)
                 session.commit()
+
+    def _get_last_sample_guid(self, project_id: int) -> str:
+        """
+        Get last sample guid from the project
+
+        :param project_id: project_id of the project
+        :return: guid of the last sample
+        """
+        statement = select(Samples).where(Samples.project_id == project_id)
+        with Session(self._sa_engine) as session:
+            samples_results = session.scalars(statement)
+
+            result_dict = {}
+            for sample in samples_results:
+                sample_dict = sample.sample
+
+                result_dict[sample.guid] = {
+                    "sample": sample_dict,
+                    "guid": sample.guid,
+                    "parent_guid": sample.parent_guid,
+                }
+            return order_samples(result_dict)[-1]["guid"]
 
     def delete(
         self,
@@ -310,7 +311,11 @@ class PEPDatabaseSample:
             project_mapping = session.scalar(project_statement)
 
             if sample_mapping:
+                parent_mapping = sample_mapping.parent_mapping
+                child_mapping = sample_mapping.child_mapping
                 session.delete(sample_mapping)
+                if parent_mapping:
+                    child_mapping.parent_mapping = parent_mapping
                 project_mapping.number_of_samples -= 1
                 project_mapping.last_update_date = datetime.datetime.now(datetime.timezone.utc)
                 session.commit()
