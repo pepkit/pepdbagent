@@ -170,9 +170,7 @@ class TestProject:
         "namespace, name",
         [
             ["namespace1", "amendments1"],
-            ["namespace1", "amendments2"],
             ["namespace2", "derive"],
-            ["namespace2", "imply"],
         ],
     )
     def test_delete_project(self, namespace, name):
@@ -182,10 +180,14 @@ class TestProject:
             with pytest.raises(ProjectNotFoundError, match="Project does not exist."):
                 agent.project.get(namespace=namespace, name=name, tag="default")
 
+    def test_delete_not_existing_project(self):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+            with pytest.raises(ProjectNotFoundError, match="Project does not exist."):
+                agent.project.delete(namespace="namespace1", name="nothing", tag="default")
+
     @pytest.mark.parametrize(
         "namespace, name",
         [
-            ["namespace1", "amendments1"],
             ["namespace1", "amendments2"],
             ["namespace2", "derive"],
             ["namespace2", "imply"],

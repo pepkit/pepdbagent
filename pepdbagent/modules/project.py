@@ -204,24 +204,27 @@ class PEPDatabaseProject:
         # name = name.lower()
         namespace = namespace.lower()
 
+        if not self.exists(namespace=namespace, name=name, tag=tag):
+            raise ProjectNotFoundError(
+                f"Can't delete unexciting project: '{namespace}/{name}:{tag}'."
+            )
+
         with Session(self._sa_engine) as session:
-            statement = select(Projects).where(
-                and_(
-                    Projects.namespace == namespace,
-                    Projects.name == name,
-                    Projects.tag == tag,
+            session.execute(
+                delete(Projects).where(
+                    and_(
+                        Projects.namespace == namespace,
+                        Projects.name == name,
+                        Projects.tag == tag,
+                    )
                 )
             )
-            found_prj = session.scalar(statement)
-            if not found_prj:
-                raise ProjectNotFoundError(
-                    f"Project '{namespace}/{name}:{tag}' was not deleted. "
-                    f"Please try again or contact the administrator."
-                )
 
-            found_prj.namespace_mapping.number_of_projects -= 1
-            session.delete(found_prj)
-            session.commit()
+            statement = select(User).where(User.namespace == namespace)
+            user = session.scalar(statement)
+            if user:
+                user.number_of_projects -= 1
+                session.commit()
 
     def delete_by_rp(
         self,
