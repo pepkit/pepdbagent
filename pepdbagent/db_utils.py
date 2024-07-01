@@ -137,13 +137,11 @@ class Samples(Base):
     sample_name: Mapped[Optional[str]] = mapped_column()
     guid: Mapped[Optional[str]] = mapped_column(nullable=False, unique=True)
 
-    # submission_date: Mapped[datetime.datetime] = mapped_column(
-    #     default=deliver_update_date
-    # )
-    # last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
-    #     default=deliver_update_date,
-    #     onupdate=deliver_update_date,
-    # )
+    submission_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
+    last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
+        default=deliver_update_date,
+        onupdate=deliver_update_date,
+    )
 
     parent_guid: Mapped[Optional[str]] = mapped_column(
         ForeignKey("samples.guid", ondelete="CASCADE"),
