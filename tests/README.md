@@ -7,7 +7,7 @@ docker run --rm -it --name pep-db \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=docker \
   -e POSTGRES_DB=pep-db \
-  -p 5432:5432 postgres
+  -p 127.0.0.1:5432:5432 postgres
 ```
 
 
