@@ -1,29 +1,24 @@
 # View of the PEP. In other words, it is a part of the PEP, or subset of the samples in the PEP.
 
 import logging
-from typing import Union, List
+from typing import List, Union
 
 import peppy
-from sqlalchemy import select, and_, delete
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-
-from pepdbagent.const import (
-    DEFAULT_TAG,
-    PKG_NAME,
-)
+from pepdbagent.const import DEFAULT_TAG, PKG_NAME
+from pepdbagent.db_utils import BaseEngine, Projects, Samples, Views, ViewSampleAssociation
 from pepdbagent.exceptions import (
-    ViewNotFoundError,
-    SampleAlreadyInView,
     ProjectNotFoundError,
+    SampleAlreadyInView,
     SampleNotFoundError,
-    ViewAlreadyExistsError,
     SampleNotInViewError,
+    ViewAlreadyExistsError,
+    ViewNotFoundError,
 )
-
-from pepdbagent.db_utils import BaseEngine, Samples, Projects, Views, ViewSampleAssociation
-from pepdbagent.models import ViewAnnotation, CreateViewDictModel, ProjectViews
+from pepdbagent.models import CreateViewDictModel, ProjectViews, ViewAnnotation
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -48,7 +43,7 @@ class PEPDatabaseView:
         name: str,
         tag: str = DEFAULT_TAG,
         view_name: str = None,
-        raw: bool = False,
+        raw: bool = True,
     ) -> Union[peppy.Project, dict, None]:
         """
         Retrieve view of the project from the database.
@@ -59,7 +54,7 @@ class PEPDatabaseView:
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag of the project (Default: tag is taken from the project object)
         :param view_name: name of the view
-        :param raw: retrieve unprocessed (raw) PEP dict.
+        :param raw: retrieve unprocessed (raw) PEP dict. [Default: True]
         :return: peppy.Project object with found project or dict with unprocessed
             PEP elements: {
                 name: str

@@ -61,6 +61,16 @@ class SampleNotFoundError(PEPDatabaseAgentError):
         super().__init__(f"""Sample does not exist. {msg}""")
 
 
+class SampleTableUpdateError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Sample table update error. {msg}""")
+
+
+class ProjectDuplicatedSampleGUIDsError(SampleTableUpdateError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Project has duplicated sample GUIDs. {msg}""")
+
+
 class SampleAlreadyExistsError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
         super().__init__(f"""Sample already exists. {msg}""")

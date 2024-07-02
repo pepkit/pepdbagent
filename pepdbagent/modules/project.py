@@ -1,39 +1,33 @@
 import datetime
 import json
 import logging
-from typing import Union, List, NoReturn, Mapping
+from typing import Dict, List, NoReturn, Union
 
+import numpy as np
 import peppy
-from sqlalchemy import and_, delete, select
+from peppy.const import (
+    CONFIG_KEY,
+    SAMPLE_NAME_ATTR,
+    SAMPLE_RAW_DICT_KEY,
+    SAMPLE_TABLE_INDEX_KEY,
+    SUBSAMPLE_RAW_LIST_KEY,
+)
+from sqlalchemy import Select, and_, delete, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
-from sqlalchemy import Select
-import numpy as np
+from sqlalchemy.orm.attributes import flag_modified
 
-from peppy.const import (
-    SAMPLE_RAW_DICT_KEY,
-    SUBSAMPLE_RAW_LIST_KEY,
-    CONFIG_KEY,
-    SAMPLE_TABLE_INDEX_KEY,
-    SAMPLE_NAME_ATTR,
-)
-
-from pepdbagent.const import (
-    DEFAULT_TAG,
-    DESCRIPTION_KEY,
-    NAME_KEY,
-    PKG_NAME,
-)
-
-from pepdbagent.db_utils import Projects, Samples, Subsamples, BaseEngine
+from pepdbagent.const import DEFAULT_TAG, DESCRIPTION_KEY, NAME_KEY, PEPHUB_SAMPLE_ID_KEY, PKG_NAME
+from pepdbagent.db_utils import BaseEngine, Projects, Samples, Subsamples, User
 from pepdbagent.exceptions import (
+    PEPDatabaseAgentError,
+    ProjectDuplicatedSampleGUIDsError,
     ProjectNotFoundError,
     ProjectUniqueNameError,
-    PEPDatabaseAgentError,
+    SampleTableUpdateError,
 )
-from pepdbagent.models import UpdateItems, UpdateModel, ProjectDict
-from pepdbagent.utils import create_digest, registry_path_converter
-
+from pepdbagent.models import ProjectDict, UpdateItems, UpdateModel
+from pepdbagent.utils import create_digest, generate_guid, order_samples, registry_path_converter
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -57,7 +51,8 @@ class PEPDatabaseProject:
         namespace: str,
         name: str,
         tag: str = DEFAULT_TAG,
-        raw: bool = False,
+        raw: bool = True,
+        with_id: bool = False,
     ) -> Union[peppy.Project, dict, None]:
         """
         Retrieve project from database by specifying namespace, name and tag
@@ -66,6 +61,7 @@ class PEPDatabaseProject:
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
         :param raw: retrieve unprocessed (raw) PEP dict.
+        :param with_id: retrieve project with id [default: False]
         :return: peppy.Project object with found project or dict with unprocessed
             PEP elements: {
                 name: str
@@ -97,24 +93,20 @@ class PEPDatabaseProject:
                     else:
                         subsample_list = []
 
-                    # samples
-                    samples_dict = {
-                        sample_sa.row_number: sample_sa.sample
-                        for sample_sa in found_prj.samples_mapping
-                    }
+                    sample_list = self._get_samples(
+                        session=session, prj_id=found_prj.id, with_id=with_id
+                    )
 
                     project_value = {
                         CONFIG_KEY: found_prj.config,
-                        SAMPLE_RAW_DICT_KEY: [samples_dict[key] for key in sorted(samples_dict)],
+                        SAMPLE_RAW_DICT_KEY: sample_list,
                         SUBSAMPLE_RAW_LIST_KEY: subsample_list,
                     }
-                    # project_value = found_prj.project_value
-                    is_private = found_prj.private
+
                     if raw:
                         return project_value
                     else:
                         project_obj = peppy.Project().from_dict(project_value)
-                        project_obj.is_private = is_private
                         return project_obj
 
                 else:
@@ -126,14 +118,42 @@ class PEPDatabaseProject:
         except NoResultFound:
             raise ProjectNotFoundError
 
+    def _get_samples(self, session: Session, prj_id: int, with_id: bool) -> List[Dict]:
+        """
+        Get samples from the project. This method is used to retrieve samples from the project,
+            with open session object.
+
+        :param session: open session object
+        :param prj_id: project id
+        :param with_id: retrieve sample with id
+        """
+        samples_results = session.scalars(select(Samples).where(Samples.project_id == prj_id))
+        result_dict = {}
+        for sample in samples_results:
+            sample_dict = sample.sample
+            if with_id:
+                sample_dict[PEPHUB_SAMPLE_ID_KEY] = sample.guid
+
+            result_dict[sample.guid] = {
+                "sample": sample_dict,
+                "guid": sample.guid,
+                "parent_guid": sample.parent_guid,
+            }
+
+        result_dict = order_samples(result_dict)
+
+        ordered_samples_list = [sample["sample"] for sample in result_dict]
+        return ordered_samples_list
+
     @staticmethod
     def _create_select_statement(name: str, namespace: str, tag: str = DEFAULT_TAG) -> Select:
         """
+        Create simple select statement for retrieving project from database
 
-        :param name:
-        :param namespace:
-        :param tag:
-        :return:
+        :param name: name of the project
+        :param namespace: namespace of the project
+        :param tag: tag of the project
+        :return: select statement
         """
         statement = select(Projects)
         statement = statement.where(
@@ -188,8 +208,9 @@ class PEPDatabaseProject:
             raise ProjectNotFoundError(
                 f"Can't delete unexciting project: '{namespace}/{name}:{tag}'."
             )
-        with self._sa_engine.begin() as conn:
-            conn.execute(
+
+        with Session(self._sa_engine) as session:
+            session.execute(
                 delete(Projects).where(
                     and_(
                         Projects.namespace == namespace,
@@ -199,7 +220,11 @@ class PEPDatabaseProject:
                 )
             )
 
-        _LOGGER.info(f"Project '{namespace}/{name}:{tag} was successfully deleted'")
+            statement = select(User).where(User.namespace == namespace)
+            user = session.scalar(statement)
+            if user:
+                user.number_of_projects -= 1
+                session.commit()
 
     def delete_by_rp(
         self,
@@ -332,6 +357,15 @@ class PEPDatabaseProject:
                     self._add_subsamples_to_project(new_prj, subsamples)
 
                 with Session(self._sa_engine) as session:
+                    user = session.scalar(select(User).where(User.namespace == namespace))
+
+                    if not user:
+                        user = User(namespace=namespace)
+                        session.add(user)
+                        session.commit()
+
+                    user.number_of_projects += 1
+
                     session.add(new_prj)
                     session.commit()
 
@@ -457,6 +491,13 @@ class PEPDatabaseProject:
                     is_private: Optional[bool]
                     tag: Optional[str]
                     name: Optional[str]
+                    description: Optional[str]
+                    is_private: Optional[bool]
+                    pep_schema: Optional[str]
+                    config: Optional[dict]
+                    samples: Optional[List[dict]]
+                    subsamples: Optional[List[List[dict]]]
+                    pop: Optional[bool]
             }
         :param namespace: project namespace
         :param name: project name
@@ -482,196 +523,146 @@ class PEPDatabaseProject:
             statement = self._create_select_statement(name, namespace, tag)
 
             with Session(self._sa_engine) as session:
-                found_prj = session.scalar(statement)
+                found_prj: Projects = session.scalar(statement)
 
-                if found_prj:
-                    _LOGGER.debug(
-                        f"Project has been found: {found_prj.namespace}, {found_prj.name}"
+                if not found_prj:
+                    raise ProjectNotFoundError(
+                        f"Pep {namespace}/{name}:{tag} was not found. No items will be updated!"
                     )
 
-                    for k, v in update_values.items():
-                        if getattr(found_prj, k) != v:
-                            setattr(found_prj, k, v)
+                for k, v in update_values.items():
+                    if getattr(found_prj, k) != v:
+                        setattr(found_prj, k, v)
 
-                            # standardizing project name
-                            if k == NAME_KEY:
-                                if "config" in update_values:
-                                    update_values["config"][NAME_KEY] = v
-                                else:
-                                    found_prj.config[NAME_KEY] = v
-                                found_prj.name = found_prj.config[NAME_KEY]
+                        # standardizing project name
+                        if k == NAME_KEY:
+                            if "config" in update_values:
+                                update_values["config"][NAME_KEY] = v
+                            else:
+                                found_prj.config[NAME_KEY] = v
+                                flag_modified(found_prj, "config")
+                            found_prj.name = found_prj.config[NAME_KEY]
 
-                    if "samples" in update_dict:
-                        self._update_samples(
-                            namespace=namespace,
-                            name=name,
-                            tag=tag,
-                            samples_list=update_dict["samples"],
-                            sample_name_key=update_dict["config"].get(
-                                SAMPLE_TABLE_INDEX_KEY, "sample_name"
-                            ),
+                        if k == DESCRIPTION_KEY:
+                            if "config" in update_values:
+                                update_values["config"][DESCRIPTION_KEY] = v
+                            else:
+                                found_prj.config[DESCRIPTION_KEY] = v
+                                # This line needed due to: https://github.com/sqlalchemy/sqlalchemy/issues/5218
+                                flag_modified(found_prj, "config")
+
+                if "samples" in update_dict:
+
+                    if PEPHUB_SAMPLE_ID_KEY not in update_dict["samples"][0]:
+                        raise SampleTableUpdateError(
+                            f"pephub_sample_id '{PEPHUB_SAMPLE_ID_KEY}' is missing in samples."
+                            f"Please provide it to update samples, or use overwrite method."
                         )
-                        # if found_prj.samples_mapping:
-                        #     for sample in found_prj.samples_mapping:
-                        #         _LOGGER.debug(f"deleting samples: {str(sample)}")
-                        #         session.delete(sample)
-                        #
-                        # self._add_samples_to_project(
-                        #     found_prj,
-                        #     update_dict["samples"],
-                        #     sample_table_index=update_dict["config"].get(SAMPLE_TABLE_INDEX_KEY),
-                        # )
 
-                    if "subsamples" in update_dict:
-                        if found_prj.subsamples_mapping:
-                            for subsample in found_prj.subsamples_mapping:
-                                _LOGGER.debug(f"deleting subsamples: {str(subsample)}")
-                                session.delete(subsample)
+                    self._update_samples(
+                        project_id=found_prj.id,
+                        samples_list=update_dict["samples"],
+                        sample_name_key=update_dict["config"].get(
+                            SAMPLE_TABLE_INDEX_KEY, "sample_name"
+                        ),
+                    )
 
-                        # Adding new subsamples
-                        if update_dict["subsamples"]:
-                            self._add_subsamples_to_project(found_prj, update_dict["subsamples"])
+                if "subsamples" in update_dict:
+                    if found_prj.subsamples_mapping:
+                        for subsample in found_prj.subsamples_mapping:
+                            _LOGGER.debug(f"deleting subsamples: {str(subsample)}")
+                            session.delete(subsample)
 
-                    found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
+                    # Adding new subsamples
+                    if update_dict["subsamples"]:
+                        self._add_subsamples_to_project(found_prj, update_dict["subsamples"])
 
-                    session.commit()
+                found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
+
+                session.commit()
 
             return None
 
         else:
             raise ProjectNotFoundError("No items will be updated!")
 
-    @staticmethod
-    def _find_duplicates(sample_name_list: List[str]) -> List[str]:
-        seen = set()
-        duplicates = set()
-        for name in sample_name_list:
-            if name in seen:
-                duplicates.add(name)
-            else:
-                seen.add(name)
-        return list(duplicates)
-
     def _update_samples(
         self,
-        namespace: str,
-        name: str,
-        tag: str,
-        samples_list: List[Mapping],
+        project_id: int,
+        samples_list: List[Dict[str, str]],
         sample_name_key: str = "sample_name",
     ) -> None:
         """
         Update samples in the project
-        This is a new method that instead of deleting all samples and adding new ones,
-        updates samples and adds new ones if they don't exist
+        This is linked list method, that first finds differences in old and new samples list
+            and then updates, adds, inserts, deletes, or changes the order.
 
+        :param project_id: project id in PEPhub database
         :param samples_list: list of samples to be updated
         :param sample_name_key: key of the sample name
         :return: None
         """
-        # TODO: This function is not ideal and is really slow. We should brainstorm this implementation
 
-        new_sample_names = [sample[sample_name_key] for sample in samples_list]
         with Session(self._sa_engine) as session:
-            project = session.scalar(
-                select(Projects).where(
-                    and_(
-                        Projects.namespace == namespace, Projects.name == name, Projects.tag == tag
-                    )
+            old_samples = session.scalars(select(Samples).where(Samples.project_id == project_id))
+
+            old_samples_mapping: dict = {sample.guid: sample for sample in old_samples}
+            old_samples_ids_set: set = set(old_samples_mapping.keys())
+            new_samples_ids_list: list = [
+                new_sample[PEPHUB_SAMPLE_ID_KEY]
+                for new_sample in samples_list
+                if new_sample[PEPHUB_SAMPLE_ID_KEY] != ""
+                and new_sample[PEPHUB_SAMPLE_ID_KEY] is not None
+            ]
+            new_samples_ids_set: set = set(new_samples_ids_list)
+            new_samples_dict: dict = {
+                new_sample[PEPHUB_SAMPLE_ID_KEY] or generate_guid(): new_sample
+                for new_sample in samples_list
+            }
+
+            if len(new_samples_ids_list) != len(new_samples_ids_set):
+                raise ProjectDuplicatedSampleGUIDsError(
+                    f"Samples have to have unique pephub_sample_id: '{PEPHUB_SAMPLE_ID_KEY}'."
+                    f"If ids are duplicated, overwrite the project."
                 )
-            )
-            old_sample_names = [sample.sample_name for sample in project.samples_mapping]
 
-            # delete samples that are not in the new list
-            sample_names_copy = new_sample_names.copy()
-            for old_sample in old_sample_names:
-                if old_sample not in sample_names_copy:
-                    this_sample = session.scalars(
-                        select(Samples).where(
-                            and_(
-                                Samples.sample_name == old_sample, Samples.project_id == project.id
-                            )
-                        )
+            # Check if something was deleted:
+            deleted_ids = old_samples_ids_set - new_samples_ids_set
+
+            del new_samples_ids_list, new_samples_ids_set
+
+            parent_id = None
+            parent_mapping = None
+
+            # Main loop to update samples
+            for current_id, sample_value in new_samples_dict.items():
+                new_sample = None
+                del sample_value[PEPHUB_SAMPLE_ID_KEY]
+
+                if current_id not in old_samples_ids_set:
+                    new_sample = Samples(
+                        sample=sample_value,
+                        guid=current_id,
+                        sample_name=sample_value[sample_name_key],
+                        row_number=0,
+                        project_id=project_id,
+                        parent_mapping=parent_mapping,
                     )
-                    delete_samples_list = [k for k in this_sample]
-                    session.delete(delete_samples_list[-1])
+                    session.add(new_sample)
+
                 else:
-                    sample_names_copy.remove(old_sample)
+                    if old_samples_mapping[current_id].sample != sample_value:
+                        old_samples_mapping[current_id].sample = sample_value
+                        old_samples_mapping[current_id].sample_name = sample_value[sample_name_key]
 
-            # update or add samples
-            order_number = 0
-            added_sample_list = []
-            for new_sample in samples_list:
-                order_number += 1
+                    if old_samples_mapping[current_id].parent_guid != parent_id:
+                        old_samples_mapping[current_id].parent_mapping = parent_mapping
 
-                if new_sample[sample_name_key] not in added_sample_list:
-                    added_sample_list.append(new_sample[sample_name_key])
+                parent_id = current_id
+                parent_mapping = new_sample or old_samples_mapping[current_id]
 
-                    if new_sample[sample_name_key] not in old_sample_names:
-                        project.samples_mapping.append(
-                            Samples(
-                                sample=new_sample,
-                                sample_name=new_sample[sample_name_key],
-                                row_number=order_number,
-                            )
-                        )
-                    else:
-                        sample_mapping = session.scalar(
-                            select(Samples).where(
-                                and_(
-                                    Samples.sample_name == new_sample[sample_name_key],
-                                    Samples.project_id == project.id,
-                                )
-                            )
-                        )
-                        sample_mapping.sample = new_sample
-                        sample_mapping.row_number = order_number
-                else:
-                    # if sample_name is duplicated is sample table, find second sample and update or add it.
-                    if new_sample[sample_name_key] in old_sample_names:
-                        sample_mappings = session.scalars(
-                            select(Samples).where(
-                                and_(
-                                    Samples.sample_name == new_sample[sample_name_key],
-                                    Samples.project_id == project.id,
-                                )
-                            )
-                        )
-                        sample_mappings = [sample_mapping for sample_mapping in sample_mappings]
-                        if len(sample_mappings) <= 1:
-                            project.samples_mapping.append(
-                                Samples(
-                                    sample=new_sample,
-                                    sample_name=new_sample[sample_name_key],
-                                    row_number=order_number,
-                                )
-                            )
-                        else:
-                            try:
-                                sample_mapping = sample_mappings[
-                                    added_sample_list.count(new_sample[sample_name_key])
-                                ]
-                                sample_mapping.sample = new_sample
-                                sample_mapping.row_number = order_number
-
-                            except Exception:
-                                project.samples_mapping.append(
-                                    Samples(
-                                        sample=new_sample,
-                                        sample_name=new_sample[sample_name_key],
-                                        row_number=order_number,
-                                    )
-                                )
-                        added_sample_list.append(new_sample[sample_name_key])
-                    else:
-                        project.samples_mapping.append(
-                            Samples(
-                                sample=new_sample,
-                                sample_name=new_sample[sample_name_key],
-                                row_number=order_number,
-                            )
-                        )
-                        added_sample_list.append(new_sample[sample_name_key])
+            for remove_id in deleted_ids:
+                session.delete(old_samples_mapping[remove_id])
 
             session.commit()
 
@@ -789,14 +780,18 @@ class PEPDatabaseProject:
         :param sample_table_index: index of the sample table
         :return: NoReturn
         """
+        previous_sample_guid = None
         for row_number, sample in enumerate(samples):
-            projects_sa.samples_mapping.append(
-                Samples(
-                    sample=sample,
-                    row_number=row_number,
-                    sample_name=sample.get(sample_table_index),
-                )
+
+            sample = Samples(
+                sample=sample,
+                row_number=row_number,
+                sample_name=sample.get(sample_table_index),
+                parent_guid=previous_sample_guid,
+                guid=generate_guid(),
             )
+            projects_sa.samples_mapping.append(sample)
+            previous_sample_guid = sample.guid
 
         return None
 
@@ -806,6 +801,7 @@ class PEPDatabaseProject:
     ) -> NoReturn:
         """
         Add subsamples to the project sa object. (With commit this samples will be added to the 'subsamples table')
+
         :param projects_sa: Projects sa object, in open session
         :param subsamples: list of subsamles to be added to the database
         :return: NoReturn
@@ -845,7 +841,7 @@ class PEPDatabaseProject:
         fork_tag: str = None,
         description: str = None,
         private: bool = False,
-    ):
+    ) -> None:
         """
         Fork project from one namespace to another
 
@@ -859,6 +855,7 @@ class PEPDatabaseProject:
         :param private: boolean value if the project should be visible just for user that creates it.
         :return: None
         """
+
         self.create(
             project=self.get(
                 namespace=original_namespace,
@@ -873,19 +870,24 @@ class PEPDatabaseProject:
             is_private=private,
         )
         original_statement = select(Projects).where(
-            Projects.namespace == original_namespace,
-            Projects.name == original_name,
-            Projects.tag == original_tag,
+            and_(
+                Projects.namespace == original_namespace,
+                Projects.name == original_name,
+                Projects.tag == original_tag,
+            )
         )
         fork_statement = select(Projects).where(
-            Projects.namespace == fork_namespace,
-            Projects.name == fork_name,
-            Projects.tag == fork_tag,
+            and_(
+                Projects.namespace == fork_namespace,
+                Projects.name == fork_name,
+                Projects.tag == fork_tag,
+            )
         )
 
         with Session(self._sa_engine) as session:
             original_prj = session.scalar(original_statement)
             fork_prj = session.scalar(fork_statement)
+
             fork_prj.forked_from_id = original_prj.id
             fork_prj.pop = original_prj.pop
             fork_prj.submission_date = original_prj.submission_date
@@ -893,7 +895,6 @@ class PEPDatabaseProject:
             fork_prj.description = description or original_prj.description
 
             session.commit()
-        return None
 
     def get_config(self, namespace: str, name: str, tag: str) -> Union[dict, None]:
         """
@@ -946,7 +947,9 @@ class PEPDatabaseProject:
                     f"Did you supply a valid namespace and project?"
                 )
 
-    def get_samples(self, namespace: str, name: str, tag: str, raw: bool = True) -> list:
+    def get_samples(
+        self, namespace: str, name: str, tag: str, raw: bool = True, with_ids: bool = False
+    ) -> list:
         """
         Get project samples by providing namespace, name, and tag
 
@@ -954,15 +957,16 @@ class PEPDatabaseProject:
         :param name: project name
         :param tag: project tag
         :param raw: if True, retrieve unprocessed (raw) PEP dict. [Default: True]
+        :param with_ids: if True, retrieve samples with ids. [Default: False]
 
         :return: list with project samples
         """
         if raw:
-            return self.get(namespace=namespace, name=name, tag=tag, raw=True).get(
-                SAMPLE_RAW_DICT_KEY
-            )
+            return self.get(
+                namespace=namespace, name=name, tag=tag, raw=True, with_id=with_ids
+            ).get(SAMPLE_RAW_DICT_KEY)
         return (
-            self.get(namespace=namespace, name=name, tag=tag, raw=False)
+            self.get(namespace=namespace, name=name, tag=tag, raw=False, with_id=with_ids)
             .sample_table.replace({np.nan: None})
             .to_dict(orient="records")
         )
