@@ -5,7 +5,7 @@ from sqlalchemy.exc import OperationalError
 
 from pepdbagent import PEPDatabaseAgent
 
-DSN = "postgresql+psycopg://postgres:docker@localhost:5432/pep-db"
+DSN = "postgresql+psycopg://postgres:pass8743hf9h23f87h437@localhost:5432/pep-db"
 
 DATA_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

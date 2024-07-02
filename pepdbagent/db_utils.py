@@ -71,7 +71,7 @@ class Projects(Base):
     __tablename__ = "projects"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    namespace: Mapped[str] = mapped_column()
+    namespace: Mapped[str] = mapped_column(ForeignKey("users.namespace", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column()
     tag: Mapped[str] = mapped_column()
     digest: Mapped[str] = mapped_column(String(32))
@@ -108,12 +108,16 @@ class Projects(Base):
         back_populates="forked_to_mapping",
         remote_side=[id],
         single_parent=True,
-        cascade="all",
+        cascade="save-update, merge, refresh-expire",
     )
 
     forked_to_mapping = relationship(
-        "Projects", back_populates="forked_from_mapping", cascade="all"
+        "Projects",
+        back_populates="forked_from_mapping",
+        cascade="save-update, merge, refresh-expire",
     )
+
+    namespace_mapping: Mapped["User"] = relationship("User", back_populates="projects_mapping")
 
     __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
 
@@ -132,6 +136,12 @@ class Samples(Base):
     project_mapping: Mapped["Projects"] = relationship(back_populates="samples_mapping")
     sample_name: Mapped[Optional[str]] = mapped_column()
     guid: Mapped[Optional[str]] = mapped_column(nullable=False, unique=True)
+
+    submission_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
+    last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
+        default=deliver_update_date,
+        onupdate=deliver_update_date,
+    )
 
     parent_guid: Mapped[Optional[str]] = mapped_column(
         ForeignKey("samples.guid", ondelete="CASCADE"),
@@ -172,11 +182,16 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    namespace: Mapped[str]
+    namespace: Mapped[str] = mapped_column(nullable=False, unique=True)
     stars_mapping: Mapped[List["Stars"]] = relationship(
         back_populates="user_mapping",
         cascade="all, delete-orphan",
         order_by="Stars.star_date.desc()",
+    )
+    number_of_projects: Mapped[int] = mapped_column(default=0)
+
+    projects_mapping: Mapped[List["Projects"]] = relationship(
+        "Projects", back_populates="namespace_mapping"
     )
 
 

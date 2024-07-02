@@ -3,12 +3,12 @@ from collections import Counter
 from datetime import datetime, timedelta
 from typing import List, Tuple, Union
 
-from sqlalchemy import distinct, func, or_, select, text
+from sqlalchemy import distinct, func, or_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.selectable import Select
 
 from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_LIMIT_INFO, DEFAULT_OFFSET, PKG_NAME
-from pepdbagent.db_utils import BaseEngine, Projects
+from pepdbagent.db_utils import BaseEngine, Projects, User
 from pepdbagent.exceptions import NamespaceNotFoundError
 from pepdbagent.models import (
     ListOfNamespaceInfo,
@@ -172,9 +172,54 @@ class PEPDatabaseNamespace:
         )
         return statement
 
+    # old function, that counts namespace info based on Projects table
+    # def info(self, limit: int = DEFAULT_LIMIT_INFO) -> ListOfNamespaceInfo:
+    #     """
+    #     Get list of top n namespaces in the database
+    #
+    #     :param limit: limit of results (top namespace )
+    #     :return: number_of_namespaces: int
+    #              limit: int
+    #              results: { namespace: str
+    #                         number_of_projects: int
+    #                         }
+    #     """
+    #     total_number_of_namespaces = self._count_namespace()
+    #
+    #     statement = (
+    #         select(
+    #             func.count(Projects.namespace).label("number_of_projects"),
+    #             Projects.namespace,
+    #         )
+    #         .select_from(Projects)
+    #         .where(Projects.private.is_(False))
+    #         .limit(limit)
+    #         .order_by(text("number_of_projects desc"))
+    #         .group_by(Projects.namespace)
+    #     )
+    #
+    #     with Session(self._sa_engine) as session:
+    #         query_results = session.execute(statement).all()
+    #
+    #     list_of_results = []
+    #     for result in query_results:
+    #         list_of_results.append(
+    #             NamespaceInfo(
+    #                 namespace=result.namespace,
+    #                 number_of_projects=result.number_of_projects,
+    #             )
+    #         )
+    #     return ListOfNamespaceInfo(
+    #         number_of_namespaces=total_number_of_namespaces,
+    #         limit=limit,
+    #         results=list_of_results,
+    #     )
+
     def info(self, limit: int = DEFAULT_LIMIT_INFO) -> ListOfNamespaceInfo:
         """
         Get list of top n namespaces in the database
+        ! Warning: this function counts number of all projects in namespaces.
+        ! it does not filter private projects (It was done for efficiency reasons)
 
         :param limit: limit of results (top namespace )
         :return: number_of_namespaces: int
@@ -183,36 +228,24 @@ class PEPDatabaseNamespace:
                             number_of_projects: int
                             }
         """
-        total_number_of_namespaces = self._count_namespace()
-
-        statement = (
-            select(
-                func.count(Projects.namespace).label("number_of_projects"),
-                Projects.namespace,
-            )
-            .select_from(Projects)
-            .where(Projects.private.is_(False))
-            .limit(limit)
-            .order_by(text("number_of_projects desc"))
-            .group_by(Projects.namespace)
-        )
-
         with Session(self._sa_engine) as session:
-            query_results = session.execute(statement).all()
-
-        list_of_results = []
-        for result in query_results:
-            list_of_results.append(
-                NamespaceInfo(
-                    namespace=result.namespace,
-                    number_of_projects=result.number_of_projects,
-                )
+            results = session.scalars(
+                select(User).limit(limit).order_by(User.number_of_projects.desc())
             )
-        return ListOfNamespaceInfo(
-            number_of_namespaces=total_number_of_namespaces,
-            limit=limit,
-            results=list_of_results,
-        )
+
+            list_of_results = []
+            for result in results:
+                list_of_results.append(
+                    NamespaceInfo(
+                        namespace=result.namespace,
+                        number_of_projects=result.number_of_projects,
+                    )
+                )
+            return ListOfNamespaceInfo(
+                number_of_namespaces=len(list_of_results),
+                limit=limit,
+                results=list_of_results,
+            )
 
     def stats(self, namespace: str = None, monthly: bool = False) -> NamespaceStats:
         """

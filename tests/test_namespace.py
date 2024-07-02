@@ -23,7 +23,10 @@ class TestNamespace:
             result = agent.namespace.get(admin="private_test")
             assert len(result.results) == 4
 
-    def test_namespace_info(self):
+    @pytest.mark.skip(
+        "Skipping test because we are not taking into account the private projects (We are counting all of them)"
+    )
+    def test_namespace_info_private(self):
         with PEPDBAgentContextManager(add_data=True) as agent:
             agent.project.update(
                 namespace="private_test",
@@ -34,6 +37,18 @@ class TestNamespace:
             result = agent.namespace.info()
             assert len(result.results) == 4
             assert result.results[3].number_of_projects == 1
+
+    def test_namespace_info_all(self):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+            agent.project.update(
+                namespace="private_test",
+                name="derive",
+                tag="default",
+                update_dict={"is_private": False},
+            )
+            result = agent.namespace.info()
+            assert len(result.results) == 4
+            assert result.results[3].number_of_projects == 6
 
     def test_namespace_stats(self):
         with PEPDBAgentContextManager(add_data=True) as agent:

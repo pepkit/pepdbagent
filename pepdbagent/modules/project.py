@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from pepdbagent.const import DEFAULT_TAG, DESCRIPTION_KEY, NAME_KEY, PEPHUB_SAMPLE_ID_KEY, PKG_NAME
-from pepdbagent.db_utils import BaseEngine, Projects, Samples, Subsamples
+from pepdbagent.db_utils import BaseEngine, Projects, Samples, Subsamples, User
 from pepdbagent.exceptions import (
     PEPDatabaseAgentError,
     ProjectDuplicatedSampleGUIDsError,
@@ -208,8 +208,9 @@ class PEPDatabaseProject:
             raise ProjectNotFoundError(
                 f"Can't delete unexciting project: '{namespace}/{name}:{tag}'."
             )
-        with self._sa_engine.begin() as conn:
-            conn.execute(
+
+        with Session(self._sa_engine) as session:
+            session.execute(
                 delete(Projects).where(
                     and_(
                         Projects.namespace == namespace,
@@ -219,7 +220,11 @@ class PEPDatabaseProject:
                 )
             )
 
-        _LOGGER.info(f"Project '{namespace}/{name}:{tag} was successfully deleted'")
+            statement = select(User).where(User.namespace == namespace)
+            user = session.scalar(statement)
+            if user:
+                user.number_of_projects -= 1
+                session.commit()
 
     def delete_by_rp(
         self,
@@ -352,6 +357,15 @@ class PEPDatabaseProject:
                     self._add_subsamples_to_project(new_prj, subsamples)
 
                 with Session(self._sa_engine) as session:
+                    user = session.scalar(select(User).where(User.namespace == namespace))
+
+                    if not user:
+                        user = User(namespace=namespace)
+                        session.add(user)
+                        session.commit()
+
+                    user.number_of_projects += 1
+
                     session.add(new_prj)
                     session.commit()
 
