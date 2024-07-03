@@ -36,7 +36,13 @@ from pepdbagent.exceptions import (
     SampleTableUpdateError,
     HistoryNotFoundError,
 )
-from pepdbagent.models import ProjectDict, UpdateItems, UpdateModel
+from pepdbagent.models import (
+    ProjectDict,
+    UpdateItems,
+    UpdateModel,
+    HistoryChangeModel,
+    HistoryAnnotationModel,
+)
 from pepdbagent.utils import create_digest, generate_guid, order_samples, registry_path_converter
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -1058,7 +1064,7 @@ class PEPDatabaseProject:
             .to_dict(orient="records")
         )
 
-    def get_history(self, namespace: str, name: str, tag: str) -> Union[dict, None]:
+    def get_history(self, namespace: str, name: str, tag: str) -> HistoryAnnotationModel:
         """
         Get project history annotation by providing namespace, name, and tag
 
@@ -1087,10 +1093,23 @@ class PEPDatabaseProject:
                 .order_by(HistoryProjects.update_time.desc())
             )
             results = session.scalars(statement)
+            return_results: List = []
 
-            # TODO: it's not working, need to be fixed
             if results:
-                return {result.id: result.__dict__ for result in results}
+                for result in results:
+                    return_results.append(
+                        HistoryChangeModel(
+                            change_id=result.id,
+                            change_date=result.update_time,
+                            user=result.user,
+                        )
+                    )
+            return HistoryAnnotationModel(
+                project_name=name,
+                project_namespace=namespace,
+                project_tag=tag,
+                history=return_results,
+            )
 
     def get_project_from_history(
         self, namespace: str, name: str, tag: str, history_id: int, raw: bool = True

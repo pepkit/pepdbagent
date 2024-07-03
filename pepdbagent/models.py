@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Union
 
 from peppy.const import CONFIG_KEY, SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_LIST_KEY
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+import datetime
 
 from pepdbagent.const import DEFAULT_TAG
 
@@ -224,3 +225,24 @@ class NamespaceStats(BaseModel):
     namespace: Union[str, None] = None
     projects_updated: Dict[str, int] = None
     projects_created: Dict[str, int] = None
+
+
+class HistoryChangeModel(BaseModel):
+    """
+    Model for history change
+    """
+
+    change_id: int
+    change_date: datetime.datetime
+    user: str
+
+
+class HistoryAnnotationModel(BaseModel):
+    """
+    History annotation model
+    """
+
+    namespace: str
+    name: str
+    tag: str = DEFAULT_TAG
+    history: List[HistoryChangeModel]
