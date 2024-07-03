@@ -1105,9 +1105,9 @@ class PEPDatabaseProject:
                         )
                     )
             return HistoryAnnotationModel(
-                project_name=name,
-                project_namespace=namespace,
-                project_tag=tag,
+                namespace=namespace,
+                name=name,
+                tag=tag,
                 history=return_results,
             )
 
@@ -1146,6 +1146,22 @@ class PEPDatabaseProject:
                 prj_id=project_mapping.id, session=session, with_id=True
             )
 
+            main_history = session.scalar(
+                select(HistoryProjects)
+                .where(
+                    and_(
+                        HistoryProjects.project_id == project_mapping.id,
+                        HistoryProjects.id == history_id,
+                    )
+                )
+                .order_by(HistoryProjects.update_time.desc())
+            )
+            if not main_history:
+                raise HistoryNotFoundError(
+                        f"No history found for supplied input: '{namespace}/{name}:{tag}'. "
+                        f"Did you supply a valid history id?"
+                    )
+
             changes_mappings = session.scalars(
                 select(HistoryProjects)
                 .where(
@@ -1155,14 +1171,6 @@ class PEPDatabaseProject:
                 )
                 .order_by(HistoryProjects.update_time.desc())
             )
-
-            changes_ids = [result.id for result in changes_mappings]
-
-            if history_id not in changes_ids:
-                raise HistoryNotFoundError(
-                    f"No history found for supplied input: '{namespace}/{name}:{tag}'. "
-                    f"Did you supply a valid history id?"
-                )
 
             # Changes mapping is a ordered list from most early to latest changes
             # We have to loop through each change and apply it to the sample list
