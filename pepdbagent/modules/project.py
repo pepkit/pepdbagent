@@ -1158,9 +1158,9 @@ class PEPDatabaseProject:
             )
             if not main_history:
                 raise HistoryNotFoundError(
-                        f"No history found for supplied input: '{namespace}/{name}:{tag}'. "
-                        f"Did you supply a valid history id?"
-                    )
+                    f"No history found for supplied input: '{namespace}/{name}:{tag}'. "
+                    f"Did you supply a valid history id?"
+                )
 
             changes_mappings = session.scalars(
                 select(HistoryProjects)
