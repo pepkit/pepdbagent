@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from pepdbagent.const import DEFAULT_TAG, DESCRIPTION_KEY, NAME_KEY, PEPHUB_SAMPLE_ID_KEY, PKG_NAME
-from pepdbagent.db_utils import BaseEngine, Projects, Samples, Subsamples, User
+from pepdbagent.db_utils import BaseEngine, Projects, Samples, Subsamples, User, HistoryProjects, HistorySamples, UpdateTypes
 from pepdbagent.exceptions import (
     PEPDatabaseAgentError,
     ProjectDuplicatedSampleGUIDsError,
@@ -481,6 +481,7 @@ class PEPDatabaseProject:
         namespace: str,
         name: str,
         tag: str = DEFAULT_TAG,
+        user: str = None,
     ) -> None:
         """
         Update partial parts of the record in db
@@ -502,6 +503,7 @@ class PEPDatabaseProject:
         :param namespace: project namespace
         :param name: project name
         :param tag: project tag
+        :user: user that updates the project if user is not provided, user will be set as Namespace
         :return: None
         """
         if self.exists(namespace=namespace, name=name, tag=tag):
@@ -559,12 +561,21 @@ class PEPDatabaseProject:
                             f"Please provide it to update samples, or use overwrite method."
                         )
 
+                    new_history = HistoryProjects(
+                        project_id=found_prj.id,
+                        user=user or namespace,
+                        project_yaml=update_dict["config"],
+                    )
+                    session.add(new_history)
+
                     self._update_samples(
                         project_id=found_prj.id,
                         samples_list=update_dict["samples"],
                         sample_name_key=update_dict["config"].get(
                             SAMPLE_TABLE_INDEX_KEY, "sample_name"
                         ),
+                        history_sa_model=new_history,
+
                     )
 
                 if "subsamples" in update_dict:
@@ -591,6 +602,7 @@ class PEPDatabaseProject:
         project_id: int,
         samples_list: List[Dict[str, str]],
         sample_name_key: str = "sample_name",
+        history_sa_model: HistoryProjects = None,
     ) -> None:
         """
         Update samples in the project
@@ -600,6 +612,7 @@ class PEPDatabaseProject:
         :param project_id: project id in PEPhub database
         :param samples_list: list of samples to be updated
         :param sample_name_key: key of the sample name
+        :param history_sa_model: HistoryProjects object, to write to the history table
         :return: None
         """
 
@@ -650,18 +663,59 @@ class PEPDatabaseProject:
                     )
                     session.add(new_sample)
 
+                    if history_sa_model:
+                        history_sa_model.sample_changes_mapping.append(HistorySamples(
+                                guid=new_sample.guid,
+                                parent_guid=new_sample.parent_guid,
+                                sample_json=new_sample.sample,
+                                change_type=UpdateTypes.INSERT,
+                            )
+                        )
+
                 else:
+                    current_history = None
                     if old_samples_mapping[current_id].sample != sample_value:
+
+                        if history_sa_model:
+                            current_history = HistorySamples(
+                                guid=old_samples_mapping[current_id].guid,
+                                parent_guid=old_samples_mapping[current_id].parent_guid,
+                                sample_json=old_samples_mapping[current_id].sample,
+                                change_type=UpdateTypes.UPDATE,
+                            )
+
                         old_samples_mapping[current_id].sample = sample_value
                         old_samples_mapping[current_id].sample_name = sample_value[sample_name_key]
 
                     if old_samples_mapping[current_id].parent_guid != parent_id:
+                        if history_sa_model:
+                            if current_history:
+                                current_history.parent_guid = parent_id
+                            else:
+                                current_history = HistorySamples(
+                                    guid=old_samples_mapping[current_id].guid,
+                                    parent_guid=old_samples_mapping[current_id].parent_guid,
+                                    sample_json=old_samples_mapping[current_id].sample,
+                                    change_type=UpdateTypes.UPDATE,
+                                )
                         old_samples_mapping[current_id].parent_mapping = parent_mapping
+
+                    if history_sa_model and current_history:
+                        history_sa_model.sample_changes_mapping.append(current_history)
 
                 parent_id = current_id
                 parent_mapping = new_sample or old_samples_mapping[current_id]
 
             for remove_id in deleted_ids:
+
+                if history_sa_model:
+                    history_sa_model.sample_changes_mapping.append(HistorySamples(
+                            guid=old_samples_mapping[remove_id].guid,
+                            parent_guid=old_samples_mapping[remove_id].parent_guid,
+                            sample_json=old_samples_mapping[remove_id].sample,
+                            change_type=UpdateTypes.DELETE,
+                        )
+                    )
                 session.delete(old_samples_mapping[remove_id])
 
             session.commit()
