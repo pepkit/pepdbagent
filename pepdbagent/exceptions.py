@@ -107,3 +107,8 @@ class ViewAlreadyExistsError(PEPDatabaseAgentError):
 class NamespaceNotFoundError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
         super().__init__(f"""Project does not exist. {msg}""")
+
+
+class HistoryNotFoundError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""History does not exist. {msg}""")
