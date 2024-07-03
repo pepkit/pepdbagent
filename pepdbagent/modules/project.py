@@ -1058,7 +1058,7 @@ class PEPDatabaseProject:
             .to_dict(orient="records")
         )
 
-    def get_project_history(self, namespace: str, name: str, tag: str) -> Union[dict, None]:
+    def get_history(self, namespace: str, name: str, tag: str) -> Union[dict, None]:
         """
         Get project history annotation by providing namespace, name, and tag
 
