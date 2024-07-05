@@ -681,6 +681,19 @@ class PEPDatabaseProject:
 
             del new_samples_ids_list, new_samples_ids_set
 
+            for remove_id in deleted_ids:
+
+                if history_sa_model:
+                    history_sa_model.sample_changes_mapping.append(
+                        HistorySamples(
+                            guid=old_samples_mapping[remove_id].guid,
+                            parent_guid=old_samples_mapping[remove_id].parent_guid,
+                            sample_json=old_samples_mapping[remove_id].sample,
+                            change_type=UpdateTypes.DELETE,
+                        )
+                    )
+                session.delete(old_samples_mapping[remove_id])
+
             parent_id = None
             parent_mapping = None
 
@@ -743,19 +756,6 @@ class PEPDatabaseProject:
 
                 parent_id = current_id
                 parent_mapping = new_sample or old_samples_mapping[current_id]
-
-            for remove_id in deleted_ids:
-
-                if history_sa_model:
-                    history_sa_model.sample_changes_mapping.append(
-                        HistorySamples(
-                            guid=old_samples_mapping[remove_id].guid,
-                            parent_guid=old_samples_mapping[remove_id].parent_guid,
-                            sample_json=old_samples_mapping[remove_id].sample,
-                            change_type=UpdateTypes.DELETE,
-                        )
-                    )
-                session.delete(old_samples_mapping[remove_id])
 
             session.commit()
 
@@ -1088,7 +1088,7 @@ class PEPDatabaseProject:
                             Projects.tag == tag,
                         )
                     )
-                    .subquery()
+                    .scalar_subquery()
                 )
                 .order_by(HistoryProjects.update_time.desc())
             )
@@ -1112,7 +1112,13 @@ class PEPDatabaseProject:
             )
 
     def get_project_from_history(
-        self, namespace: str, name: str, tag: str, history_id: int, raw: bool = True
+        self,
+        namespace: str,
+        name: str,
+        tag: str,
+        history_id: int,
+        raw: bool = True,
+        with_id: bool = False,
     ) -> Union[dict, peppy.Project]:
         """
         Get project sample history annotation by providing namespace, name, and tag
@@ -1122,6 +1128,7 @@ class PEPDatabaseProject:
         :param tag: project tag
         :param history_id: history id
         :param raw: if True, retrieve unprocessed (raw) PEP dict. [Default: True]
+        :param with_id: if True, retrieve samples with ids. [Default: False]
 
         :return: project sample history annotation
         """
@@ -1186,6 +1193,13 @@ class PEPDatabaseProject:
 
         samples_list = order_samples(sample_dict)
         ordered_samples_list = [sample["sample"] for sample in samples_list]
+
+        if not with_id:
+            for sample in ordered_samples_list:
+                try:
+                    del sample[PEPHUB_SAMPLE_ID_KEY]
+                except KeyError:
+                    pass
 
         if raw:
             return {
