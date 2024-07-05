@@ -1,11 +1,12 @@
 import datetime
+import enum
 import logging
 from typing import List, Optional
-import enum
 
 from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
+    Enum,
     FetchedValue,
     ForeignKey,
     Result,
@@ -20,7 +21,6 @@ from sqlalchemy.engine import URL, create_engine
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
-from sqlalchemy import Enum
 
 from pepdbagent.const import PKG_NAME, POSTGRES_DIALECT
 from pepdbagent.exceptions import SchemaError

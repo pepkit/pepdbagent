@@ -1,4 +1,5 @@
 import pytest
+
 from pepdbagent.exceptions import ProjectAlreadyInFavorites, ProjectNotInFavorites
 
 from .utils import PEPDBAgentContextManager

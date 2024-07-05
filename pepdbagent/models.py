@@ -1,9 +1,9 @@
 # file with pydantic models
+import datetime
 from typing import Dict, List, Optional, Union
 
 from peppy.const import CONFIG_KEY, SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_LIST_KEY
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-import datetime
 
 from pepdbagent.const import DEFAULT_TAG
 

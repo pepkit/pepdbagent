@@ -17,31 +17,38 @@ from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from pepdbagent.const import DEFAULT_TAG, DESCRIPTION_KEY, NAME_KEY, PEPHUB_SAMPLE_ID_KEY, PKG_NAME
+from pepdbagent.const import (
+    DEFAULT_TAG,
+    DESCRIPTION_KEY,
+    MAX_HISTORY_SAMPLES_NUMBER,
+    NAME_KEY,
+    PEPHUB_SAMPLE_ID_KEY,
+    PKG_NAME,
+)
 from pepdbagent.db_utils import (
     BaseEngine,
+    HistoryProjects,
+    HistorySamples,
     Projects,
     Samples,
     Subsamples,
-    User,
-    HistoryProjects,
-    HistorySamples,
     UpdateTypes,
+    User,
 )
 from pepdbagent.exceptions import (
+    HistoryNotFoundError,
     PEPDatabaseAgentError,
     ProjectDuplicatedSampleGUIDsError,
     ProjectNotFoundError,
     ProjectUniqueNameError,
     SampleTableUpdateError,
-    HistoryNotFoundError,
 )
 from pepdbagent.models import (
+    HistoryAnnotationModel,
+    HistoryChangeModel,
     ProjectDict,
     UpdateItems,
     UpdateModel,
-    HistoryChangeModel,
-    HistoryAnnotationModel,
 )
 from pepdbagent.utils import create_digest, generate_guid, order_samples, registry_path_converter
 
@@ -541,7 +548,7 @@ class PEPDatabaseProject:
         :param namespace: project namespace
         :param name: project name
         :param tag: project tag
-        :user: user that updates the project if user is not provided, user will be set as Namespace
+        :param user: user that updates the project if user is not provided, user will be set as Namespace
         :return: None
         """
         if self.exists(namespace=namespace, name=name, tag=tag):
@@ -598,13 +605,19 @@ class PEPDatabaseProject:
                             f"pephub_sample_id '{PEPHUB_SAMPLE_ID_KEY}' is missing in samples."
                             f"Please provide it to update samples, or use overwrite method."
                         )
-
-                    new_history = HistoryProjects(
-                        project_id=found_prj.id,
-                        user=user or namespace,
-                        project_yaml=update_dict["config"],
-                    )
-                    session.add(new_history)
+                    if len(update_dict["samples"]) > MAX_HISTORY_SAMPLES_NUMBER:
+                        _LOGGER.warning(
+                            f"Number of samples in the project exceeds the limit of {MAX_HISTORY_SAMPLES_NUMBER}."
+                            f"Samples won't be updated."
+                        )
+                        new_history = None
+                    else:
+                        new_history = HistoryProjects(
+                            project_id=found_prj.id,
+                            user=user or namespace,
+                            project_yaml=update_dict["config"],
+                        )
+                        session.add(new_history)
 
                     self._update_samples(
                         project_id=found_prj.id,
@@ -639,7 +652,7 @@ class PEPDatabaseProject:
         project_id: int,
         samples_list: List[Dict[str, str]],
         sample_name_key: str = "sample_name",
-        history_sa_model: HistoryProjects = None,
+        history_sa_model: Union[HistoryProjects, None] = None,
     ) -> None:
         """
         Update samples in the project
@@ -1242,3 +1255,56 @@ class PEPDatabaseProject:
                 del sample_list[sample_id]
 
         return sample_list
+
+    def delete_history(
+        self, namespace: str, name: str, tag: str, history_id: Union[int, None] = None
+    ) -> None:
+        """
+        Delete history from the project
+
+        :param namespace: project namespace
+        :param name: project name
+        :param tag: project tag
+        :param history_id: history id. If none is provided, all history will be deleted
+
+        :return: None
+        """
+        with Session(self._sa_engine) as session:
+            project_mapping = session.scalar(
+                select(Projects).where(
+                    and_(
+                        Projects.namespace == namespace,
+                        Projects.name == name,
+                        Projects.tag == tag,
+                    )
+                )
+            )
+            if not project_mapping:
+                raise ProjectNotFoundError(
+                    f"No project found for supplied input: '{namespace}/{name}:{tag}'. "
+                    f"Did you supply a valid namespace and project?"
+                )
+
+            if history_id is None:
+                session.execute(
+                    delete(HistoryProjects).where(HistoryProjects.project_id == project_mapping.id)
+                )
+                session.commit()
+                return None
+
+            history_mapping = session.scalar(
+                select(HistoryProjects).where(
+                    and_(
+                        HistoryProjects.project_id == project_mapping.id,
+                        HistoryProjects.id == history_id,
+                    )
+                )
+            )
+            if not history_mapping:
+                raise HistoryNotFoundError(
+                    f"No history found for supplied input: '{namespace}/{name}:{tag}'. "
+                    f"Did you supply a valid history id?"
+                )
+
+            session.delete(history_mapping)
+            session.commit()
