@@ -7,7 +7,11 @@ from sqlalchemy.orm import Session
 
 from pepdbagent.const import PKG_NAME
 from pepdbagent.db_utils import BaseEngine, Projects, Stars, User
-from pepdbagent.exceptions import ProjectAlreadyInFavorites, ProjectNotInFavorites
+from pepdbagent.exceptions import (
+    ProjectAlreadyInFavorites,
+    ProjectNotInFavorites,
+    UserNotFoundError,
+)
 from pepdbagent.models import AnnotationList, AnnotationModel
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -214,3 +218,17 @@ class PEPDatabaseUser:
             return True
         else:
             return False
+
+    def delete(self, namespace: str) -> None:
+        """
+        Delete user from the database with all related data
+
+        :param namespace: user namespace
+        :return: None
+        """
+        if not self.exists(namespace):
+            raise UserNotFoundError
+
+        with Session(self._sa_engine) as session:
+            session.execute(delete(User).where(User.namespace == namespace))
+            session.commit()
