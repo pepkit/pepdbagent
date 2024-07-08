@@ -234,7 +234,6 @@ class PEPDatabaseSample:
             else:
                 sample_mapping = Samples(
                     sample=sample_dict,
-                    row_number=0,
                     project_id=project_mapping.id,
                     sample_name=sample_name,
                     guid=generate_guid(),

@@ -19,7 +19,7 @@ class TestProject:
     def test_create_project(self):
         with PEPDBAgentContextManager(add_data=False) as agent:
             prj = peppy.Project(list_of_available_peps()["namespace3"]["subtables"])
-            agent.project.create(prj, namespace="test", name="imply", overwrite=True)
+            agent.project.create(prj, namespace="test", name="imply", overwrite=False)
             assert True
 
     def test_create_project_from_dict(self):

@@ -726,7 +726,6 @@ class PEPDatabaseProject:
                         sample=sample_value,
                         guid=current_id,
                         sample_name=sample_value[sample_name_key],
-                        row_number=0,
                         project_id=project_id,
                         parent_mapping=parent_mapping,
                     )
@@ -895,11 +894,10 @@ class PEPDatabaseProject:
         :return: NoReturn
         """
         previous_sample_guid = None
-        for row_number, sample in enumerate(samples):
+        for sample in samples:
 
             sample = Samples(
                 sample=sample,
-                row_number=row_number,
                 sample_name=sample.get(sample_table_index),
                 parent_guid=previous_sample_guid,
                 guid=generate_guid(),
