@@ -17,16 +17,39 @@ from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from pepdbagent.const import DEFAULT_TAG, DESCRIPTION_KEY, NAME_KEY, PEPHUB_SAMPLE_ID_KEY, PKG_NAME
-from pepdbagent.db_utils import BaseEngine, Projects, Samples, Subsamples, User
+from pepdbagent.const import (
+    DEFAULT_TAG,
+    DESCRIPTION_KEY,
+    MAX_HISTORY_SAMPLES_NUMBER,
+    NAME_KEY,
+    PEPHUB_SAMPLE_ID_KEY,
+    PKG_NAME,
+)
+from pepdbagent.db_utils import (
+    BaseEngine,
+    HistoryProjects,
+    HistorySamples,
+    Projects,
+    Samples,
+    Subsamples,
+    UpdateTypes,
+    User,
+)
 from pepdbagent.exceptions import (
+    HistoryNotFoundError,
     PEPDatabaseAgentError,
     ProjectDuplicatedSampleGUIDsError,
     ProjectNotFoundError,
     ProjectUniqueNameError,
     SampleTableUpdateError,
 )
-from pepdbagent.models import ProjectDict, UpdateItems, UpdateModel
+from pepdbagent.models import (
+    HistoryAnnotationModel,
+    HistoryChangeModel,
+    ProjectDict,
+    UpdateItems,
+    UpdateModel,
+)
 from pepdbagent.utils import create_digest, generate_guid, order_samples, registry_path_converter
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -127,6 +150,31 @@ class PEPDatabaseProject:
         :param prj_id: project id
         :param with_id: retrieve sample with id
         """
+        result_dict = self._get_samples_dict(prj_id, session, with_id)
+
+        result_dict = order_samples(result_dict)
+
+        ordered_samples_list = [sample["sample"] for sample in result_dict]
+        return ordered_samples_list
+
+    @staticmethod
+    def _get_samples_dict(prj_id: int, session: Session, with_id: bool) -> Dict:
+        """
+        Get not ordered samples from the project. This method is used to retrieve samples from the project
+
+        :param prj_id: project id
+        :param session: open session object
+        :param with_id: retrieve sample with id
+
+        :return: dictionary with samples:
+            {guid:
+                {
+                    "sample": sample_dict,
+                    "guid": guid,
+                    "parent_guid": parent_guid
+                }
+            }
+        """
         samples_results = session.scalars(select(Samples).where(Samples.project_id == prj_id))
         result_dict = {}
         for sample in samples_results:
@@ -140,10 +188,7 @@ class PEPDatabaseProject:
                 "parent_guid": sample.parent_guid,
             }
 
-        result_dict = order_samples(result_dict)
-
-        ordered_samples_list = [sample["sample"] for sample in result_dict]
-        return ordered_samples_list
+        return result_dict
 
     @staticmethod
     def _create_select_statement(name: str, namespace: str, tag: str = DEFAULT_TAG) -> Select:
@@ -481,6 +526,7 @@ class PEPDatabaseProject:
         namespace: str,
         name: str,
         tag: str = DEFAULT_TAG,
+        user: str = None,
     ) -> None:
         """
         Update partial parts of the record in db
@@ -502,6 +548,7 @@ class PEPDatabaseProject:
         :param namespace: project namespace
         :param name: project name
         :param tag: project tag
+        :param user: user that updates the project if user is not provided, user will be set as Namespace
         :return: None
         """
         if self.exists(namespace=namespace, name=name, tag=tag):
@@ -558,6 +605,19 @@ class PEPDatabaseProject:
                             f"pephub_sample_id '{PEPHUB_SAMPLE_ID_KEY}' is missing in samples."
                             f"Please provide it to update samples, or use overwrite method."
                         )
+                    if len(update_dict["samples"]) > MAX_HISTORY_SAMPLES_NUMBER:
+                        _LOGGER.warning(
+                            f"Number of samples in the project exceeds the limit of {MAX_HISTORY_SAMPLES_NUMBER}."
+                            f"Samples won't be updated."
+                        )
+                        new_history = None
+                    else:
+                        new_history = HistoryProjects(
+                            project_id=found_prj.id,
+                            user=user or namespace,
+                            project_yaml=update_dict["config"],
+                        )
+                        session.add(new_history)
 
                     self._update_samples(
                         project_id=found_prj.id,
@@ -565,6 +625,7 @@ class PEPDatabaseProject:
                         sample_name_key=update_dict["config"].get(
                             SAMPLE_TABLE_INDEX_KEY, "sample_name"
                         ),
+                        history_sa_model=new_history,
                     )
 
                 if "subsamples" in update_dict:
@@ -591,6 +652,7 @@ class PEPDatabaseProject:
         project_id: int,
         samples_list: List[Dict[str, str]],
         sample_name_key: str = "sample_name",
+        history_sa_model: Union[HistoryProjects, None] = None,
     ) -> None:
         """
         Update samples in the project
@@ -600,6 +662,7 @@ class PEPDatabaseProject:
         :param project_id: project id in PEPhub database
         :param samples_list: list of samples to be updated
         :param sample_name_key: key of the sample name
+        :param history_sa_model: HistoryProjects object, to write to the history table
         :return: None
         """
 
@@ -607,6 +670,12 @@ class PEPDatabaseProject:
             old_samples = session.scalars(select(Samples).where(Samples.project_id == project_id))
 
             old_samples_mapping: dict = {sample.guid: sample for sample in old_samples}
+
+            # old_child_parent_id needed because of the parent_guid is sometimes set to none in sqlalchemy mapping :( bug
+            old_child_parent_id: Dict[str, str] = {
+                child: mapping.parent_guid for child, mapping in old_samples_mapping.items()
+            }
+
             old_samples_ids_set: set = set(old_samples_mapping.keys())
             new_samples_ids_list: list = [
                 new_sample[PEPHUB_SAMPLE_ID_KEY]
@@ -631,6 +700,19 @@ class PEPDatabaseProject:
 
             del new_samples_ids_list, new_samples_ids_set
 
+            for remove_id in deleted_ids:
+
+                if history_sa_model:
+                    history_sa_model.sample_changes_mapping.append(
+                        HistorySamples(
+                            guid=old_samples_mapping[remove_id].guid,
+                            parent_guid=old_samples_mapping[remove_id].parent_guid,
+                            sample_json=old_samples_mapping[remove_id].sample,
+                            change_type=UpdateTypes.DELETE,
+                        )
+                    )
+                session.delete(old_samples_mapping[remove_id])
+
             parent_id = None
             parent_mapping = None
 
@@ -644,25 +726,56 @@ class PEPDatabaseProject:
                         sample=sample_value,
                         guid=current_id,
                         sample_name=sample_value[sample_name_key],
-                        row_number=0,
                         project_id=project_id,
                         parent_mapping=parent_mapping,
                     )
                     session.add(new_sample)
 
+                    if history_sa_model:
+                        history_sa_model.sample_changes_mapping.append(
+                            HistorySamples(
+                                guid=new_sample.guid,
+                                parent_guid=new_sample.parent_guid,
+                                sample_json=new_sample.sample,
+                                change_type=UpdateTypes.INSERT,
+                            )
+                        )
+
                 else:
+                    current_history = None
                     if old_samples_mapping[current_id].sample != sample_value:
+
+                        if history_sa_model:
+                            current_history = HistorySamples(
+                                guid=old_samples_mapping[current_id].guid,
+                                parent_guid=old_samples_mapping[current_id].parent_guid,
+                                sample_json=old_samples_mapping[current_id].sample,
+                                change_type=UpdateTypes.UPDATE,
+                            )
+
                         old_samples_mapping[current_id].sample = sample_value
                         old_samples_mapping[current_id].sample_name = sample_value[sample_name_key]
 
+                    # !bug workaround: if project was deleted and sometimes old_samples_mapping[current_id].parent_guid
+                    # and it can cause an error in history. For this we have `old_child_parent_id` dict
                     if old_samples_mapping[current_id].parent_guid != parent_id:
+                        if history_sa_model:
+                            if current_history:
+                                current_history.parent_guid = parent_id
+                            else:
+                                current_history = HistorySamples(
+                                    guid=old_samples_mapping[current_id].guid,
+                                    parent_guid=old_child_parent_id[current_id],
+                                    sample_json=old_samples_mapping[current_id].sample,
+                                    change_type=UpdateTypes.UPDATE,
+                                )
                         old_samples_mapping[current_id].parent_mapping = parent_mapping
+
+                    if history_sa_model and current_history:
+                        history_sa_model.sample_changes_mapping.append(current_history)
 
                 parent_id = current_id
                 parent_mapping = new_sample or old_samples_mapping[current_id]
-
-            for remove_id in deleted_ids:
-                session.delete(old_samples_mapping[remove_id])
 
             session.commit()
 
@@ -781,11 +894,10 @@ class PEPDatabaseProject:
         :return: NoReturn
         """
         previous_sample_guid = None
-        for row_number, sample in enumerate(samples):
+        for sample in samples:
 
             sample = Samples(
                 sample=sample,
-                row_number=row_number,
                 sample_name=sample.get(sample_table_index),
                 parent_guid=previous_sample_guid,
                 guid=generate_guid(),
@@ -969,4 +1081,272 @@ class PEPDatabaseProject:
             self.get(namespace=namespace, name=name, tag=tag, raw=False, with_id=with_ids)
             .sample_table.replace({np.nan: None})
             .to_dict(orient="records")
+        )
+
+    def get_history(self, namespace: str, name: str, tag: str) -> HistoryAnnotationModel:
+        """
+        Get project history annotation by providing namespace, name, and tag
+
+        :param namespace: project namespace
+        :param name: project name
+        :param tag: project tag
+
+        :return: project history annotation
+        """
+
+        with Session(self._sa_engine) as session:
+            statement = (
+                select(HistoryProjects)
+                .where(
+                    HistoryProjects.project_id
+                    == select(Projects.id)
+                    .where(
+                        and_(
+                            Projects.namespace == namespace,
+                            Projects.name == name,
+                            Projects.tag == tag,
+                        )
+                    )
+                    .scalar_subquery()
+                )
+                .order_by(HistoryProjects.update_time.desc())
+            )
+            results = session.scalars(statement)
+            return_results: List = []
+
+            if results:
+                for result in results:
+                    return_results.append(
+                        HistoryChangeModel(
+                            change_id=result.id,
+                            change_date=result.update_time,
+                            user=result.user,
+                        )
+                    )
+            return HistoryAnnotationModel(
+                namespace=namespace,
+                name=name,
+                tag=tag,
+                history=return_results,
+            )
+
+    def get_project_from_history(
+        self,
+        namespace: str,
+        name: str,
+        tag: str,
+        history_id: int,
+        raw: bool = True,
+        with_id: bool = False,
+    ) -> Union[dict, peppy.Project]:
+        """
+        Get project sample history annotation by providing namespace, name, and tag
+
+        :param namespace: project namespace
+        :param name: project name
+        :param tag: project tag
+        :param history_id: history id
+        :param raw: if True, retrieve unprocessed (raw) PEP dict. [Default: True]
+        :param with_id: if True, retrieve samples with ids. [Default: False]
+
+        :return: project sample history annotation
+        """
+
+        with Session(self._sa_engine) as session:
+            project_mapping = session.scalar(
+                select(Projects).where(
+                    and_(
+                        Projects.namespace == namespace,
+                        Projects.name == name,
+                        Projects.tag == tag,
+                    )
+                )
+            )
+            if not project_mapping:
+                raise ProjectNotFoundError(
+                    f"No project found for supplied input: '{namespace}/{name}:{tag}'. "
+                    f"Did you supply a valid namespace and project?"
+                )
+
+            sample_dict = self._get_samples_dict(
+                prj_id=project_mapping.id, session=session, with_id=True
+            )
+
+            main_history = session.scalar(
+                select(HistoryProjects)
+                .where(
+                    and_(
+                        HistoryProjects.project_id == project_mapping.id,
+                        HistoryProjects.id == history_id,
+                    )
+                )
+                .order_by(HistoryProjects.update_time.desc())
+            )
+            if not main_history:
+                raise HistoryNotFoundError(
+                    f"No history found for supplied input: '{namespace}/{name}:{tag}'. "
+                    f"Did you supply a valid history id?"
+                )
+
+            changes_mappings = session.scalars(
+                select(HistoryProjects)
+                .where(
+                    and_(
+                        HistoryProjects.project_id == project_mapping.id,
+                    )
+                )
+                .order_by(HistoryProjects.update_time.desc())
+            )
+
+            # Changes mapping is a ordered list from most early to latest changes
+            # We have to loop through each change and apply it to the sample list
+            # It should be done before we found the history_id that user is looking for
+            project_config = None
+
+            for result in changes_mappings:
+                sample_dict = self._apply_history_changes(sample_dict, result)
+
+                if result.id == history_id:
+                    project_config = result.project_yaml
+                    break
+
+        samples_list = order_samples(sample_dict)
+        ordered_samples_list = [sample["sample"] for sample in samples_list]
+
+        if not with_id:
+            for sample in ordered_samples_list:
+                try:
+                    del sample[PEPHUB_SAMPLE_ID_KEY]
+                except KeyError:
+                    pass
+
+        if raw:
+            return {
+                CONFIG_KEY: project_config or project_mapping.config,
+                SAMPLE_RAW_DICT_KEY: ordered_samples_list,
+                SUBSAMPLE_RAW_LIST_KEY: self.get_subsamples(namespace, name, tag),
+            }
+        return peppy.Project.from_dict(
+            pep_dictionary={
+                CONFIG_KEY: project_config or project_mapping.config,
+                SAMPLE_RAW_DICT_KEY: ordered_samples_list,
+                SUBSAMPLE_RAW_LIST_KEY: self.get_subsamples(namespace, name, tag),
+            }
+        )
+
+    @staticmethod
+    def _apply_history_changes(sample_dict: dict, change: HistoryProjects) -> dict:
+        """
+        Apply changes from the history to the sample list
+
+        :param sample_dict: dictionary with samples
+        :param change: history change
+        :return: updated sample list
+        """
+        for sample_change in change.sample_changes_mapping:
+            sample_id = sample_change.guid
+
+            if sample_change.change_type == UpdateTypes.UPDATE:
+                sample_dict[sample_id]["sample"] = sample_change.sample_json
+                sample_dict[sample_id]["parent_guid"] = sample_change.parent_guid
+
+            elif sample_change.change_type == UpdateTypes.DELETE:
+                sample_dict[sample_id] = {
+                    "sample": sample_change.sample_json,
+                    "guid": sample_id,
+                    "parent_guid": sample_change.parent_guid,
+                }
+
+            elif sample_change.change_type == UpdateTypes.INSERT:
+                del sample_dict[sample_id]
+
+        return sample_dict
+
+    def delete_history(
+        self, namespace: str, name: str, tag: str, history_id: Union[int, None] = None
+    ) -> None:
+        """
+        Delete history from the project
+
+        :param namespace: project namespace
+        :param name: project name
+        :param tag: project tag
+        :param history_id: history id. If none is provided, all history will be deleted
+
+        :return: None
+        """
+        with Session(self._sa_engine) as session:
+            project_mapping = session.scalar(
+                select(Projects).where(
+                    and_(
+                        Projects.namespace == namespace,
+                        Projects.name == name,
+                        Projects.tag == tag,
+                    )
+                )
+            )
+            if not project_mapping:
+                raise ProjectNotFoundError(
+                    f"No project found for supplied input: '{namespace}/{name}:{tag}'. "
+                    f"Did you supply a valid namespace and project?"
+                )
+
+            if history_id is None:
+                session.execute(
+                    delete(HistoryProjects).where(HistoryProjects.project_id == project_mapping.id)
+                )
+                session.commit()
+                return None
+
+            history_mapping = session.scalar(
+                select(HistoryProjects).where(
+                    and_(
+                        HistoryProjects.project_id == project_mapping.id,
+                        HistoryProjects.id == history_id,
+                    )
+                )
+            )
+            if not history_mapping:
+                raise HistoryNotFoundError(
+                    f"No history found for supplied input: '{namespace}/{name}:{tag}'. "
+                    f"Did you supply a valid history id?"
+                )
+
+            session.delete(history_mapping)
+            session.commit()
+
+    def restore(
+        self,
+        namespace: str,
+        name: str,
+        tag: str,
+        history_id: int,
+        user: str = None,
+    ) -> None:
+        """
+        Restore project to the specific history state
+
+        :param namespace: project namespace
+        :param name: project name
+        :param tag: project tag
+        :param history_id: history id
+        :param user: user that restores the project if user is not provided, user will be set as Namespace
+
+        :return: None
+        """
+
+        restore_project = self.get_project_from_history(
+            namespace=namespace,
+            name=name,
+            tag=tag,
+            history_id=history_id,
+            raw=True,
+            with_id=True,
+        )
+        self.update(
+            update_dict={"project": peppy.Project.from_dict(restore_project)},
+            namespace=namespace,
+            name=name,
+            tag=tag,
+            user=user or namespace,
         )

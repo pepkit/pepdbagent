@@ -20,3 +20,5 @@ SUBMISSION_DATE_KEY = "submission_date"
 LAST_UPDATE_DATE_KEY = "last_update_date"
 
 PEPHUB_SAMPLE_ID_KEY = "ph_id"
+
+MAX_HISTORY_SAMPLES_NUMBER = 2000

@@ -1,8 +1,9 @@
 import peppy
 import pytest
 from peppy.exceptions import IllegalStateException
-from pepdbagent.exceptions import ProjectDuplicatedSampleGUIDsError, SampleTableUpdateError
+
 from pepdbagent.const import PEPHUB_SAMPLE_ID_KEY
+from pepdbagent.exceptions import ProjectDuplicatedSampleGUIDsError, SampleTableUpdateError
 
 from .utils import PEPDBAgentContextManager
 
