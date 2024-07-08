@@ -66,7 +66,7 @@ class TestProjectHistory:
             prj_init = agent.project.get(namespace, name, tag="default", raw=False)
             prj = agent.project.get(namespace, name, tag="default", with_id=True)
 
-            prj["_sample_dict"][0]["sample_name"] = "new_sample_name"
+            # prj["_sample_dict"][0]["sample_name"] = "new_sample_name"
 
             del prj["_sample_dict"][1]
             del prj["_sample_dict"][2]

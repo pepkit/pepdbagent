@@ -670,6 +670,12 @@ class PEPDatabaseProject:
             old_samples = session.scalars(select(Samples).where(Samples.project_id == project_id))
 
             old_samples_mapping: dict = {sample.guid: sample for sample in old_samples}
+
+            # old_child_parent_id needed because of the parent_guid is sometimes set to none in sqlalchemy mapping :( bug
+            old_child_parent_id: Dict[str, str] = {
+                child: mapping.parent_guid for child, mapping in old_samples_mapping.items()
+            }
+
             old_samples_ids_set: set = set(old_samples_mapping.keys())
             new_samples_ids_list: list = [
                 new_sample[PEPHUB_SAMPLE_ID_KEY]
@@ -751,6 +757,8 @@ class PEPDatabaseProject:
                         old_samples_mapping[current_id].sample = sample_value
                         old_samples_mapping[current_id].sample_name = sample_value[sample_name_key]
 
+                    # !bug workaround: if project was deleted and sometimes old_samples_mapping[current_id].parent_guid
+                    # and it can cause an error in history. For this we have `old_child_parent_id` dict
                     if old_samples_mapping[current_id].parent_guid != parent_id:
                         if history_sa_model:
                             if current_history:
@@ -758,7 +766,7 @@ class PEPDatabaseProject:
                             else:
                                 current_history = HistorySamples(
                                     guid=old_samples_mapping[current_id].guid,
-                                    parent_guid=old_samples_mapping[current_id].parent_guid,
+                                    parent_guid=old_child_parent_id[current_id],
                                     sample_json=old_samples_mapping[current_id].sample,
                                     change_type=UpdateTypes.UPDATE,
                                 )
