@@ -1235,11 +1235,11 @@ class PEPDatabaseProject:
         )
 
     @staticmethod
-    def _apply_history_changes(sample_list: dict, change: HistoryProjects) -> dict:
+    def _apply_history_changes(sample_dict: dict, change: HistoryProjects) -> dict:
         """
         Apply changes from the history to the sample list
 
-        :param sample_list: dictionary with samples
+        :param sample_dict: dictionary with samples
         :param change: history change
         :return: updated sample list
         """
@@ -1247,20 +1247,20 @@ class PEPDatabaseProject:
             sample_id = sample_change.guid
 
             if sample_change.change_type == UpdateTypes.UPDATE:
-                sample_list[sample_id]["sample"] = sample_change.sample_json
-                sample_list[sample_id]["parent_guid"] = sample_change.parent_guid
+                sample_dict[sample_id]["sample"] = sample_change.sample_json
+                sample_dict[sample_id]["parent_guid"] = sample_change.parent_guid
 
             elif sample_change.change_type == UpdateTypes.DELETE:
-                sample_list[sample_id] = {
+                sample_dict[sample_id] = {
                     "sample": sample_change.sample_json,
                     "guid": sample_id,
                     "parent_guid": sample_change.parent_guid,
                 }
 
             elif sample_change.change_type == UpdateTypes.INSERT:
-                del sample_list[sample_id]
+                del sample_dict[sample_id]
 
-        return sample_list
+        return sample_dict
 
     def delete_history(
         self, namespace: str, name: str, tag: str, history_id: Union[int, None] = None

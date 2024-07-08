@@ -264,7 +264,7 @@ class HistoryProjects(Base):
 
     project_mapping: Mapped["Projects"] = relationship(
         "Projects", back_populates="history_mapping"
-    )  # TODO: check if cascade is correct
+    )
     sample_changes_mapping: Mapped[List["HistorySamples"]] = relationship(
         back_populates="history_project_mapping", cascade="all, delete-orphan"
     )
