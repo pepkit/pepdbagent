@@ -261,3 +261,45 @@ class TestProjectHistory:
 
             assert len(history.history) == 1
             assert history.history[0].change_id == 2
+
+    @pytest.mark.parametrize(
+        "namespace, name, sample_name",
+        [
+            ["namespace1", "amendments1", "pig_0h"],
+        ],
+    )
+    def test_restore_project(self, namespace, name, sample_name):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+            prj_org = agent.project.get(namespace, name, tag="default", with_id=False)
+            prj = agent.project.get(namespace, name, tag="default", with_id=True)
+
+            del prj["_sample_dict"][1]
+
+            agent.project.update(
+                namespace=namespace,
+                name=name,
+                tag="default",
+                update_dict={"project": peppy.Project.from_dict(prj)},
+            )
+
+            prj = agent.project.get(namespace, name, tag="default", with_id=True)
+
+            new_sample1 = {
+                "sample_name": "new_sample",
+                "protocol": "new_protocol",
+                PEPHUB_SAMPLE_ID_KEY: None,
+            }
+            prj["_sample_dict"].append(new_sample1.copy())
+
+            agent.project.update(
+                namespace=namespace,
+                name=name,
+                tag="default",
+                update_dict={"project": peppy.Project.from_dict(prj)},
+            )
+
+            agent.project.restore(namespace, name, tag="default", history_id=1)
+
+            restored_project = agent.project.get(namespace, name, tag="default", with_id=False)
+
+            assert prj_org == restored_project

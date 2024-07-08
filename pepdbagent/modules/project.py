@@ -1314,3 +1314,39 @@ class PEPDatabaseProject:
 
             session.delete(history_mapping)
             session.commit()
+
+    def restore(
+        self,
+        namespace: str,
+        name: str,
+        tag: str,
+        history_id: int,
+        user: str = None,
+    ) -> None:
+        """
+        Restore project to the specific history state
+
+        :param namespace: project namespace
+        :param name: project name
+        :param tag: project tag
+        :param history_id: history id
+        :param user: user that restores the project if user is not provided, user will be set as Namespace
+
+        :return: None
+        """
+
+        restore_project = self.get_project_from_history(
+            namespace=namespace,
+            name=name,
+            tag=tag,
+            history_id=history_id,
+            raw=True,
+            with_id=True,
+        )
+        self.update(
+            update_dict={"project": peppy.Project.from_dict(restore_project)},
+            namespace=namespace,
+            name=name,
+            tag=tag,
+            user=user or namespace,
+        )
