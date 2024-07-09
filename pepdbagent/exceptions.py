@@ -117,3 +117,13 @@ class HistoryNotFoundError(PEPDatabaseAgentError):
 class UserNotFoundError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
         super().__init__(f"""User does not exist. {msg}""")
+
+
+class SchemaDoesNotExistError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Schema does not exist. {msg}""")
+
+
+class SchemaAlreadyExistsError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Schema already exists. {msg}""")

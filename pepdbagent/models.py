@@ -246,3 +246,26 @@ class HistoryAnnotationModel(BaseModel):
     name: str
     tag: str = DEFAULT_TAG
     history: List[HistoryChangeModel]
+
+
+class SchemaAnnotation(BaseModel):
+    """
+    Schema annotation model
+    """
+
+    namespace: str
+    name: str
+    last_update_date: Optional[str]
+    submission_date: Optional[str]
+    description: Optional[str]
+
+
+class SchemaSearchResult(BaseModel):
+    """
+    Schema search result model
+    """
+
+    count: int
+    limit: int
+    offset: int
+    results: List[SchemaAnnotation]

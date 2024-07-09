@@ -88,7 +88,9 @@ class Projects(Base):
     )
     pep_schema: Mapped[Optional[str]]
 
-    schema_id: Mapped[Optional[int]] = mapped_column(ForeignKey("schemas.id", ondelete="SET NULL"), nullable=True)
+    schema_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("schemas.id", ondelete="SET NULL"), nullable=True
+    )
     schema_mapping: Mapped["Schemas"] = relationship("Schemas", lazy="joined")
 
     pop: Mapped[Optional[bool]] = mapped_column(default=False)

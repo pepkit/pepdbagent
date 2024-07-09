@@ -12,7 +12,7 @@ from peppy.const import (
     SAMPLE_TABLE_INDEX_KEY,
     SUBSAMPLE_RAW_LIST_KEY,
 )
-from sqlalchemy import Select, and_, delete, select
+from sqlalchemy import Select, and_, delete, select, or_
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
@@ -27,28 +27,17 @@ from pepdbagent.const import (
 )
 from pepdbagent.db_utils import (
     BaseEngine,
-    HistoryProjects,
-    HistorySamples,
-    Projects,
-    Samples,
-    Subsamples,
-    UpdateTypes,
-    User,
+    Schemas,
+    SchemaGroups,
+    SchemaGroupRelations,
 )
 from pepdbagent.exceptions import (
-    HistoryNotFoundError,
-    PEPDatabaseAgentError,
-    ProjectDuplicatedSampleGUIDsError,
-    ProjectNotFoundError,
-    ProjectUniqueNameError,
-    SampleTableUpdateError,
+    SchemaAlreadyExistsError,
+    SchemaDoesNotExistError,
 )
 from pepdbagent.models import (
-    HistoryAnnotationModel,
-    HistoryChangeModel,
-    ProjectDict,
-    UpdateItems,
-    UpdateModel,
+    SchemaAnnotation,
+    SchemaSearchResult,
 )
 from pepdbagent.utils import create_digest, generate_guid, order_samples, registry_path_converter
 
@@ -69,7 +58,7 @@ class PEPDatabaseSchemas:
         self._sa_engine = pep_db_engine.engine
         self._pep_db_engine = pep_db_engine
 
-    def get(self, namespace: str, name: str) -> Dict:
+    def get(self, namespace: str, name: str) -> dict:
         """
         Get schema from the database.
 
@@ -78,18 +67,99 @@ class PEPDatabaseSchemas:
 
         :return: schema dict
         """
-        ...
 
-    def search(self, namespace: str = None, query: str = "") -> ...:
+        with Session(self._sa_engine) as session:
+            schema_obj = session.scalar(
+                select(Schemas).where(and_(Schemas.namespace == namespace, Schemas.name == name))
+            )
+
+            if not schema_obj:
+                raise SchemaDoesNotExistError(f"Schema '{name}' does not exist in the database")
+
+            return schema_obj.schema_json
+
+    def info(self, namespace: str, name: str) -> SchemaAnnotation:
+        """
+        Get schema information from the database.
+
+        :param namespace: user namespace
+        :param name: schema name
+
+        :return: SchemaAnnotation object:
+                    - namespace: schema namespace
+                    - name: schema name
+                    - last_update_date: last update date
+                    - submission_date: submission date
+                    - description: schema description
+        """
+
+        with Session(self._sa_engine) as session:
+            schema_obj = session.scalar(
+                select(Schemas).where(and_(Schemas.namespace == namespace, Schemas.name == name))
+            )
+
+            if not schema_obj:
+                raise SchemaDoesNotExistError(f"Schema '{name}' does not exist in the database")
+
+            return SchemaAnnotation(
+                namespace=schema_obj.namespace,
+                name=schema_obj.name,
+                last_update_date=schema_obj.last_update_date,
+                submission_date=schema_obj.submission_date,
+                description=schema_obj.description,
+            )
+
+    def search(
+        self, namespace: str = None, query: str = "", limit: int = 100, offset: int = 0
+    ) -> SchemaSearchResult:
         """
         Search schemas in the database.
 
         :param namespace: user namespace [Default: None]. If None, search in all namespaces
         :param query: query string. [Default: ""]. If empty, return all schemas
+        :param limit: limit number of schemas [Default: 100]
+        :param offset: offset number of schemas [Default: 0]
 
         :return: list of schema dicts
         """
-        ...
+
+        statement = select(Schemas)
+
+        # TODO: add count to the result
+        if query:
+            sql_search_str = f"%{query}%"
+            search_query = or_(
+                Schemas.name.ilike(sql_search_str),
+                Schemas.description.ilike(sql_search_str),
+            )
+            statement = statement.where(search_query)
+        if namespace:
+            statement = statement.where(Schemas.namespace == namespace)
+
+        statement = statement.limit(limit).offset(offset)
+
+        return_list = []
+
+        with Session(self._sa_engine) as session:
+            results = session.scalars(statement)
+
+            for result in results:
+                return_list.append(
+                    SchemaAnnotation(
+                        namespace=result.namespace,
+                        name=result.name,
+                        last_update_date=result.last_update_date,
+                        submission_date=result.submission_date,
+                        description=result.description,
+                    )
+                )
+
+        return SchemaSearchResult(
+            count=0,
+            limit=limit,
+            offset=offset,
+            results=return_list,
+        )
 
     def create(
         self,
@@ -111,7 +181,32 @@ class PEPDatabaseSchemas:
         :param overwrite: overwrite schema if exists [Default: False]
         :param update_only: update only schema if exists [Default: False]
         """
-        ...
+
+        if self.exist(namespace, name):
+            if overwrite:
+                self.update(namespace, name, schema, description)
+                return None
+            elif update_only:
+                self.update(namespace, name, schema, description)
+                return None
+            else:
+                raise SchemaAlreadyExistsError(f"Schema '{name}' already exists in the database")
+
+        if update_only:
+            raise SchemaDoesNotExistError(
+                f"Schema '{name}' does not exist in the database"
+                f"Cannot update schema that does not exist"
+            )
+
+        with Session(self._sa_engine) as session:
+            schema_obj = Schemas(
+                namespace=namespace,
+                name=name,
+                schema_json=schema,
+                description=description,
+            )
+            session.add(schema_obj)
+            session.commit()
 
     def update(
         self,
@@ -131,7 +226,19 @@ class PEPDatabaseSchemas:
 
         :return: None
         """
-        ...
+
+        with Session(self._sa_engine) as session:
+            schema_obj = session.scalar(
+                select(Schemas).where(and_(Schemas.namespace == namespace, Schemas.name == name))
+            )
+
+            if not schema_obj:
+                raise SchemaDoesNotExistError(f"Schema '{name}' does not exist in the database")
+
+            schema_obj.schema_json = schema
+            schema_obj.description = description
+
+            session.commit()
 
     def delete(self, namespace: str, name: str) -> None:
         """
@@ -142,7 +249,18 @@ class PEPDatabaseSchemas:
 
         :return: None
         """
-        ...
+
+        with Session(self._sa_engine) as session:
+            schema_obj = session.scalar(
+                select(Schemas).where(and_(Schemas.namespace == namespace, Schemas.name == name))
+            )
+
+            if not schema_obj:
+                raise SchemaDoesNotExistError(f"Schema '{name}' does not exist in the database")
+
+            session.delete(schema_obj)
+
+            session.commit()
 
     def exist(self, namespace: str, name: str) -> bool:
         """
@@ -153,7 +271,12 @@ class PEPDatabaseSchemas:
 
         :return: True if schema exists, False otherwise
         """
-        ...
+
+        with Session(self._sa_engine) as session:
+            schema_obj = session.scalar(
+                select(Schemas).where(and_(Schemas.namespace == namespace, Schemas.name == name))
+            )
+            return True if schema_obj else False
 
     def group_create(self, namespace: str, name: str, description: str = "") -> None:
         """
