@@ -296,6 +296,65 @@ class HistorySamples(Base):
     )
 
 
+class Schemas(Base):
+
+    __tablename__ = "schemas"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    namespace: Mapped[str] = mapped_column(ForeignKey("users.namespace", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(nullable=False, index=True)
+    description: Mapped[Optional[str]] = mapped_column(nullable=True, index=True)
+    schema_json: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
+    private: Mapped[bool] = mapped_column(default=False)
+    submission_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
+    last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
+        default=deliver_update_date, onupdate=deliver_update_date
+    )
+
+    group_relation_mapping: Mapped[List["SchemaGroupRelations"]] = relationship(
+        "SchemaGroupRelations", back_populates="schema_mapping"
+    )
+
+    __table_args__ = (UniqueConstraint("namespace", "name"),)
+
+
+class SchemaGroups(Base):
+
+    __tablename__ = "schema_groups"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    namespace: Mapped[str] = mapped_column(
+        ForeignKey("users.namespace", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(nullable=False, index=True)
+    description: Mapped[Optional[str]] = mapped_column(nullable=True)
+
+    schema_relation_mapping: Mapped[List["SchemaGroupRelations"]] = relationship(
+        "SchemaGroupRelations", back_populates="group_mapping"
+    )
+
+    __table_args__ = (UniqueConstraint("namespace", "name"),)
+
+
+class SchemaGroupRelations(Base):
+
+    __tablename__ = "schema_group_relations"
+
+    schema_id: Mapped[int] = mapped_column(
+        ForeignKey("schemas.id", ondelete="CASCADE"), index=True, primary_key=True
+    )
+    group_id: Mapped[int] = mapped_column(
+        ForeignKey("schema_groups.id", ondelete="CASCADE"), index=True, primary_key=True
+    )
+
+    schema_mapping: Mapped["Schemas"] = relationship(
+        "Schemas", back_populates="group_relation_mapping"
+    )
+    group_mapping: Mapped["SchemaGroups"] = relationship(
+        "SchemaGroups", back_populates="schema_relation_mapping"
+    )
+
+
 class BaseEngine:
     """
     A class with base methods, that are used in several classes. e.g. fetch_one or fetch_all
