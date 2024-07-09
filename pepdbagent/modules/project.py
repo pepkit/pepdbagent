@@ -1248,6 +1248,7 @@ class PEPDatabaseProject:
 
             if sample_change.change_type == UpdateTypes.UPDATE:
                 sample_dict[sample_id]["sample"] = sample_change.sample_json
+                sample_dict[sample_id]["sample"][PEPHUB_SAMPLE_ID_KEY] = sample_change.guid
                 sample_dict[sample_id]["parent_guid"] = sample_change.parent_guid
 
             elif sample_change.change_type == UpdateTypes.DELETE:
