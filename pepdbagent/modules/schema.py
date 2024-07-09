@@ -227,3 +227,14 @@ class PEPDatabaseSchemas:
         :return: None
         """
         ...
+
+    def group_exist(self, namespace: str, name: str) -> bool:
+        """
+        Check if schema group exists in the database.
+
+        :param namespace: user namespace
+        :param name: schema group name
+
+        :return: True if schema group exists, False otherwise
+        """
+        ...

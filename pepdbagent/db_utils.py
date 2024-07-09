@@ -87,6 +87,10 @@ class Projects(Base):
         default=deliver_update_date,  # onupdate=deliver_update_date, # This field should not be updated, while we are adding project to favorites
     )
     pep_schema: Mapped[Optional[str]]
+
+    schema_id: Mapped[Optional[int]] = mapped_column(ForeignKey("schemas.id", ondelete="SET NULL"), nullable=True)
+    schema_mapping: Mapped["Schemas"] = relationship("Schemas", lazy="joined")
+
     pop: Mapped[Optional[bool]] = mapped_column(default=False)
     samples_mapping: Mapped[List["Samples"]] = relationship(
         back_populates="project_mapping", cascade="all, delete-orphan"
