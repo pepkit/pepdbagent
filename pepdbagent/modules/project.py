@@ -615,7 +615,7 @@ class PEPDatabaseProject:
                         new_history = HistoryProjects(
                             project_id=found_prj.id,
                             user=user or namespace,
-                            project_yaml=update_dict["config"],
+                            project_yaml=self.get_config(namespace, name, tag),
                         )
                         session.add(new_history)
 
