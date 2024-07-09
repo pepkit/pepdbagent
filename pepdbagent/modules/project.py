@@ -706,7 +706,7 @@ class PEPDatabaseProject:
                     history_sa_model.sample_changes_mapping.append(
                         HistorySamples(
                             guid=old_samples_mapping[remove_id].guid,
-                            parent_guid=old_samples_mapping[remove_id].parent_guid,
+                            parent_guid=old_child_parent_id[remove_id],
                             sample_json=old_samples_mapping[remove_id].sample,
                             change_type=UpdateTypes.DELETE,
                         )
