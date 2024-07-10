@@ -36,6 +36,8 @@ from pepdbagent.exceptions import (
     SchemaDoesNotExistError,
     SchemaGroupAlreadyExistsError,
     SchemaGroupDoesNotExistError,
+    SchemaAlreadyInGroupError,
+    SchemaIsNotInGroupError,
 )
 from pepdbagent.models import (
     SchemaAnnotation,
@@ -500,7 +502,46 @@ class PEPDatabaseSchemas:
 
         :return: None
         """
-        ...
+
+        try:
+            with Session(self._sa_engine) as session:
+                group_mapping = session.scalar(
+                    select(SchemaGroups).where(
+                        and_(
+                            SchemaGroups.namespace == namespace,
+                            SchemaGroups.name == name,
+                        )
+                    )
+                )
+
+                if not group_mapping:
+                    raise SchemaGroupDoesNotExistError(
+                        f"Group of Schemas with namespace='{namespace}' and name='{name}' does not exist"
+                    )
+
+                schema_mapping = session.scalar(
+                    select(Schemas).where(
+                        and_(
+                            Schemas.namespace == schema_namespace,
+                            Schemas.name == schema_name,
+                        )
+                    )
+                )
+
+                if not schema_mapping:
+                    raise SchemaDoesNotExistError(
+                        f"Schema with namespace='{schema_namespace}' and name='{schema_name}' does not exist"
+                    )
+
+                session.add(
+                    SchemaGroupRelations(
+                        schema_id=schema_mapping.id,
+                        group_id=group_mapping.id,
+                    )
+                )
+                session.commit()
+        except IntegrityError:
+            raise SchemaAlreadyInGroupError
 
     def group_remove_schema(
         self, namespace: str, name: str, schema_namespace: str, schema_name: str
@@ -515,7 +556,35 @@ class PEPDatabaseSchemas:
 
         :return: None
         """
-        ...
+
+        try:
+            with Session(self._sa_engine) as session:
+                session.execute(
+                    delete(SchemaGroupRelations).where(
+                        and_(
+                            SchemaGroupRelations.schema_id
+                            == select(Schemas.id)
+                            .where(
+                                and_(
+                                    Schemas.namespace == schema_namespace,
+                                    Schemas.name == schema_name,
+                                )
+                            )
+                            .subquery(),
+                            SchemaGroupRelations.group_id
+                            == select(SchemaGroups.id)
+                            .where(
+                                and_(
+                                    SchemaGroups.namespace == namespace,
+                                    SchemaGroups.name == name,
+                                )
+                            )
+                            .subquery(),
+                        )
+                    )
+                )
+        except IntegrityError:
+            raise SchemaIsNotInGroupError("Schema not found in the group")
 
     def group_exist(self, namespace: str, name: str) -> bool:
         """
