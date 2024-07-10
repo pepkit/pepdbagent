@@ -127,3 +127,13 @@ class SchemaDoesNotExistError(PEPDatabaseAgentError):
 class SchemaAlreadyExistsError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
         super().__init__(f"""Schema already exists. {msg}""")
+
+
+class SchemaGroupDoesNotExistError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Schema group does not exist. {msg}""")
+
+
+class SchemaGroupAlreadyExistsError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Schema group already exists. {msg}""")

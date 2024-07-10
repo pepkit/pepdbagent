@@ -269,3 +269,25 @@ class SchemaSearchResult(BaseModel):
     limit: int
     offset: int
     results: List[SchemaAnnotation]
+
+
+class SchemaGroupAnnotation(BaseModel):
+    """
+    Schema group annotation model
+    """
+
+    namespace: str
+    name: str
+    description: Optional[str]
+    schemas: List[SchemaAnnotation]
+
+
+class SchemaGroupSearchResult(BaseModel):
+    """
+    Schema group search result model
+    """
+
+    count: int
+    limit: int
+    offset: int
+    results: List[SchemaGroupAnnotation]
