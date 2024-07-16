@@ -1367,3 +1367,4 @@ class PEPDatabaseProject:
                 )
             )
             session.commit()
+            _LOGGER.info("History was cleaned successfully!")
