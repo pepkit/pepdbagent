@@ -1363,7 +1363,8 @@ class PEPDatabaseProject:
         with Session(self._sa_engine) as session:
             session.execute(
                 delete(HistoryProjects).where(
-                    HistoryProjects.update_time < (datetime.datetime.now() - datetime.timedelta(days=days))
+                    HistoryProjects.update_time
+                    < (datetime.datetime.now() - datetime.timedelta(days=days))
                 )
             )
             session.commit()

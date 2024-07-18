@@ -2,6 +2,11 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.10.0] -- 2024-07-18
+- Added user delete method
+- Added project history and restoring projects
+
+
 ## [0.9.0] -- 2024-06-25
 - Introduced new sample ordering with linked list [#133](https://github.com/pepkit/pepdbagent/issues/133)
 - Efficiency improvements of project update function 
