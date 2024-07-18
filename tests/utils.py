@@ -1,6 +1,7 @@
 import os
-import peppy
 import warnings
+
+import peppy
 from sqlalchemy.exc import OperationalError
 
 from pepdbagent import PEPDatabaseAgent

@@ -1,4 +1,5 @@
 import pytest
+
 from pepdbagent.exceptions import ProjectAlreadyInFavorites, ProjectNotInFavorites
 
 from .utils import PEPDBAgentContextManager
@@ -62,7 +63,7 @@ class TestNamespace:
 )
 class TestFavorites:
     """
-    Test function within user class
+    Test method related to favorites
     """
 
     def test_add_projects_to_favorites(self):
@@ -155,3 +156,40 @@ class TestFavorites:
                     assert prj_annot.stars_number == 1
                 else:
                     assert prj_annot.stars_number == 0
+
+
+@pytest.mark.skipif(
+    not PEPDBAgentContextManager().db_setup(),
+    reason="DB is not setup",
+)
+class TestUser:
+    """
+    Test methods within user class
+    """
+
+    def test_create_user(self):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+
+            user = agent.user.create_user("test_user")
+
+            assert agent.user.exists("test_user")
+
+    def test_delete_user(self):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+
+            test_user = "test_user"
+            agent.user.create_user(test_user)
+            assert agent.user.exists(test_user)
+            agent.user.delete(test_user)
+            assert not agent.user.exists(test_user)
+
+    def test_delete_user_deletes_projects(self):
+        with PEPDBAgentContextManager(add_data=True) as agent:
+
+            test_user = "namespace1"
+
+            assert agent.user.exists(test_user)
+            agent.user.delete(test_user)
+            assert not agent.user.exists(test_user)
+            results = agent.namespace.get(query=test_user)
+            assert len(results.results) == 0

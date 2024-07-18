@@ -1,10 +1,12 @@
 import datetime
+import enum
 import logging
 from typing import List, Optional
 
 from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
+    Enum,
     FetchedValue,
     ForeignKey,
     Result,
@@ -119,6 +121,10 @@ class Projects(Base):
 
     namespace_mapping: Mapped["User"] = relationship("User", back_populates="projects_mapping")
 
+    history_mapping: Mapped[List["HistoryProjects"]] = relationship(
+        back_populates="project_mapping", cascade="all, delete-orphan"
+    )  # TODO: check if cascade is correct
+
     __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
 
 
@@ -131,7 +137,6 @@ class Samples(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     sample: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
-    row_number: Mapped[int]  # TODO: should be removed
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     project_mapping: Mapped["Projects"] = relationship(back_populates="samples_mapping")
     sample_name: Mapped[Optional[str]] = mapped_column()
@@ -243,6 +248,52 @@ class ViewSampleAssociation(Base):
     view_id = mapped_column(ForeignKey("views.id", ondelete="CASCADE"), primary_key=True)
     sample: Mapped["Samples"] = relationship(back_populates="views")
     view: Mapped["Views"] = relationship(back_populates="samples")
+
+
+class HistoryProjects(Base):
+
+    __tablename__ = "project_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    user: Mapped[str] = mapped_column(ForeignKey("users.namespace", ondelete="SET NULL"))
+    update_time: Mapped[datetime.datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=deliver_update_date
+    )
+    project_yaml: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
+
+    project_mapping: Mapped["Projects"] = relationship(
+        "Projects", back_populates="history_mapping"
+    )
+    sample_changes_mapping: Mapped[List["HistorySamples"]] = relationship(
+        back_populates="history_project_mapping", cascade="all, delete-orphan"
+    )
+
+
+class UpdateTypes(enum.Enum):
+    """
+    Enum for the type of update
+    """
+
+    UPDATE = "update"
+    INSERT = "insert"
+    DELETE = "delete"
+
+
+class HistorySamples(Base):
+
+    __tablename__ = "sample_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    history_id: Mapped[int] = mapped_column(ForeignKey("project_history.id", ondelete="CASCADE"))
+    guid: Mapped[str] = mapped_column(nullable=False)
+    parent_guid: Mapped[Optional[str]] = mapped_column(nullable=True)
+    sample_json: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
+    change_type: Mapped[UpdateTypes] = mapped_column(Enum(UpdateTypes), nullable=False)
+
+    history_project_mapping: Mapped["HistoryProjects"] = relationship(
+        "HistoryProjects", back_populates="sample_changes_mapping"
+    )
 
 
 class BaseEngine:

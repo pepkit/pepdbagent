@@ -234,7 +234,6 @@ class PEPDatabaseSample:
             else:
                 sample_mapping = Samples(
                     sample=sample_dict,
-                    row_number=0,
                     project_id=project_mapping.id,
                     sample_name=sample_name,
                     guid=generate_guid(),
@@ -314,7 +313,7 @@ class PEPDatabaseSample:
                 parent_mapping = sample_mapping.parent_mapping
                 child_mapping = sample_mapping.child_mapping
                 session.delete(sample_mapping)
-                if parent_mapping:
+                if child_mapping:
                     child_mapping.parent_mapping = parent_mapping
                 project_mapping.number_of_samples -= 1
                 project_mapping.last_update_date = datetime.datetime.now(datetime.timezone.utc)
