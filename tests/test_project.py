@@ -66,9 +66,9 @@ class TestProject:
                 tag="default",
             )
             ff = peppy.Project(get_path_to_example_file(namespace, name))
-            ff.description = description
-            ff.name = name
-            assert kk == ff.config
+            ff["_original_config"]["description"] = description
+            ff["_original_config"]["name"] = name
+            assert kk == ff["_original_config"]
 
     @pytest.mark.parametrize(
         "namespace, name",
