@@ -255,9 +255,9 @@ class SchemaAnnotation(BaseModel):
 
     namespace: str
     name: str
-    last_update_date: Optional[str]
-    submission_date: Optional[str]
-    description: Optional[str]
+    last_update_date: Optional[datetime.datetime]
+    submission_date: Optional[datetime.datetime]
+    description: Optional[datetime.datetime]
 
 
 class SchemaSearchResult(BaseModel):
