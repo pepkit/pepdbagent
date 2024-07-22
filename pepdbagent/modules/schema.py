@@ -50,7 +50,7 @@ from pepdbagent.utils import create_digest, generate_guid, order_samples, regist
 _LOGGER = logging.getLogger(PKG_NAME)
 
 
-class PEPDatabaseSchemas:
+class PEPDatabaseSchema:
     """
     Class that represents Schemas in Database.
 
