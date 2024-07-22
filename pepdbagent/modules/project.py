@@ -1351,3 +1351,21 @@ class PEPDatabaseProject:
             tag=tag,
             user=user or namespace,
         )
+
+    def clean_history(self, days: int = 90) -> None:
+        """
+        Delete all history data that is older then 3 month, or specific number of days
+
+        :param days: number of days to keep history data
+        :return: None
+        """
+
+        with Session(self._sa_engine) as session:
+            session.execute(
+                delete(HistoryProjects).where(
+                    HistoryProjects.update_time
+                    < (datetime.datetime.now() - datetime.timedelta(days=days))
+                )
+            )
+            session.commit()
+            _LOGGER.info("History was cleaned successfully!")
