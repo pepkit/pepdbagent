@@ -257,7 +257,7 @@ class SchemaAnnotation(BaseModel):
     name: str
     last_update_date: Optional[datetime.datetime]
     submission_date: Optional[datetime.datetime]
-    description: Optional[datetime.datetime]
+    description: Optional[str]
 
 
 class SchemaSearchResult(BaseModel):
