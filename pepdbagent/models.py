@@ -99,6 +99,7 @@ class UpdateItems(BaseModel):
     samples: Optional[List[dict]] = None
     subsamples: Optional[List[List[dict]]] = None
     pop: Optional[bool] = None
+    schema_id: Optional[int] = None
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,

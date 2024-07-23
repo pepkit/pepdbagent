@@ -80,6 +80,19 @@ def registry_path_converter(registry_path: str) -> Tuple[str, str, str]:
     raise RegistryPathError(f"Error in: '{registry_path}'")
 
 
+def schema_path_converter(schema_path: str) -> Tuple[str, str]:
+    """
+    Convert schema path to namespace, name
+
+    :param schema_path: schema path that has structure: "namespace/name.yaml"
+    :return: tuple(namespace, name)
+    """
+    if "/" in schema_path:
+        namespace, name = schema_path.split("/")
+        return namespace, name
+    raise RegistryPathError(f"Error in: '{schema_path}'")
+
+
 def tuple_converter(value: Union[tuple, list, str, None]) -> tuple:
     """
     Convert string list or tuple to tuple.

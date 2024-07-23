@@ -70,7 +70,7 @@ class PEPDBAgentContextManager:
     Class with context manager to connect to database. Adds data and drops everything from the database upon exit to ensure.
     """
 
-    def __init__(self, url: str = DSN, add_data: bool = False, add_schemas=False, echo=False):
+    def __init__(self, url: str = DSN, add_data: bool = False, add_schemas=True, echo=False):
         """
         :param url: database url e.g. "postgresql+psycopg://postgres:docker@localhost:5432/pep-db"
         :param add_data: add data to the database
@@ -86,10 +86,10 @@ class PEPDBAgentContextManager:
         self._agent = PEPDatabaseAgent(dsn=self.url, echo=False)
         self.db_engine = self._agent.pep_db_engine
         self.db_engine.create_schema()
-        if self.add_data:
-            self._insert_data()
         if self.add_schemas:
             self._add_schemas()
+        if self.add_data:
+            self._insert_data()
         return self._agent
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
@@ -111,7 +111,7 @@ class PEPDBAgentContextManager:
                     is_private=private,
                     project=prj,
                     overwrite=True,
-                    pep_schema="random_schema_name",
+                    pep_schema="namespace1/2.0.0",
                 )
 
     def _add_schemas(self):

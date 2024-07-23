@@ -34,6 +34,7 @@ from pepdbagent.db_utils import (
     Subsamples,
     UpdateTypes,
     User,
+    Schemas,
 )
 from pepdbagent.exceptions import (
     HistoryNotFoundError,
@@ -42,6 +43,7 @@ from pepdbagent.exceptions import (
     ProjectNotFoundError,
     ProjectUniqueNameError,
     SampleTableUpdateError,
+    SchemaDoesNotExistError,
 )
 from pepdbagent.models import (
     HistoryAnnotationModel,
@@ -50,7 +52,13 @@ from pepdbagent.models import (
     UpdateItems,
     UpdateModel,
 )
-from pepdbagent.utils import create_digest, generate_guid, order_samples, registry_path_converter
+from pepdbagent.utils import (
+    create_digest,
+    generate_guid,
+    order_samples,
+    registry_path_converter,
+    schema_path_converter,
+)
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -314,7 +322,7 @@ class PEPDatabaseProject:
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
         :param is_private: boolean value if the project should be visible just for user that creates it.
-        :param pep_schema: assign PEP to a specific schema. [Default: None]
+        :param pep_schema: assign PEP to a specific schema. Example: 'namespace/name' [Default: None]
         :param pop: if project is a pep of peps (POP) [Default: False]
         :param overwrite: if project exists overwrite the project, otherwise upload it.
             [Default: False - project won't be overwritten if it exists in db]
@@ -356,6 +364,24 @@ class PEPDatabaseProject:
         except AttributeError:
             number_of_samples = len(proj_dict[SAMPLE_RAW_DICT_KEY])
 
+        if pep_schema:
+            schema_namespace, schema_name = schema_path_converter(pep_schema)
+            with Session(self._sa_engine) as session:
+                schema_mapping = session.scalar(
+                    select(Schemas).where(
+                        and_(
+                            Schemas.namespace == schema_namespace,
+                            Schemas.name == schema_name,
+                        )
+                    )
+                )
+                if not schema_mapping:
+                    raise SchemaDoesNotExistError(
+                        f"Schema {schema_namespace}/{schema_name} does not exist. "
+                        f"Project won't be uploaded."
+                    )
+                pep_schema = schema_mapping.id
+
         if update_only:
             _LOGGER.info(f"Update_only argument is set True. Updating project {proj_name} ...")
             self._overwrite(
@@ -384,7 +410,8 @@ class PEPDatabaseProject:
                     private=is_private,
                     submission_date=datetime.datetime.now(datetime.timezone.utc),
                     last_update_date=datetime.datetime.now(datetime.timezone.utc),
-                    pep_schema=pep_schema,
+                    # pep_schema=pep_schema,
+                    schema_id=pep_schema,
                     description=description,
                     pop=pop,
                 )
@@ -447,7 +474,7 @@ class PEPDatabaseProject:
         project_digest: str,
         number_of_samples: int,
         private: bool = False,
-        pep_schema: str = None,
+        pep_schema: int = None,
         description: str = "",
         pop: bool = False,
     ) -> None:
@@ -483,7 +510,8 @@ class PEPDatabaseProject:
                     found_prj.digest = project_digest
                     found_prj.number_of_samples = number_of_samples
                     found_prj.private = private
-                    found_prj.pep_schema = pep_schema
+                    # found_prj.pep_schema = pep_schema
+                    found_prj.schema_id = pep_schema
                     found_prj.config = project_dict[CONFIG_KEY]
                     found_prj.description = description
                     found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
@@ -577,6 +605,8 @@ class PEPDatabaseProject:
                         f"Pep {namespace}/{name}:{tag} was not found. No items will be updated!"
                     )
 
+                self._convert_update_schema_id(session, update_values)
+
                 for k, v in update_values.items():
                     if getattr(found_prj, k) != v:
                         setattr(found_prj, k, v)
@@ -646,6 +676,34 @@ class PEPDatabaseProject:
 
         else:
             raise ProjectNotFoundError("No items will be updated!")
+
+    @staticmethod
+    def _convert_update_schema_id(session: Session, update_values: dict):
+        """
+        Convert schema path to schema_id in update_values and update it in update dict
+
+
+        :param session: open session object
+        :param update_values: dict with update key->values
+
+        return None
+        """
+        if "pep_schema" in update_values:
+            schema_namespace, schema_name = schema_path_converter(update_values["pep_schema"])
+            schema_mapping = session.scalar(
+                select(Schemas).where(
+                    and_(
+                        Schemas.namespace == schema_namespace,
+                        Schemas.name == schema_name,
+                    )
+                )
+            )
+            if not schema_mapping:
+                raise SchemaDoesNotExistError(
+                    f"Schema {schema_namespace}/{schema_name} does not exist. "
+                    f"Project won't be updated."
+                )
+            update_values["schema_id"] = schema_mapping.id
 
     def _update_samples(
         self,
