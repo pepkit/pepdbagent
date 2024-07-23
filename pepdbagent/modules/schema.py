@@ -1,52 +1,26 @@
-import datetime
-import json
 import logging
-from typing import Dict, List, NoReturn, Union
 
-import numpy as np
-import peppy
-from peppy.const import (
-    CONFIG_KEY,
-    SAMPLE_NAME_ATTR,
-    SAMPLE_RAW_DICT_KEY,
-    SAMPLE_TABLE_INDEX_KEY,
-    SUBSAMPLE_RAW_LIST_KEY,
-)
-from sqlalchemy import Select, and_, delete, select, or_, func
+from sqlalchemy import Select, and_, delete, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy.exc import IntegrityError, NoResultFound
 
-from pepdbagent.const import (
-    DEFAULT_TAG,
-    DESCRIPTION_KEY,
-    MAX_HISTORY_SAMPLES_NUMBER,
-    NAME_KEY,
-    PEPHUB_SAMPLE_ID_KEY,
-    PKG_NAME,
-)
-from pepdbagent.db_utils import (
-    BaseEngine,
-    Schemas,
-    SchemaGroups,
-    SchemaGroupRelations,
-    User,
-)
+from pepdbagent.const import PKG_NAME
+from pepdbagent.db_utils import BaseEngine, SchemaGroupRelations, SchemaGroups, Schemas, User
 from pepdbagent.exceptions import (
     SchemaAlreadyExistsError,
+    SchemaAlreadyInGroupError,
     SchemaDoesNotExistError,
     SchemaGroupAlreadyExistsError,
     SchemaGroupDoesNotExistError,
-    SchemaAlreadyInGroupError,
     SchemaIsNotInGroupError,
 )
 from pepdbagent.models import (
     SchemaAnnotation,
-    SchemaSearchResult,
     SchemaGroupAnnotation,
     SchemaGroupSearchResult,
+    SchemaSearchResult,
 )
-from pepdbagent.utils import create_digest, generate_guid, order_samples, registry_path_converter
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -569,18 +543,6 @@ class PEPDatabaseSchema:
 
         try:
             with Session(self._sa_engine) as session:
-
-                a = session.scalar(
-                    select(Schemas).where(
-                        and_(Schemas.namespace == schema_namespace, Schemas.name == schema_name)
-                    )
-                )
-                b = session.scalar(
-                    select(SchemaGroups).where(
-                        and_(SchemaGroups.namespace == namespace, SchemaGroups.name == name)
-                    )
-                )
-
                 delete_statement = delete(SchemaGroupRelations).where(
                     and_(
                         SchemaGroupRelations.schema_id

@@ -81,17 +81,21 @@ class TestSamples:
             )
             assert schema_annot != agent.schema.info(namespace=namespace, name=name)
 
-    @pytest.mark.skip("")
     @pytest.mark.parametrize(
         "namespace, name",
         [
-            ["namespace1", "2.0.0"],
+            ["namespace2", "bedboss"],
         ],
     )
     def test_annotation_popular(self, namespace, name):
-        with PEPDBAgentContextManager(add_schemas=True) as agent:
-            ...
-            # TODO: implement this feature
+        with PEPDBAgentContextManager(add_data=True, add_schemas=True) as agent:
+            agent.project.update(
+                namespace="namespace1",
+                name="amendments1",
+                update_dict={"pep_schema": "namespace2/bedboss"},
+            )
+            schema_annot = agent.schema.info(namespace=namespace, name=name)
+            assert schema_annot.popularity_number == 1
 
     def test_search(self):
         with PEPDBAgentContextManager(add_schemas=True) as agent:

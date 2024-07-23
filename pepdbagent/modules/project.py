@@ -31,10 +31,10 @@ from pepdbagent.db_utils import (
     HistorySamples,
     Projects,
     Samples,
+    Schemas,
     Subsamples,
     UpdateTypes,
     User,
-    Schemas,
 )
 from pepdbagent.exceptions import (
     HistoryNotFoundError,

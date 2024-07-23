@@ -4,9 +4,9 @@ from pepdbagent.modules.annotation import PEPDatabaseAnnotation
 from pepdbagent.modules.namespace import PEPDatabaseNamespace
 from pepdbagent.modules.project import PEPDatabaseProject
 from pepdbagent.modules.sample import PEPDatabaseSample
+from pepdbagent.modules.schema import PEPDatabaseSchema
 from pepdbagent.modules.user import PEPDatabaseUser
 from pepdbagent.modules.view import PEPDatabaseView
-from pepdbagent.modules.schema import PEPDatabaseSchema
 
 
 class PEPDatabaseAgent(object):
