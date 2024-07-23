@@ -129,7 +129,7 @@ class Projects(Base):
 
     history_mapping: Mapped[List["HistoryProjects"]] = relationship(
         back_populates="project_mapping", cascade="all, delete-orphan"
-    )  # TODO: check if cascade is correct
+    )
 
     __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
 
@@ -317,6 +317,9 @@ class Schemas(Base):
         default=deliver_update_date, onupdate=deliver_update_date
     )
 
+    projects_mappings: Mapped[List["Projects"]] = relationship(
+        "Projects", back_populates="schema_mapping"
+    )
     group_relation_mapping: Mapped[List["SchemaGroupRelations"]] = relationship(
         "SchemaGroupRelations", back_populates="schema_mapping"
     )

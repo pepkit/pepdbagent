@@ -255,9 +255,10 @@ class SchemaAnnotation(BaseModel):
 
     namespace: str
     name: str
-    last_update_date: Optional[datetime.datetime]
-    submission_date: Optional[datetime.datetime]
-    description: Optional[str]
+    last_update_date: str
+    submission_date: str
+    description: Optional[str] = ""
+    popularity_number: Optional[int] = 0
 
 
 class SchemaSearchResult(BaseModel):

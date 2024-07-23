@@ -30,6 +30,7 @@ from pepdbagent.db_utils import (
     Schemas,
     SchemaGroups,
     SchemaGroupRelations,
+    User,
 )
 from pepdbagent.exceptions import (
     SchemaAlreadyExistsError,
@@ -110,9 +111,10 @@ class PEPDatabaseSchema:
             return SchemaAnnotation(
                 namespace=schema_obj.namespace,
                 name=schema_obj.name,
-                last_update_date=schema_obj.last_update_date,
-                submission_date=schema_obj.submission_date,
+                last_update_date=str(schema_obj.last_update_date),
+                submission_date=str(schema_obj.submission_date),
                 description=schema_obj.description,
+                popularity_number=len(schema_obj.projects_mappings),
             )
 
     def search(
@@ -143,9 +145,10 @@ class PEPDatabaseSchema:
                     SchemaAnnotation(
                         namespace=result.namespace,
                         name=result.name,
-                        last_update_date=result.last_update_date,
-                        submission_date=result.submission_date,
+                        last_update_date=str(result.last_update_date),
+                        submission_date=str(result.submission_date),
                         description=result.description,
+                        # popularity_number=sum(result.projects_mappings),
                     )
                 )
 
@@ -229,6 +232,13 @@ class PEPDatabaseSchema:
             )
 
         with Session(self._sa_engine) as session:
+            user = session.scalar(select(User).where(User.namespace == namespace))
+
+            if not user:
+                user = User(namespace=namespace)
+                session.add(user)
+                session.commit()
+
             schema_obj = Schemas(
                 namespace=namespace,
                 name=name,
@@ -366,8 +376,8 @@ class PEPDatabaseSchema:
                     SchemaAnnotation(
                         namespace=schema_annotation.namespace,
                         name=schema_annotation.name,
-                        last_update_date=schema_annotation.last_update_date,
-                        submission_date=schema_annotation.submission_date,
+                        last_update_date=str(schema_annotation.last_update_date),
+                        submission_date=str(schema_annotation.submission_date),
                         desciription=schema_annotation.description,
                     )
                 )
@@ -458,7 +468,7 @@ class PEPDatabaseSchema:
         """
         statement = select(func.count(SchemaGroups.id))
 
-        statement = self._add_condition(statement, namespace, search_str)
+        statement = self._add_group_condition(statement, namespace, search_str)
 
         with Session(self._sa_engine) as session:
             result = session.execute(statement).one()
@@ -475,7 +485,7 @@ class PEPDatabaseSchema:
         :return: None
         """
 
-        if self.group_exist(namespace, name):
+        if not self.group_exist(namespace, name):
             raise SchemaGroupDoesNotExistError(
                 f"Schema group '{name}' does not exist in the database"
             )
@@ -559,30 +569,43 @@ class PEPDatabaseSchema:
 
         try:
             with Session(self._sa_engine) as session:
-                session.execute(
-                    delete(SchemaGroupRelations).where(
-                        and_(
-                            SchemaGroupRelations.schema_id
-                            == select(Schemas.id)
-                            .where(
-                                and_(
-                                    Schemas.namespace == schema_namespace,
-                                    Schemas.name == schema_name,
-                                )
-                            )
-                            .subquery(),
-                            SchemaGroupRelations.group_id
-                            == select(SchemaGroups.id)
-                            .where(
-                                and_(
-                                    SchemaGroups.namespace == namespace,
-                                    SchemaGroups.name == name,
-                                )
-                            )
-                            .subquery(),
-                        )
+
+                a = session.scalar(
+                    select(Schemas).where(
+                        and_(Schemas.namespace == schema_namespace, Schemas.name == schema_name)
                     )
                 )
+                b = session.scalar(
+                    select(SchemaGroups).where(
+                        and_(SchemaGroups.namespace == namespace, SchemaGroups.name == name)
+                    )
+                )
+
+                delete_statement = delete(SchemaGroupRelations).where(
+                    and_(
+                        SchemaGroupRelations.schema_id
+                        == select(Schemas.id)
+                        .where(
+                            and_(
+                                Schemas.namespace == schema_namespace,
+                                Schemas.name == schema_name,
+                            )
+                        )
+                        .subquery(),
+                        SchemaGroupRelations.group_id
+                        == select(SchemaGroups.id)
+                        .where(
+                            and_(
+                                SchemaGroups.namespace == namespace,
+                                SchemaGroups.name == name,
+                            )
+                        )
+                        .subquery(),
+                    )
+                )
+
+                session.execute(delete_statement)
+                session.commit()
         except IntegrityError:
             raise SchemaIsNotInGroupError("Schema not found in the group")
 

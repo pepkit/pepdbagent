@@ -1,0 +1,59 @@
+description: bedmaker PEP schema
+
+properties:
+  samples:
+    type: array
+    items:
+      type: object
+      properties:
+        sample_name: 
+          type: string
+          description: "name of the sample, which is the name of the output BED file"
+        input_file_path: 
+          type: string
+          description: "absolute path the file to convert"
+        output_bed_path: 
+          type: string
+          description: "absolute path the file to the output BED file (derived attribute)"
+        output_bigbed_path: 
+          type: string
+          description: "absolute path the file to the output bigBed file (derived attribute)"
+        genome:
+          type: string
+          description: "organism genome code"
+        narrowpeak:
+          type: boolean
+          description: "whether the regions are narrow (transcription factor implies narrow, histone mark implies broad peaks)"
+        format:
+          type: string
+          description: "file format"
+          enum: ["bigWig", "bigBed", "bed", "wig", "bedGraph"]
+        cell_type:
+          type: string
+          description: "cell type code"
+        antibody:
+          type: string
+          description: "antibody used if ChIP-seq experiment"
+        description:
+          type: string
+          description: "freeform description of the sample"
+        exp_protocol:
+          type: string
+          description: "type of the experiment the file was generated in"
+        data_source:
+          type: string
+          description: "source of the sample, preferably a GSE* code"
+        treatment:
+          type: string
+          description: "freeform description of the sample treatment"
+      required_files:
+        - input_file_path
+      required:
+        - input_file_path
+        - output_bed_path
+        - output_bigbed_path
+        - genome
+        - narrowpeak
+        - sample_name
+required:
+  - samples
