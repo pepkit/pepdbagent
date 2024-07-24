@@ -92,7 +92,13 @@ class PEPDatabaseSchema:
             )
 
     def search(
-        self, namespace: str = None, search_str: str = "", limit: int = 100, offset: int = 0
+        self,
+        namespace: str = None,
+        search_str: str = "",
+        limit: int = 100,
+        offset: int = 0,
+        order_by: str = "update_date",
+        order_desc: bool = False,
     ) -> SchemaSearchResult:
         """
         Search schemas in the database.
@@ -101,6 +107,10 @@ class PEPDatabaseSchema:
         :param search_str: query string. [Default: ""]. If empty, return all schemas
         :param limit: limit number of schemas [Default: 100]
         :param offset: offset number of schemas [Default: 0]
+        :param order_by: sort the result-set by the information
+            Options: ["name", "update_date", "submission_date"]
+            [Default: update_date]
+        :param order_desc: Sort the records in descending order. [Default: False]
 
         :return: list of schema dicts
         """
@@ -108,6 +118,7 @@ class PEPDatabaseSchema:
         statement = select(Schemas)
         statement = self._add_condition(statement, namespace, search_str)
         statement = statement.limit(limit).offset(offset)
+        statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
 
         return_list = []
 
@@ -150,6 +161,40 @@ class PEPDatabaseSchema:
             result = session.execute(statement).one()
 
             return result[0]
+
+    @staticmethod
+    def _add_order_by_keyword(
+        statement: Select, by: str = "update_date", desc: bool = False
+    ) -> Select:
+        """
+        Add order by clause to sqlalchemy statement
+
+        :param statement: sqlalchemy representation of a SELECT statement.
+        :param by: sort the result-set by the information
+            Options: ["name", "update_date", "submission_date"]
+            [Default: "update_date"]
+        :param desc: Sort the records in descending order. [Default: False]
+        :return: sqlalchemy representation of a SELECT statement with order by keyword
+        """
+        if by == "update_date":
+            order_by_obj = Schemas.last_update_date
+        elif by == "name":
+            order_by_obj = Schemas.name
+        elif by == "submission_date":
+            order_by_obj = Schemas.submission_date
+        else:
+            _LOGGER.warning(
+                f"order by: '{by}' statement is unavailable. Projects are sorted by 'update_date'"
+            )
+            order_by_obj = Schemas.last_update_date
+
+        if desc and by == "name":
+            order_by_obj = order_by_obj.desc()
+
+        elif by != "name" and not desc:
+            order_by_obj = order_by_obj.desc()
+
+        return statement.order_by(order_by_obj)
 
     @staticmethod
     def _add_condition(
