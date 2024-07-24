@@ -189,6 +189,11 @@ class PEPDatabaseSchema:
         :param update_only: update only schema if exists [Default: False]
         """
 
+        if description:
+            schema["description"] = description
+        else:
+            description = schema.get("description", "")
+
         if self.exist(namespace, name):
             if overwrite:
                 self.update(namespace, name, schema, description)
@@ -553,7 +558,7 @@ class PEPDatabaseSchema:
                                 Schemas.name == schema_name,
                             )
                         )
-                        .subquery(),
+                        .scalar_subquery(),
                         SchemaGroupRelations.group_id
                         == select(SchemaGroups.id)
                         .where(
@@ -562,7 +567,7 @@ class PEPDatabaseSchema:
                                 SchemaGroups.name == name,
                             )
                         )
-                        .subquery(),
+                        .scalar_subquery(),
                     )
                 )
 
