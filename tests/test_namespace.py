@@ -170,7 +170,7 @@ class TestUser:
     def test_create_user(self):
         with PEPDBAgentContextManager(add_data=True) as agent:
 
-            user = agent.user.create_user("test_user")
+            agent.user.create_user("test_user")
 
             assert agent.user.exists("test_user")
 

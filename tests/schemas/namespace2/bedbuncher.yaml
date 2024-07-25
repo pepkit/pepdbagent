@@ -1,0 +1,25 @@
+description: bedbuncher PEP schema
+imports: 
+  - http://schema.databio.org/pep/2.0.0.yaml
+
+properties:
+  samples:
+    type: array
+    items:
+      type: object
+      properties:
+        JSONquery_path: 
+          type: string
+          description: "path to the JSON file with the Elasticsearch query"
+        bedset_name:
+          type: string
+          pattern: "^\\S*$"
+          description: "name of the bedset that will be created"
+        bbconfig_path:
+          type: string
+          description: "path to bedbase config file"
+      required:
+        - JSONquery_path
+        - bedset_name
+required:
+  - samples
