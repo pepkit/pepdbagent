@@ -99,6 +99,7 @@ class UpdateItems(BaseModel):
     samples: Optional[List[dict]] = None
     subsamples: Optional[List[List[dict]]] = None
     pop: Optional[bool] = None
+    schema_id: Optional[int] = None
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -246,3 +247,49 @@ class HistoryAnnotationModel(BaseModel):
     name: str
     tag: str = DEFAULT_TAG
     history: List[HistoryChangeModel]
+
+
+class SchemaAnnotation(BaseModel):
+    """
+    Schema annotation model
+    """
+
+    namespace: str
+    name: str
+    last_update_date: str
+    submission_date: str
+    description: Optional[str] = ""
+    popularity_number: Optional[int] = 0
+
+
+class SchemaSearchResult(BaseModel):
+    """
+    Schema search result model
+    """
+
+    count: int
+    limit: int
+    offset: int
+    results: List[SchemaAnnotation]
+
+
+class SchemaGroupAnnotation(BaseModel):
+    """
+    Schema group annotation model
+    """
+
+    namespace: str
+    name: str
+    description: Optional[str]
+    schemas: List[SchemaAnnotation]
+
+
+class SchemaGroupSearchResult(BaseModel):
+    """
+    Schema group search result model
+    """
+
+    count: int
+    limit: int
+    offset: int
+    results: List[SchemaGroupAnnotation]

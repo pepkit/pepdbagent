@@ -211,7 +211,11 @@ class PEPDatabaseAnnotation:
                     submission_date=str(query_result.submission_date),
                     last_update_date=str(query_result.last_update_date),
                     digest=query_result.digest,
-                    pep_schema=query_result.pep_schema,
+                    pep_schema=(
+                        f"{query_result.schema_mapping.namespace}/{query_result.schema_mapping.name}"
+                        if query_result.schema_mapping
+                        else None
+                    ),
                     pop=query_result.pop,
                     stars_number=query_result.number_of_stars,
                     forked_from=(
@@ -342,7 +346,11 @@ class PEPDatabaseAnnotation:
                         submission_date=str(result.submission_date),
                         last_update_date=str(result.last_update_date),
                         digest=result.digest,
-                        pep_schema=result.pep_schema,
+                        pep_schema=(
+                            f"{result.schema_mapping.namespace}/{result.schema_mapping.name}"
+                            if result.schema_mapping
+                            else None
+                        ),
                         pop=result.pop,
                         stars_number=result.number_of_stars,
                         forked_from=(
@@ -538,9 +546,9 @@ class PEPDatabaseAnnotation:
             statement = select(Projects).where(or_(*or_statement_list))
             anno_results = []
             with Session(self._sa_engine) as session:
-                query_result = session.execute(statement).all()
+                query_result = session.scalars(statement)
                 for result in query_result:
-                    project_obj = result[0]
+                    project_obj = result
                     annot = AnnotationModel(
                         namespace=project_obj.namespace,
                         name=project_obj.name,
@@ -551,7 +559,11 @@ class PEPDatabaseAnnotation:
                         submission_date=str(project_obj.submission_date),
                         last_update_date=str(project_obj.last_update_date),
                         digest=project_obj.digest,
-                        pep_schema=project_obj.pep_schema,
+                        pep_schema=(
+                            f"{project_obj.schema_mapping.namespace}/{project_obj.schema_mapping.name}"
+                            if project_obj.schema_mapping
+                            else None
+                        ),
                         pop=project_obj.pop,
                         stars_number=project_obj.number_of_stars,
                         forked_from=(

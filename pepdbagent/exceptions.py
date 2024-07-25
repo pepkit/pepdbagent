@@ -117,3 +117,33 @@ class HistoryNotFoundError(PEPDatabaseAgentError):
 class UserNotFoundError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
         super().__init__(f"""User does not exist. {msg}""")
+
+
+class SchemaDoesNotExistError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Schema does not exist. {msg}""")
+
+
+class SchemaAlreadyExistsError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Schema already exists. {msg}""")
+
+
+class SchemaGroupDoesNotExistError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Schema group does not exist. {msg}""")
+
+
+class SchemaGroupAlreadyExistsError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Schema group already exists. {msg}""")
+
+
+class SchemaAlreadyInGroupError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Schema already in the group. {msg}""")
+
+
+class SchemaIsNotInGroupError(PEPDatabaseAgentError):
+    def __init__(self, msg=""):
+        super().__init__(f"""Schema not found in group. {msg}""")
