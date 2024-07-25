@@ -7,7 +7,7 @@ from .utils import PEPDBAgentContextManager
     not PEPDBAgentContextManager().db_setup(),
     reason="DB is not setup",
 )
-class TestSamples:
+class TestSchemas:
 
     @pytest.mark.parametrize(
         "namespace, name",

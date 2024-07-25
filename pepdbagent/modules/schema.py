@@ -207,6 +207,7 @@ class PEPDatabaseSchema:
             search_query = or_(
                 Schemas.name.ilike(sql_search_str),
                 Schemas.description.ilike(sql_search_str),
+                Schemas.namespace.ilike(sql_search_str),
             )
             statement = statement.where(search_query)
         if namespace:

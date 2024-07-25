@@ -90,7 +90,7 @@ def schema_path_converter(schema_path: str) -> Tuple[str, str]:
     if "/" in schema_path:
         namespace, name = schema_path.split("/")
         return namespace, name
-    raise RegistryPathError(f"Error in: '{schema_path}'")
+    raise RegistryPathError(f"Incorrect schema registry path: '{schema_path}'")
 
 
 def tuple_converter(value: Union[tuple, list, str, None]) -> tuple:
