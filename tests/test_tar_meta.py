@@ -15,6 +15,7 @@ class TestGeoTar:
     """
     Test project methods
     """
+
     test_namespace = "namespace1"
 
     tar_info = GeoTarModel(
@@ -26,7 +27,6 @@ class TestGeoTar:
         file_path="blabla/test.tar",
     )
 
-
     def test_create_meta_tar(self):
         with PEPDBAgentContextManager(add_data=True) as agent:
 
@@ -35,7 +35,9 @@ class TestGeoTar:
             result = agent.project.geo_get_tar_info(namespace=self.test_namespace)
 
             assert result.count == 1
-            assert result.results[0].end_period.strftime("%Y:%m:%d") == self.tar_info.end_period.strftime("%Y:%m:%d")
+            assert result.results[0].end_period.strftime(
+                "%Y:%m:%d"
+            ) == self.tar_info.end_period.strftime("%Y:%m:%d")
 
     def test_delete_meta_tar(self):
         with PEPDBAgentContextManager(add_data=True) as agent:

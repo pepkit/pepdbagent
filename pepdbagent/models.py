@@ -308,8 +308,8 @@ class GeoTarModel(BaseModel):
     end_period: datetime.datetime
     number_of_projects: int = 0
 
-class GeoTarModelReturn(BaseModel):
 
+class GeoTarModelReturn(BaseModel):
     """
     Geo project model
     """
