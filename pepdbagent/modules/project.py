@@ -5,60 +5,30 @@ from typing import Dict, List, NoReturn, Union
 
 import numpy as np
 import peppy
-from peppy.const import (
-    CONFIG_KEY,
-    SAMPLE_NAME_ATTR,
-    SAMPLE_RAW_DICT_KEY,
-    SAMPLE_TABLE_INDEX_KEY,
-    SUBSAMPLE_RAW_LIST_KEY,
-)
+from peppy.const import (CONFIG_KEY, SAMPLE_NAME_ATTR, SAMPLE_RAW_DICT_KEY,
+                         SAMPLE_TABLE_INDEX_KEY, SUBSAMPLE_RAW_LIST_KEY)
 from sqlalchemy import Select, and_, delete, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from pepdbagent.const import (
-    DEFAULT_TAG,
-    DESCRIPTION_KEY,
-    MAX_HISTORY_SAMPLES_NUMBER,
-    NAME_KEY,
-    PEPHUB_SAMPLE_ID_KEY,
-    PKG_NAME,
-)
-from pepdbagent.db_utils import (
-    BaseEngine,
-    HistoryProjects,
-    HistorySamples,
-    Projects,
-    Samples,
-    Schemas,
-    Subsamples,
-    UpdateTypes,
-    User,
-)
-from pepdbagent.exceptions import (
-    HistoryNotFoundError,
-    PEPDatabaseAgentError,
-    ProjectDuplicatedSampleGUIDsError,
-    ProjectNotFoundError,
-    ProjectUniqueNameError,
-    SampleTableUpdateError,
-    SchemaDoesNotExistError,
-)
-from pepdbagent.models import (
-    HistoryAnnotationModel,
-    HistoryChangeModel,
-    ProjectDict,
-    UpdateItems,
-    UpdateModel,
-)
-from pepdbagent.utils import (
-    create_digest,
-    generate_guid,
-    order_samples,
-    registry_path_converter,
-    schema_path_converter,
-)
+from pepdbagent.const import (DEFAULT_TAG, DESCRIPTION_KEY,
+                              MAX_HISTORY_SAMPLES_NUMBER, NAME_KEY,
+                              PEPHUB_SAMPLE_ID_KEY, PKG_NAME)
+from pepdbagent.db_utils import (BaseEngine, HistoryProjects, HistorySamples,
+                                 Projects, Samples, Schemas, Subsamples,
+                                 TarNamespace, UpdateTypes, User)
+from pepdbagent.exceptions import (HistoryNotFoundError, PEPDatabaseAgentError,
+                                   ProjectDuplicatedSampleGUIDsError,
+                                   ProjectNotFoundError,
+                                   ProjectUniqueNameError,
+                                   SampleTableUpdateError,
+                                   SchemaDoesNotExistError)
+from pepdbagent.models import (GeoTarModel, GeoTarModelReturn,
+                               HistoryAnnotationModel, HistoryChangeModel,
+                               ProjectDict, UpdateItems, UpdateModel)
+from pepdbagent.utils import (create_digest, generate_guid, order_samples,
+                              registry_path_converter, schema_path_converter)
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
@@ -1412,7 +1382,7 @@ class PEPDatabaseProject:
 
     def clean_history(self, days: int = 90) -> None:
         """
-        Delete all history data that is older then 3 month, or specific number of days
+        Delete all history data that is older than 3 month, or specific number of days
 
         :param days: number of days to keep history data
         :return: None
@@ -1427,3 +1397,74 @@ class PEPDatabaseProject:
             )
             session.commit()
             _LOGGER.info("History was cleaned successfully!")
+
+
+    def geo_upload_tar_info(self, tar_info: GeoTarModel) -> None:
+        """
+        Upload metadata of tar GEO files
+
+        tar_info: GeoTarModel
+        :return: None
+        """
+
+        with Session(self._sa_engine) as session:
+            new_tar = TarNamespace(
+                file_path=tar_info.file_path,
+                namespace=tar_info.namespace,
+                start_period=tar_info.start_period,
+                end_period=tar_info.end_period,
+                number_of_projects=tar_info.number_of_projects,
+            )
+            session.add(new_tar)
+            session.commit()
+
+            _LOGGER.info("Geo tar info was uploaded successfully!")
+
+    def geo_get_tar_info(self, namespace: str) -> GeoTarModelReturn:
+        """
+        Get metadata of tar GEO files
+
+        :param namespace: namespace of the tar files
+
+        :return: list with geo data
+        """
+
+        with Session(self._sa_engine) as session:
+            tar_info = session.scalars(select(TarNamespace).where(TarNamespace.namespace == namespace).order_by(TarNamespace.submission_date.desc()))
+
+            results = []
+            for result in tar_info:
+                results.append(
+                    GeoTarModel(
+                        identifier=result.id,
+                        namespace=result.namespace,
+                        file_path=result.file_path,
+                        start_period=result.start_period,
+                        end_period=result.end_period,
+                        submission_date=result.submission_date,
+                        number_of_projects=result.number_of_projects,
+                    )
+                )
+
+        return GeoTarModelReturn(
+            count=len(results),
+            results=results
+        )
+
+    def geo_delete_tar_info(self, namespace: str = None) -> None:
+        """
+        Delete all metadata of tar GEO files
+
+        :param namespace: namespace of the tar files
+
+        :return: None
+        """
+
+        with Session(self._sa_engine) as session:
+
+            delete_statement = delete(TarNamespace)
+            if namespace:
+                delete_statement = delete_statement.where(TarNamespace.namespace == namespace)
+            session.execute(delete_statement)
+            session.commit()
+            _LOGGER.info("Geo tar info was deleted successfully!")

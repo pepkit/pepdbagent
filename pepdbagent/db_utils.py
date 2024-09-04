@@ -3,24 +3,15 @@ import enum
 import logging
 from typing import List, Optional
 
-from sqlalchemy import (
-    TIMESTAMP,
-    BigInteger,
-    Enum,
-    FetchedValue,
-    ForeignKey,
-    Result,
-    Select,
-    String,
-    UniqueConstraint,
-    event,
-    select,
-)
+from sqlalchemy import (TIMESTAMP, BigInteger, Enum, FetchedValue, ForeignKey,
+                        Result, Select, String, UniqueConstraint, event,
+                        select)
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, create_engine
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
+from sqlalchemy.orm import (DeclarativeBase, Mapped, Session, mapped_column,
+                            relationship)
 
 from pepdbagent.const import PKG_NAME, POSTGRES_DIALECT
 from pepdbagent.exceptions import SchemaError
@@ -362,6 +353,19 @@ class SchemaGroupRelations(Base):
     group_mapping: Mapped["SchemaGroups"] = relationship(
         "SchemaGroups", back_populates="schema_relation_mapping"
     )
+
+
+class TarNamespace(Base):
+
+    __tablename__ = "tar_namespace"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    namespace: Mapped[str] = mapped_column(ForeignKey("users.namespace", ondelete="CASCADE"))
+    file_path: Mapped[str] = mapped_column(nullable=False)
+    submission_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
+    start_period: Mapped[datetime.datetime] = mapped_column(nullable=True)
+    end_period: Mapped[datetime.datetime] = mapped_column(nullable=True)
+    number_of_projects: Mapped[int] = mapped_column(default=0)
 
 
 class BaseEngine:
