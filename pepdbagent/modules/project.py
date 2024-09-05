@@ -660,6 +660,7 @@ class PEPDatabaseProject:
                         ),
                         history_sa_model=new_history,
                     )
+                    found_prj.number_of_samples = len(update_dict["samples"])
 
                 if "subsamples" in update_dict:
                     if found_prj.subsamples_mapping:
