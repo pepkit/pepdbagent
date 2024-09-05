@@ -364,6 +364,19 @@ class SchemaGroupRelations(Base):
     )
 
 
+class TarNamespace(Base):
+
+    __tablename__ = "tar_namespace"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    namespace: Mapped[str] = mapped_column(ForeignKey("users.namespace", ondelete="CASCADE"))
+    file_path: Mapped[str] = mapped_column(nullable=False)
+    submission_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
+    start_period: Mapped[datetime.datetime] = mapped_column(nullable=True)
+    end_period: Mapped[datetime.datetime] = mapped_column(nullable=True)
+    number_of_projects: Mapped[int] = mapped_column(default=0)
+
+
 class BaseEngine:
     """
     A class with base methods, that are used in several classes. e.g. fetch_one or fetch_all
