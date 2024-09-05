@@ -303,7 +303,7 @@ class GeoTarModel(BaseModel):
     identifier: int = None
     namespace: str
     file_path: str
-    submission_date: datetime.datetime
+    submission_date: datetime.datetime = None
     start_period: datetime.datetime
     end_period: datetime.datetime
     number_of_projects: int = 0
