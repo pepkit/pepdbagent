@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from pepdbagent.models import GeoTarModel
+from pepdbagent.models import TarNamespaceModel
 
 from .utils import PEPDBAgentContextManager
 
@@ -18,7 +18,7 @@ class TestGeoTar:
 
     test_namespace = "namespace1"
 
-    tar_info = GeoTarModel(
+    tar_info = TarNamespaceModel(
         namespace=test_namespace,
         submission_date=datetime.now(),
         start_period=datetime.now(),
@@ -30,9 +30,9 @@ class TestGeoTar:
     def test_create_meta_tar(self):
         with PEPDBAgentContextManager(add_data=True) as agent:
 
-            agent.project.geo_upload_tar_info(tar_info=self.tar_info)
+            agent.namespace.upload_tar_info(tar_info=self.tar_info)
 
-            result = agent.project.geo_get_tar_info(namespace=self.test_namespace)
+            result = agent.namespace.get_tar_info(namespace=self.test_namespace)
 
             assert result.count == 1
             assert result.results[0].end_period.strftime(
@@ -41,12 +41,12 @@ class TestGeoTar:
 
     def test_delete_meta_tar(self):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            agent.project.geo_upload_tar_info(tar_info=self.tar_info)
+            agent.namespace.upload_tar_info(tar_info=self.tar_info)
 
-            result = agent.project.geo_get_tar_info(namespace=self.test_namespace)
+            result = agent.namespace.get_tar_info(namespace=self.test_namespace)
             assert result.count == 1
 
-            agent.project.geo_delete_tar_info()
+            agent.namespace.delete_tar_info()
 
-            result = agent.project.geo_get_tar_info(namespace=self.test_namespace)
+            result = agent.namespace.get_tar_info(namespace=self.test_namespace)
             assert result.count == 0

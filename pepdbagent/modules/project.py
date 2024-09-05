@@ -47,8 +47,8 @@ from pepdbagent.exceptions import (
     SchemaDoesNotExistError,
 )
 from pepdbagent.models import (
-    GeoTarModel,
-    GeoTarModelReturn,
+    TarNamespaceModel,
+    TarNamespaceModelReturn,
     HistoryAnnotationModel,
     HistoryChangeModel,
     ProjectDict,
@@ -1431,74 +1431,3 @@ class PEPDatabaseProject:
             )
             session.commit()
             _LOGGER.info("History was cleaned successfully!")
-
-    def geo_upload_tar_info(self, tar_info: GeoTarModel) -> None:
-        """
-        Upload metadata of tar GEO files
-
-        tar_info: GeoTarModel
-        :return: None
-        """
-
-        with Session(self._sa_engine) as session:
-            new_tar = TarNamespace(
-                file_path=tar_info.file_path,
-                namespace=tar_info.namespace,
-                start_period=tar_info.start_period,
-                end_period=tar_info.end_period,
-                number_of_projects=tar_info.number_of_projects,
-            )
-            session.add(new_tar)
-            session.commit()
-
-            _LOGGER.info("Geo tar info was uploaded successfully!")
-
-    def geo_get_tar_info(self, namespace: str) -> GeoTarModelReturn:
-        """
-        Get metadata of tar GEO files
-
-        :param namespace: namespace of the tar files
-
-        :return: list with geo data
-        """
-
-        with Session(self._sa_engine) as session:
-            tar_info = session.scalars(
-                select(TarNamespace)
-                .where(TarNamespace.namespace == namespace)
-                .order_by(TarNamespace.submission_date.desc())
-            )
-
-            results = []
-            for result in tar_info:
-                results.append(
-                    GeoTarModel(
-                        identifier=result.id,
-                        namespace=result.namespace,
-                        file_path=result.file_path,
-                        start_period=result.start_period,
-                        end_period=result.end_period,
-                        submission_date=result.submission_date,
-                        number_of_projects=result.number_of_projects,
-                    )
-                )
-
-        return GeoTarModelReturn(count=len(results), results=results)
-
-    def geo_delete_tar_info(self, namespace: str = None) -> None:
-        """
-        Delete all metadata of tar GEO files
-
-        :param namespace: namespace of the tar files
-
-        :return: None
-        """
-
-        with Session(self._sa_engine) as session:
-
-            delete_statement = delete(TarNamespace)
-            if namespace:
-                delete_statement = delete_statement.where(TarNamespace.namespace == namespace)
-            session.execute(delete_statement)
-            session.commit()
-            _LOGGER.info("Geo tar info was deleted successfully!")

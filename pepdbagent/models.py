@@ -295,7 +295,7 @@ class SchemaGroupSearchResult(BaseModel):
     results: List[SchemaGroupAnnotation]
 
 
-class GeoTarModel(BaseModel):
+class TarNamespaceModel(BaseModel):
     """
     Geo project model
     """
@@ -309,10 +309,10 @@ class GeoTarModel(BaseModel):
     number_of_projects: int = 0
 
 
-class GeoTarModelReturn(BaseModel):
+class TarNamespaceModelReturn(BaseModel):
     """
     Geo project model
     """
 
     count: int
-    results: List[GeoTarModel]
+    results: List[TarNamespaceModel]
