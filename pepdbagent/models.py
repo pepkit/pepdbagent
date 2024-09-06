@@ -303,9 +303,7 @@ class TarNamespaceModel(BaseModel):
     identifier: int = None
     namespace: str
     file_path: str
-    submission_date: datetime.datetime = None
-    start_period: datetime.datetime
-    end_period: datetime.datetime
+    creation_date: datetime.datetime = None
     number_of_projects: int = 0
 
 

@@ -315,8 +315,7 @@ class PEPDatabaseNamespace:
             new_tar = TarNamespace(
                 file_path=tar_info.file_path,
                 namespace=tar_info.namespace,
-                start_period=tar_info.start_period,
-                end_period=tar_info.end_period,
+                creation_date=tar_info.creation_date,
                 number_of_projects=tar_info.number_of_projects,
             )
             session.add(new_tar)
@@ -337,7 +336,7 @@ class PEPDatabaseNamespace:
             tar_info = session.scalars(
                 select(TarNamespace)
                 .where(TarNamespace.namespace == namespace)
-                .order_by(TarNamespace.submission_date.desc())
+                .order_by(TarNamespace.creation_date.desc())
             )
 
             results = []
@@ -347,9 +346,7 @@ class PEPDatabaseNamespace:
                         identifier=result.id,
                         namespace=result.namespace,
                         file_path=result.file_path,
-                        start_period=result.start_period,
-                        end_period=result.end_period,
-                        submission_date=result.submission_date,
+                        creation_date=result.creation_date,
                         number_of_projects=result.number_of_projects,
                     )
                 )

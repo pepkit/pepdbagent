@@ -35,9 +35,6 @@ class TestGeoTar:
             result = agent.namespace.get_tar_info(namespace=self.test_namespace)
 
             assert result.count == 1
-            assert result.results[0].end_period.strftime(
-                "%Y:%m:%d"
-            ) == self.tar_info.end_period.strftime("%Y:%m:%d")
 
     def test_delete_meta_tar(self):
         with PEPDBAgentContextManager(add_data=True) as agent:

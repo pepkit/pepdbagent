@@ -366,14 +366,12 @@ class SchemaGroupRelations(Base):
 
 class TarNamespace(Base):
 
-    __tablename__ = "tar_namespace"
+    __tablename__ = "namespace_archives"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     namespace: Mapped[str] = mapped_column(ForeignKey("users.namespace", ondelete="CASCADE"))
     file_path: Mapped[str] = mapped_column(nullable=False)
-    submission_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
-    start_period: Mapped[datetime.datetime] = mapped_column(nullable=True)
-    end_period: Mapped[datetime.datetime] = mapped_column(nullable=True)
+    creation_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
     number_of_projects: Mapped[int] = mapped_column(default=0)
 
 
