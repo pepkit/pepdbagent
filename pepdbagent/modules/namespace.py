@@ -317,6 +317,7 @@ class PEPDatabaseNamespace:
                 namespace=tar_info.namespace,
                 creation_date=tar_info.creation_date,
                 number_of_projects=tar_info.number_of_projects,
+                file_size=tar_info.file_size,
             )
             session.add(new_tar)
             session.commit()
@@ -348,6 +349,7 @@ class PEPDatabaseNamespace:
                         file_path=result.file_path,
                         creation_date=result.creation_date,
                         number_of_projects=result.number_of_projects,
+                        file_size=result.file_size,
                     )
                 )
 

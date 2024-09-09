@@ -305,6 +305,7 @@ class TarNamespaceModel(BaseModel):
     file_path: str
     creation_date: datetime.datetime = None
     number_of_projects: int = 0
+    file_size: int = 0
 
 
 class TarNamespaceModelReturn(BaseModel):

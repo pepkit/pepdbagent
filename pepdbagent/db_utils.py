@@ -373,6 +373,7 @@ class TarNamespace(Base):
     file_path: Mapped[str] = mapped_column(nullable=False)
     creation_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
     number_of_projects: Mapped[int] = mapped_column(default=0)
+    file_size: Mapped[int] = mapped_column(nullable=False)
 
 
 class BaseEngine:
