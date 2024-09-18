@@ -297,7 +297,7 @@ class SchemaGroupSearchResult(BaseModel):
 
 class TarNamespaceModel(BaseModel):
     """
-    Geo project model
+    Namespace archive model
     """
 
     identifier: int = None
@@ -310,7 +310,7 @@ class TarNamespaceModel(BaseModel):
 
 class TarNamespaceModelReturn(BaseModel):
     """
-    Geo project model
+    Namespace archive search model
     """
 
     count: int
