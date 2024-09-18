@@ -280,7 +280,7 @@ class SchemaGroupAnnotation(BaseModel):
 
     namespace: str
     name: str
-    description: Optional[str]
+    description: Optional[str] = ""
     schemas: List[SchemaAnnotation]
 
 
@@ -293,3 +293,25 @@ class SchemaGroupSearchResult(BaseModel):
     limit: int
     offset: int
     results: List[SchemaGroupAnnotation]
+
+
+class TarNamespaceModel(BaseModel):
+    """
+    Namespace archive model
+    """
+
+    identifier: int = None
+    namespace: str
+    file_path: str
+    creation_date: datetime.datetime = None
+    number_of_projects: int = 0
+    file_size: int = 0
+
+
+class TarNamespaceModelReturn(BaseModel):
+    """
+    Namespace archive search model
+    """
+
+    count: int
+    results: List[TarNamespaceModel]

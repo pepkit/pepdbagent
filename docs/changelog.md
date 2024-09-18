@@ -2,6 +2,10 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.11.1] -- 2024-09-04
+- Added archive table of namespaces
+- Added sort by stars
+
 ## [0.11.0] -- 2024-07-24
 - Added validation schemas
 

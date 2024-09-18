@@ -300,7 +300,7 @@ class PEPDatabaseAnnotation:
         :param limit: limit of return results
         :param offset: number of results off set (that were already showed)
         :param order_by: sort the result-set by the information
-            Options: ["name", "update_date", "submission_date"]
+            Options: ["update_date", "name",  "submission_date", "stars"]
             [Default: "update_date"]
         :param order_desc: Sort the records in descending order. [Default: False]
         :param filter_by: data to use filter on.
@@ -371,7 +371,7 @@ class PEPDatabaseAnnotation:
 
         :param statement: sqlalchemy representation of a SELECT statement.
         :param by: sort the result-set by the information
-            Options: ["name", "update_date", "submission_date"]
+            Options: ["name", "update_date", "submission_date", "stars"]
             [Default: "update_date"]
         :param desc: Sort the records in descending order. [Default: False]
         :return: sqlalchemy representation of a SELECT statement with order by keyword
@@ -382,6 +382,8 @@ class PEPDatabaseAnnotation:
             order_by_obj = Projects.name
         elif by == SUBMISSION_DATE_KEY:
             order_by_obj = Projects.submission_date
+        elif by == "stars":
+            order_by_obj = Projects.number_of_stars
         else:
             _LOGGER.warning(
                 f"order by: '{by}' statement is unavailable. Projects are sorted by 'update_date'"
@@ -614,7 +616,7 @@ class PEPDatabaseAnnotation:
         :param limit: limit of return results
         :param offset: number of results off set (that were already showed)
         :param order_by: sort the result-set by the information
-            Options: ["name", "update_date", "submission_date"]
+            Options: ["name", "update_date", "submission_date", "stars"]
             [Default: "update_date"]
         :param order_desc: Sort the records in descending order. [Default: False]
         :param filter_by: data to use filter on.

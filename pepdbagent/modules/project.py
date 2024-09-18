@@ -33,6 +33,7 @@ from pepdbagent.db_utils import (
     Samples,
     Schemas,
     Subsamples,
+    TarNamespace,
     UpdateTypes,
     User,
 )
@@ -46,6 +47,8 @@ from pepdbagent.exceptions import (
     SchemaDoesNotExistError,
 )
 from pepdbagent.models import (
+    TarNamespaceModel,
+    TarNamespaceModelReturn,
     HistoryAnnotationModel,
     HistoryChangeModel,
     ProjectDict,
@@ -657,6 +660,7 @@ class PEPDatabaseProject:
                         ),
                         history_sa_model=new_history,
                     )
+                    found_prj.number_of_samples = len(update_dict["samples"])
 
                 if "subsamples" in update_dict:
                     if found_prj.subsamples_mapping:
@@ -1412,7 +1416,7 @@ class PEPDatabaseProject:
 
     def clean_history(self, days: int = 90) -> None:
         """
-        Delete all history data that is older then 3 month, or specific number of days
+        Delete all history data that is older than 3 month, or specific number of days
 
         :param days: number of days to keep history data
         :return: None

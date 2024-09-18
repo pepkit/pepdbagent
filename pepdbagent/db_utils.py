@@ -364,6 +364,30 @@ class SchemaGroupRelations(Base):
     )
 
 
+class TarNamespace(Base):
+
+    __tablename__ = "namespace_archives"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    namespace: Mapped[str] = mapped_column(ForeignKey("users.namespace", ondelete="CASCADE"))
+    file_path: Mapped[str] = mapped_column(nullable=False)
+    creation_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
+    number_of_projects: Mapped[int] = mapped_column(default=0)
+    file_size: Mapped[int] = mapped_column(nullable=False)
+
+
+class BedBaseStats(Base):
+    __tablename__ = "bedbase_stats"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    gse: Mapped[str] = mapped_column()
+    gsm: Mapped[str] = mapped_column()
+    sample_name: Mapped[str] = mapped_column(nullable=True)
+    genome: Mapped[Optional[str]] = mapped_column(nullable=True, default="")
+    last_update_date: Mapped[Optional[str]] = mapped_column()
+    submission_date: Mapped[Optional[str]] = mapped_column()
+
+
 class BaseEngine:
     """
     A class with base methods, that are used in several classes. e.g. fetch_one or fetch_all

@@ -3,12 +3,12 @@ from collections import Counter
 from datetime import datetime, timedelta
 from typing import List, Tuple, Union
 
-from sqlalchemy import distinct, func, or_, select
+from sqlalchemy import distinct, func, or_, select, delete
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.selectable import Select
 
 from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_LIMIT_INFO, DEFAULT_OFFSET, PKG_NAME
-from pepdbagent.db_utils import BaseEngine, Projects, User
+from pepdbagent.db_utils import BaseEngine, Projects, User, TarNamespace
 from pepdbagent.exceptions import NamespaceNotFoundError
 from pepdbagent.models import (
     ListOfNamespaceInfo,
@@ -16,6 +16,8 @@ from pepdbagent.models import (
     NamespaceInfo,
     NamespaceList,
     NamespaceStats,
+    TarNamespaceModel,
+    TarNamespaceModelReturn,
 )
 from pepdbagent.utils import tuple_converter
 
@@ -300,3 +302,73 @@ class PEPDatabaseNamespace:
             projects_updated=counts_last_update,
             projects_created=counts_submission,
         )
+
+    def upload_tar_info(self, tar_info: TarNamespaceModel) -> None:
+        """
+        Upload metadata of tar GEO files
+
+        tar_info: TarNamespaceModel
+        :return: None
+        """
+
+        with Session(self._sa_engine) as session:
+            new_tar = TarNamespace(
+                file_path=tar_info.file_path,
+                namespace=tar_info.namespace,
+                creation_date=tar_info.creation_date,
+                number_of_projects=tar_info.number_of_projects,
+                file_size=tar_info.file_size,
+            )
+            session.add(new_tar)
+            session.commit()
+
+            _LOGGER.info("Geo tar info was uploaded successfully!")
+
+    def get_tar_info(self, namespace: str) -> TarNamespaceModelReturn:
+        """
+        Get metadata of tar GEO files
+
+        :param namespace: namespace of the tar files
+
+        :return: list with geo data
+        """
+
+        with Session(self._sa_engine) as session:
+            tar_info = session.scalars(
+                select(TarNamespace)
+                .where(TarNamespace.namespace == namespace)
+                .order_by(TarNamespace.creation_date.desc())
+            )
+
+            results = []
+            for result in tar_info:
+                results.append(
+                    TarNamespaceModel(
+                        identifier=result.id,
+                        namespace=result.namespace,
+                        file_path=result.file_path,
+                        creation_date=result.creation_date,
+                        number_of_projects=result.number_of_projects,
+                        file_size=result.file_size,
+                    )
+                )
+
+        return TarNamespaceModelReturn(count=len(results), results=results)
+
+    def delete_tar_info(self, namespace: str = None) -> None:
+        """
+        Delete all metadata of tar GEO files
+
+        :param namespace: namespace of the tar files
+
+        :return: None
+        """
+
+        with Session(self._sa_engine) as session:
+
+            delete_statement = delete(TarNamespace)
+            if namespace:
+                delete_statement = delete_statement.where(TarNamespace.namespace == namespace)
+            session.execute(delete_statement)
+            session.commit()
+            _LOGGER.info("Geo tar info was deleted successfully!")
