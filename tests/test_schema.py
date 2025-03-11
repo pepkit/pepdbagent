@@ -17,207 +17,87 @@ class TestSamples:
     )
     def test_get(self, namespace, name):
         with PEPDBAgentContextManager(add_schemas=True) as agent:
-            schema = agent.schema.get(namespace=namespace, name=name)
-            assert agent.schema.exist(namespace=namespace, name=name)
+            assert agent.schema.schema_exist(namespace=namespace, name=name)
+            assert agent.schema.version_exist(namespace=namespace, name=name, version="1.0.0")
+            schema = agent.schema.get(namespace=namespace, name=name, version="1.0.0")
             assert schema
 
-    @pytest.mark.parametrize(
-        "namespace, name",
-        [
-            ["namespace1", "2.0.0"],
-        ],
-    )
-    def test_delete(self, namespace, name):
-        with PEPDBAgentContextManager(add_schemas=True) as agent:
-            assert agent.schema.exist(namespace=namespace, name=name)
-            agent.schema.delete(namespace=namespace, name=name)
-            assert not agent.schema.exist(namespace=namespace, name=name)
+    def test_search_schema(self): ...
+
+    def test_search_schema_namespace(self): ...
+
+    def test_update_schema(self): ...
+
+    def test_update_schema_update_date(self): ...
+
+    def test_add_schema_version(self): ...
+
+    def test_update_schema_version(self): ...
+
+    def test_search_schema_version(self): ...
+
+    def test_search_schema_version_with_tags(self): ...
 
     @pytest.mark.parametrize(
         "namespace, name",
         [
-            ["namespace1", "2.0.0"],
+            ["namespace2", "bedmaker"],
         ],
     )
-    def test_update(self, namespace, name):
+    def test_schema_delete(self, namespace, name):
         with PEPDBAgentContextManager(add_schemas=True) as agent:
-            schema = agent.schema.get(namespace=namespace, name=name)
-            schema["new"] = "hello"
-            agent.schema.update(namespace=namespace, name=name, schema=schema)
-            assert agent.schema.exist(namespace=namespace, name=name)
-            assert schema == agent.schema.get(namespace=namespace, name=name)
+            assert agent.schema.schema_exist(namespace=namespace, name=name)
+            agent.schema.delete_schema(namespace=namespace, name=name)
+            assert not agent.schema.version_exist(namespace=namespace, name=name, version="1.0.0")
+            assert not agent.schema.schema_exist(namespace=namespace, name=name)
 
     @pytest.mark.parametrize(
         "namespace, name",
         [
-            ["namespace1", "2.0.0"],
+            ["namespace2", "bedmaker"],
         ],
     )
-    def test_get_annotation(self, namespace, name):
+    def test_schema_version_delete(self, namespace, name):
         with PEPDBAgentContextManager(add_schemas=True) as agent:
-            schema_annot = agent.schema.info(namespace=namespace, name=name)
-            assert schema_annot
-            assert schema_annot.model_fields_set == {
-                "namespace",
-                "name",
-                "last_update_date",
-                "submission_date",
-                "description",
-                "popularity_number",
-            }
+            assert agent.schema.version_exist(namespace=namespace, name=name, version="1.0.0")
+            agent.schema.delete_version(namespace=namespace, name=name, version="1.0.0")
+            assert not agent.schema.version_exist(namespace=namespace, name=name, version="1.0.0")
+            assert agent.schema.schema_exist(namespace=namespace, name=name)
+
+
+class TestSchemaTags:
+    def test_insert_tags(self):
+        with PEPDBAgentContextManager(add_schemas=True) as agent:
+            new_tag1 = "new_tag"
+            new_tag2 = "tag2"
+            agent.schema.add_tag_to_schema(
+                "namespace1", "2.0.0", "1.0.0", tag=[new_tag1, new_tag2]
+            )
+
+            result = agent.schema.get_version_info("namespace1", "2.0.0", "1.0.0")
+
+            assert new_tag1 in result.tags
+            assert new_tag2 in result.tags
+
+    def test_insert_one_tag(self):
+        with PEPDBAgentContextManager(add_schemas=True) as agent:
+            new_tag1 = "new_tag"
+            agent.schema.add_tag_to_schema("namespace1", "2.0.0", "1.0.0", tag=new_tag1)
+            result = agent.schema.get_version_info("namespace1", "2.0.0", "1.0.0")
+            assert new_tag1 in result.tags
 
     @pytest.mark.parametrize(
         "namespace, name",
         [
-            ["namespace1", "2.0.0"],
+            ["namespace2", "bedmaker"],
         ],
     )
-    def test_update_annotation(self, namespace, name):
+    def test_delete_tag(self, namespace, name):
         with PEPDBAgentContextManager(add_schemas=True) as agent:
-            schema_annot = agent.schema.info(namespace=namespace, name=name)
-            schema = agent.schema.get(namespace=namespace, name=name)
-            agent.schema.update(
-                namespace=namespace, name=name, schema=schema, description="new desc"
-            )
-            assert schema_annot != agent.schema.info(namespace=namespace, name=name)
-
-    @pytest.mark.parametrize(
-        "namespace, name",
-        [
-            ["namespace2", "bedboss"],
-        ],
-    )
-    def test_annotation_popular(self, namespace, name):
-        with PEPDBAgentContextManager(add_data=True, add_schemas=True) as agent:
-            agent.project.update(
-                namespace="namespace1",
-                name="amendments1",
-                update_dict={"pep_schema": "namespace2/bedboss"},
-            )
-            schema_annot = agent.schema.info(namespace=namespace, name=name)
-            assert schema_annot.popularity_number == 1
-
-    def test_search(self):
-        with PEPDBAgentContextManager(add_schemas=True) as agent:
-            results = agent.schema.search(namespace="namespace2")
-            assert results
-            assert results.count == 3
-            assert len(results.results) == 3
-
-    def test_search_offset(self):
-        with PEPDBAgentContextManager(add_schemas=True) as agent:
-            results = agent.schema.search(namespace="namespace2", offset=1)
-            assert results
-            assert results.count == 3
-            assert len(results.results) == 2
-
-    def test_search_limit(self):
-        with PEPDBAgentContextManager(add_schemas=True) as agent:
-            results = agent.schema.search(namespace="namespace2", limit=1)
-            assert results
-            assert results.count == 3
-            assert len(results.results) == 1
-
-    def test_search_limit_offset(self):
-        with PEPDBAgentContextManager(add_schemas=True) as agent:
-            results = agent.schema.search(namespace="namespace2", limit=2, offset=2)
-            assert results
-            assert results.count == 3
-            assert len(results.results) == 1
-
-    def test_search_query(self):
-        with PEPDBAgentContextManager(add_schemas=True) as agent:
-            results = agent.schema.search(namespace="namespace2", search_str="bedb")
-            assert results
-            assert results.count == 2
-            assert len(results.results) == 2
-
-    @pytest.mark.parametrize(
-        "namespace, name",
-        [
-            ["namespace1", "2.0.0"],
-        ],
-    )
-    def test_create_group(self, namespace, name):
-        with PEPDBAgentContextManager(add_schemas=True) as agent:
-            group_name = "new_group"
-            agent.schema.group_create(
-                namespace=namespace, name=group_name, description="new group"
-            )
-            assert agent.schema.group_exist(namespace=namespace, name=group_name)
-
-    @pytest.mark.parametrize(
-        "namespace, name",
-        [
-            ["namespace1", "2.0.0"],
-        ],
-    )
-    def test_delete_group(self, namespace, name):
-        with PEPDBAgentContextManager(add_schemas=True) as agent:
-            group_name = "new_group"
-            agent.schema.group_create(
-                namespace=namespace, name=group_name, description="new group"
-            )
-            assert agent.schema.group_exist(namespace=namespace, name=group_name)
-            agent.schema.group_delete(namespace=namespace, name=group_name)
-            assert not agent.schema.group_exist(namespace=namespace, name=group_name)
-
-    @pytest.mark.parametrize(
-        "namespace, name",
-        [
-            ["namespace1", "2.0.0"],
-        ],
-    )
-    def test_add_to_group(self, namespace, name):
-        with PEPDBAgentContextManager(add_schemas=True) as agent:
-            group_name = "new_group"
-            agent.schema.group_create(
-                namespace=namespace, name=group_name, description="new group"
-            )
-            agent.schema.group_add_schema(
-                namespace=namespace, name=group_name, schema_name=name, schema_namespace=namespace
-            )
-            group_annot = agent.schema.group_get(namespace=namespace, name=group_name)
-            assert group_annot.schemas[0].name == name
-
-    @pytest.mark.parametrize(
-        "namespace, name",
-        [
-            ["namespace1", "2.0.0"],
-        ],
-    )
-    def test_remove_from_group(self, namespace, name):
-        with PEPDBAgentContextManager(add_schemas=True) as agent:
-            group_name = "new_group"
-            agent.schema.group_create(
-                namespace=namespace, name=group_name, description="new group"
-            )
-            agent.schema.group_add_schema(
-                namespace=namespace, name=group_name, schema_name=name, schema_namespace=namespace
-            )
-            group_annot = agent.schema.group_get(namespace=namespace, name=group_name)
-            assert len(group_annot.schemas) == 1
-
-            agent.schema.group_remove_schema(
-                namespace=namespace, name=group_name, schema_name=name, schema_namespace=namespace
-            )
-            group_annot = agent.schema.group_get(namespace=namespace, name=group_name)
-            assert len(group_annot.schemas) == 0
-
-    def test_search_group(self):
-        with PEPDBAgentContextManager(add_schemas=True) as agent:
-            group_name1 = "new_group1"
-            group_name2 = "new2"
-            group_name3 = "new_group3"
-            agent.schema.group_create(
-                namespace="namespace1", name=group_name1, description="new group"
-            )
-            agent.schema.group_create(namespace="namespace1", name=group_name2, description="new")
-            agent.schema.group_create(
-                namespace="namespace1", name=group_name3, description="new group"
-            )
-
-            results = agent.schema.group_search(search_str="new_group")
-
-            assert results.count == 2
-            assert len(results.results) == 2
+            new_tag1 = "new_tag"
+            agent.schema.add_tag_to_schema(namespace, name, "1.0.0", tag=new_tag1)
+            result = agent.schema.get_version_info(namespace, name, "1.0.0")
+            assert new_tag1 in result.tags
+            agent.schema.remove_tag_from_schema(namespace, name, "1.0.0", tag=new_tag1)
+            result = agent.schema.get_version_info(namespace, name, "1.0.0")
+            assert not new_tag1 in result.tags

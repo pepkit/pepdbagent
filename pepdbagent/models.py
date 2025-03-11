@@ -249,17 +249,37 @@ class HistoryAnnotationModel(BaseModel):
     history: List[HistoryChangeModel]
 
 
-class SchemaAnnotation(BaseModel):
+class PaginationResult(BaseModel):
+    page: int = 0
+    page_size: int = 10
+    total: int
+
+
+class SchemaVersionAnnotation(BaseModel):
+    """
+    Schema version annotation model
+    """
+
+    version: str
+    contributors: Optional[str] = ""
+    release_notes: Optional[str] = ""
+    tags: List[str]
+    release_date: datetime.datetime
+    last_update_date: datetime.datetime
+
+
+class SchemaRecordAnnotation(BaseModel):
     """
     Schema annotation model
     """
 
     namespace: str
     name: str
-    last_update_date: str
-    submission_date: str
     description: Optional[str] = ""
-    popularity_number: Optional[int] = 0
+    maintainers: str = ""
+    lifecycle_stage: str = ""
+    private: bool = False
+    last_update_date: datetime.datetime
 
 
 class SchemaSearchResult(BaseModel):
@@ -267,32 +287,30 @@ class SchemaSearchResult(BaseModel):
     Schema search result model
     """
 
-    count: int
-    limit: int
-    offset: int
-    results: List[SchemaAnnotation]
+    pagination: PaginationResult
+    results: List[SchemaRecordAnnotation]
 
 
-class SchemaGroupAnnotation(BaseModel):
+class SchemaVersionSearchResult(BaseModel):
     """
-    Schema group annotation model
+    Schema version search result model
     """
 
-    namespace: str
-    name: str
-    description: Optional[str] = ""
-    schemas: List[SchemaAnnotation]
+    pagination: PaginationResult
+    results: List[SchemaVersionAnnotation]
 
 
-class SchemaGroupSearchResult(BaseModel):
-    """
-    Schema group search result model
-    """
+class UpdateSchemaRecordFields(BaseModel):
+    maintainers: Optional[str] = None
+    lifecycle_stage: Optional[str] = None
+    private: Optional[bool] = False
+    name: Optional[str] = None
 
-    count: int
-    limit: int
-    offset: int
-    results: List[SchemaGroupAnnotation]
+
+class UpdateSchemaVersionFields(BaseModel):
+    contributors: Optional[str] = None
+    schema_value: Optional[dict] = None
+    release_notes: Optional[str] = None
 
 
 class TarNamespaceModel(BaseModel):

@@ -120,7 +120,16 @@ class PEPDBAgentContextManager:
             for name, path in item.items():
                 file_dict = read_yaml_file(path)
 
-                pepdb_con.schema.create(namespace=namespace, name=name[0:-5], schema=file_dict)
+                pepdb_con.schema.create(
+                    namespace=namespace,
+                    name=name[0:-5],
+                    version="1.0.0",
+                    schema_value=file_dict,
+                    maintainers="Teddy",
+                    contributors="Teddy, John",
+                    release_notes="Initial release",
+                    tags=["latest", "gf1"],
+                )
 
     @property
     def agent(self) -> PEPDatabaseAgent:

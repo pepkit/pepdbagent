@@ -31,7 +31,8 @@ from pepdbagent.db_utils import (
     HistorySamples,
     Projects,
     Samples,
-    Schemas,
+    SchemaRecords,
+    SchemaVersions,
     Subsamples,
     TarNamespace,
     UpdateTypes,
@@ -371,10 +372,10 @@ class PEPDatabaseProject:
             schema_namespace, schema_name = schema_path_converter(pep_schema)
             with Session(self._sa_engine) as session:
                 schema_mapping = session.scalar(
-                    select(Schemas).where(
+                    select(SchemaRecords).where(
                         and_(
-                            Schemas.namespace == schema_namespace,
-                            Schemas.name == schema_name,
+                            SchemaRecords.namespace == schema_namespace,
+                            SchemaRecords.name == schema_name,
                         )
                     )
                 )
@@ -693,12 +694,16 @@ class PEPDatabaseProject:
         return None
         """
         if "pep_schema" in update_values:
-            schema_namespace, schema_name = schema_path_converter(update_values["pep_schema"])
+            schema_namespace, schema_name = schema_path_converter(
+                update_values["pep_schema"]
+            )  # TODO: fix it.
             schema_mapping = session.scalar(
-                select(Schemas).where(
+                select(SchemaVersions)
+                .join(SchemaRecords)
+                .where(
                     and_(
-                        Schemas.namespace == schema_namespace,
-                        Schemas.name == schema_name,
+                        SchemaRecords.namespace == schema_namespace,
+                        SchemaRecords.name == schema_name,
                     )
                 )
             )
