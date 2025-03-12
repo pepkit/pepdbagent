@@ -235,18 +235,82 @@ class PEPDatabaseSchema:
         version: str,
         update_fields: Union[UpdateSchemaVersionFields, dict],
     ) -> None:
-        """ """
-        # flag_modified(update_fields, "schema_value")
-        ...
+        """
+        Update schema version in the database.
+
+        :param namespace: user namespace
+        :param name: schema name
+        :param version: schema version
+        :param update_fields: fields to be updated. Fields are optional, and include:
+            - contributors: str
+            - schema_value: dict
+            - release_notes: str
+        """
+
+        update_fields = UpdateSchemaVersionFields(**update_fields)
+        update_fields = update_fields.model_dump(exclude_unset=True, exclude_defaults=True)
+
+        with Session(self._sa_engine) as session:
+            schema_obj = session.scalar(
+                select(SchemaVersions)
+                .join(SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id)
+                .where(
+                    and_(
+                        SchemaRecords.namespace == namespace,
+                        SchemaRecords.name == name,
+                        SchemaVersions.version == version,
+                    )
+                )
+            )
+
+            if not schema_obj:
+                raise SchemaDoesNotExistError(
+                    f"Schema '{name}' with version '{version}' does not exist in the database. Unable to update version."
+                )
+
+            for field, value in update_fields.items():
+                setattr(schema_obj, field, value)
+                if field == "schema_value":
+                    flag_modified(schema_obj, field)
+
+            session.commit()
 
     def update_schema_record(
         self,
         namespace: str,
         name: str,
-        update_fields: UpdateSchemaRecordFields,
+        update_fields: Union[UpdateSchemaRecordFields, dict],
     ) -> None:
-        """ """
-        ...
+        """
+        Update schema record in the database.
+
+        :param namespace: user namespace
+        :param name: schema name
+        :param update_fields: fields to be updated. Fields are optional, and include:
+            - maintainers: str
+            - lifecycle_stage: str
+            - private: bool
+            - name: str
+        """
+
+        update_fields = UpdateSchemaRecordFields(**update_fields)
+
+        update_fields = update_fields.model_dump(exclude_unset=True, exclude_defaults=True)
+
+        with Session(self._sa_engine) as session:
+            schema_obj = session.scalar(
+                select(SchemaRecords).where(
+                    and_(SchemaRecords.namespace == namespace, SchemaRecords.name == name)
+                )
+            )
+
+            if not schema_obj:
+                raise SchemaDoesNotExistError(f"Schema '{name}' does not exist in the database")
+
+            for field, value in update_fields.items():
+                setattr(schema_obj, field, value)
+
+            session.commit()
 
     def schema_exist(self, namespace: str, name: str) -> bool:
         """

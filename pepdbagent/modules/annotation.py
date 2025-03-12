@@ -212,7 +212,7 @@ class PEPDatabaseAnnotation:
                     last_update_date=str(query_result.last_update_date),
                     digest=query_result.digest,
                     pep_schema=(
-                        f"{query_result.schema_mapping.namespace}/{query_result.schema_mapping.name}"
+                        f"{query_result.schema_mapping.schema_mapping.namespace}/{query_result.schema_mapping.schema_mapping.name}"
                         if query_result.schema_mapping
                         else None
                     ),
@@ -326,6 +326,7 @@ class PEPDatabaseAnnotation:
         statement = self._add_date_filter_if_provided(
             statement, filter_by, filter_start_date, filter_end_date
         )
+        statement = statement
         statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
         statement = statement.limit(limit).offset(offset)
         if pep_type:
@@ -333,7 +334,8 @@ class PEPDatabaseAnnotation:
 
         results_list = []
         with Session(self._sa_engine) as session:
-            results = session.scalars(statement)
+            # Unique should be called because of the join with schema_mapping
+            results = session.scalars(statement).unique()
             for result in results:
                 results_list.append(
                     AnnotationModel(
@@ -347,7 +349,7 @@ class PEPDatabaseAnnotation:
                         last_update_date=str(result.last_update_date),
                         digest=result.digest,
                         pep_schema=(
-                            f"{result.schema_mapping.namespace}/{result.schema_mapping.name}"
+                            f"{result.schema_mapping.schema_mapping.namespace}/{result.schema_mapping.schema_mapping.name}"
                             if result.schema_mapping
                             else None
                         ),
@@ -548,7 +550,7 @@ class PEPDatabaseAnnotation:
             statement = select(Projects).where(or_(*or_statement_list))
             anno_results = []
             with Session(self._sa_engine) as session:
-                query_result = session.scalars(statement)
+                query_result = session.scalars(statement).unique()
                 for result in query_result:
                     project_obj = result
                     annot = AnnotationModel(
@@ -562,7 +564,7 @@ class PEPDatabaseAnnotation:
                         last_update_date=str(project_obj.last_update_date),
                         digest=project_obj.digest,
                         pep_schema=(
-                            f"{project_obj.schema_mapping.namespace}/{project_obj.schema_mapping.name}"
+                            f"{project_obj.schema_mapping.schema_mapping.namespace}/{project_obj.schema_mapping.schema_mapping.name}:{project_obj.schema_mapping.version}"
                             if project_obj.schema_mapping
                             else None
                         ),

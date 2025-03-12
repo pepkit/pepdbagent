@@ -369,10 +369,13 @@ class PEPDatabaseProject:
             number_of_samples = len(proj_dict[SAMPLE_RAW_DICT_KEY])
 
         if pep_schema:
-            schema_namespace, schema_name = schema_path_converter(pep_schema)
+            schema_namespace, schema_name, _ = schema_path_converter(pep_schema)
             with Session(self._sa_engine) as session:
+
                 schema_mapping = session.scalar(
-                    select(SchemaRecords).where(
+                    select(SchemaVersions)
+                    .join(SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id)
+                    .where(
                         and_(
                             SchemaRecords.namespace == schema_namespace,
                             SchemaRecords.name == schema_name,
@@ -694,18 +697,23 @@ class PEPDatabaseProject:
         return None
         """
         if "pep_schema" in update_values:
-            schema_namespace, schema_name = schema_path_converter(
+            schema_namespace, schema_name, schema_version = schema_path_converter(
                 update_values["pep_schema"]
             )  # TODO: fix it.
-            schema_mapping = session.scalar(
-                select(SchemaVersions)
-                .join(SchemaRecords)
-                .where(
-                    and_(
-                        SchemaRecords.namespace == schema_namespace,
-                        SchemaRecords.name == schema_name,
-                    )
+
+            if schema_version:
+                where_clause = and_(
+                    SchemaRecords.namespace == schema_namespace,
+                    SchemaRecords.name == schema_name,
+                    SchemaVersions.version == schema_version,
                 )
+            else:
+                where_clause = and_(
+                    SchemaRecords.namespace == schema_namespace,
+                    SchemaRecords.name == schema_name,
+                )
+            schema_mapping = session.scalar(
+                select(SchemaVersions).join(SchemaRecords).where(where_clause)
             )
             if not schema_mapping:
                 raise SchemaDoesNotExistError(
@@ -713,6 +721,7 @@ class PEPDatabaseProject:
                     f"Project won't be updated."
                 )
             update_values["schema_id"] = schema_mapping.id
+            del update_values["pep_schema"]
 
     def _update_samples(
         self,
@@ -1070,7 +1079,7 @@ class PEPDatabaseProject:
             fork_prj.forked_from_id = original_prj.id
             fork_prj.pop = original_prj.pop
             fork_prj.submission_date = original_prj.submission_date
-            fork_prj.pep_schema = original_prj.pep_schema
+            fork_prj.schema_id = original_prj.schema_id
             fork_prj.description = description or original_prj.description
 
             session.commit()
