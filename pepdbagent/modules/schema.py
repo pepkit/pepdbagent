@@ -207,6 +207,8 @@ class PEPDatabaseSchema:
                     ),
                 )
 
+            schema_obj.last_update_date = func.now()
+
             schema_version_obj = SchemaVersions(
                 schema_id=schema_obj.id,
                 version=version,
@@ -265,6 +267,7 @@ class PEPDatabaseSchema:
                 raise SchemaDoesNotExistError(
                     f"Schema '{name}' with version '{version}' does not exist in the database. Unable to update version."
                 )
+            schema_obj.last_update_date = func.now()
 
             for field, value in update_fields.items():
                 setattr(schema_obj, field, value)
