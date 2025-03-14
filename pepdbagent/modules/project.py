@@ -369,7 +369,7 @@ class PEPDatabaseProject:
             number_of_samples = len(proj_dict[SAMPLE_RAW_DICT_KEY])
 
         if pep_schema:
-            schema_namespace, schema_name, _ = schema_path_converter(pep_schema)
+            schema_namespace, schema_name, schema_version = schema_path_converter(pep_schema)
             with Session(self._sa_engine) as session:
 
                 schema_mapping = session.scalar(
@@ -379,6 +379,7 @@ class PEPDatabaseProject:
                         and_(
                             SchemaRecords.namespace == schema_namespace,
                             SchemaRecords.name == schema_name,
+                            SchemaVersions.version == schema_version,
                         )
                     )
                 )
@@ -699,19 +700,13 @@ class PEPDatabaseProject:
         if "pep_schema" in update_values:
             schema_namespace, schema_name, schema_version = schema_path_converter(
                 update_values["pep_schema"]
-            )  # TODO: fix it.
+            )
+            where_clause = and_(
+                SchemaRecords.namespace == schema_namespace,
+                SchemaRecords.name == schema_name,
+                SchemaVersions.version == schema_version,
+            )
 
-            if schema_version:
-                where_clause = and_(
-                    SchemaRecords.namespace == schema_namespace,
-                    SchemaRecords.name == schema_name,
-                    SchemaVersions.version == schema_version,
-                )
-            else:
-                where_clause = and_(
-                    SchemaRecords.namespace == schema_namespace,
-                    SchemaRecords.name == schema_name,
-                )
             schema_mapping = session.scalar(
                 select(SchemaVersions).join(SchemaRecords).where(where_clause)
             )

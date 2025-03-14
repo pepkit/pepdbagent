@@ -95,6 +95,9 @@ class PEPDBAgentContextManager:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.db_engine.delete_schema()
 
+    def __del__(self):
+        self.db_engine.delete_schema()
+
     def _insert_data(self):
         pepdb_con = PEPDatabaseAgent(dsn=self.url, echo=self._echo)
         for namespace, item in list_of_available_peps().items():
@@ -111,7 +114,7 @@ class PEPDBAgentContextManager:
                     is_private=private,
                     project=prj,
                     overwrite=True,
-                    pep_schema="namespace1/2.0.0",
+                    pep_schema="namespace1/2.0.0:default",
                 )
 
     def _add_schemas(self):
@@ -123,7 +126,7 @@ class PEPDBAgentContextManager:
                 pepdb_con.schema.create(
                     namespace=namespace,
                     name=name[0:-5],
-                    version="1.0.0",
+                    version="default",
                     schema_value=file_dict,
                     maintainers="Teddy",
                     contributors="Teddy, John",

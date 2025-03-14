@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from pepdbagent.const import PKG_NAME
+from pepdbagent.const import PKG_NAME, DEFAULT_TAG_VERSION
 from pepdbagent.db_utils import BaseEngine, SchemaRecords, SchemaTags, SchemaVersions, User
 from pepdbagent.exceptions import (
     SchemaAlreadyExistsError,
@@ -75,7 +75,7 @@ class PEPDatabaseSchema:
         namespace: str,
         name: str,
         schema_value: dict,
-        version: str = "default",
+        version: str = DEFAULT_TAG_VERSION,
         description: str = "",
         lifecycle_stage: str = "",
         maintainers: str = "",
@@ -215,13 +215,11 @@ class PEPDatabaseSchema:
                 contributors=contributors,
             )
 
-            for tag_name, tag_value in tags:
-                tag_obj = session.scalar(select(SchemaTags).where(SchemaTags.tag_name == tag_name))
-                if not tag_obj:
-                    tag_obj = SchemaTags(
-                        tag_name=tag_name, tag_value=tag_value, schema_mapping=schema_version_obj
-                    )
-                    session.add(tag_obj)
+            for tag_name, tag_value in tags.items():
+                tag_obj = SchemaTags(
+                    tag_name=tag_name, tag_value=tag_value, schema_mapping=schema_version_obj
+                )
+                session.add(tag_obj)
 
             session.add(schema_version_obj)
             session.commit()
@@ -246,8 +244,8 @@ class PEPDatabaseSchema:
             - schema_value: dict
             - release_notes: str
         """
-
-        update_fields = UpdateSchemaVersionFields(**update_fields)
+        if isinstance(update_fields, dict):
+            update_fields = UpdateSchemaVersionFields(**update_fields)
         update_fields = update_fields.model_dump(exclude_unset=True, exclude_defaults=True)
 
         with Session(self._sa_engine) as session:
@@ -293,7 +291,8 @@ class PEPDatabaseSchema:
             - name: str
         """
 
-        update_fields = UpdateSchemaRecordFields(**update_fields)
+        if isinstance(update_fields, dict):
+            update_fields = UpdateSchemaRecordFields(**update_fields)
 
         update_fields = update_fields.model_dump(exclude_unset=True, exclude_defaults=True)
 
@@ -382,6 +381,7 @@ class PEPDatabaseSchema:
                 maintainers=schema_obj.maintainers,
                 private=schema_obj.private,
                 last_update_date=schema_obj.last_update_date,
+                lifecycle_stage=schema_obj.lifecycle_stage,
             )
 
     def get_version_info(self, namespace: str, name: str, version: str) -> SchemaVersionAnnotation:
@@ -414,6 +414,8 @@ class PEPDatabaseSchema:
                 )
 
             return SchemaVersionAnnotation(
+                namespace=version_obj.schema_mapping.namespace,
+                name=version_obj.schema_mapping.name,
                 version=version_obj.version,
                 contributors=version_obj.contributors,
                 release_notes=version_obj.release_notes,
@@ -471,24 +473,24 @@ class PEPDatabaseSchema:
             statement = self._add_order_by_schemas_keyword(statement, by=order_by, desc=order_desc)
             results_objects = session.scalars(statement)
 
-        return SchemaSearchResult(
-            pagination=PaginationResult(
-                page=page,
-                page_size=page_size,
-                total=total,
-            ),
-            results=[
-                SchemaRecordAnnotation(
-                    namespace=result.namespace,
-                    name=result.name,
-                    description=result.description,
-                    maintainers=result.maintainers,
-                    private=result.private,
-                    last_update_date=result.last_update_date,
-                )
-                for result in results_objects
-            ],
-        )
+            return SchemaSearchResult(
+                pagination=PaginationResult(
+                    page=page,
+                    page_size=page_size,
+                    total=total,
+                ),
+                results=[
+                    SchemaRecordAnnotation(
+                        namespace=result.namespace,
+                        name=result.name,
+                        description=result.description,
+                        maintainers=result.maintainers,
+                        private=result.private,
+                        last_update_date=result.last_update_date,
+                    )
+                    for result in results_objects
+                ],
+            )
 
     def query_schema_version(
         self,
@@ -528,40 +530,64 @@ class PEPDatabaseSchema:
             if not schema_obj:
                 raise SchemaDoesNotExistError(f"Schema '{name}' does not exist in the database")
 
-            where_statement = or_(
-                SchemaVersions.version.ilike(f"%{search_str}%"),
-                SchemaVersions.release_notes.ilike(f"%{search_str}%"),
+            where_statement = and_(
+                SchemaRecords.namespace == namespace,
+                SchemaRecords.name == name,
+                or_(
+                    SchemaVersions.version.ilike(f"%{search_str}%"),
+                    SchemaVersions.release_notes.ilike(f"%{search_str}%"),
+                ),
             )
+
             if tag:
                 where_statement = and_(where_statement, SchemaTags.tag_name == tag)
+                total_statement = (
+                    select(func.count(SchemaVersions.id))
+                    .join(SchemaRecords)
+                    .join(SchemaTags)
+                    .where(where_statement)
+                )
+                find_statement = (
+                    select(SchemaVersions)
+                    .join(SchemaRecords)
+                    .join(SchemaTags)
+                    .where(where_statement)
+                )
 
-            total = session.scalar(select(func.count(SchemaVersions.id)).where(where_statement))
+            else:
+                total_statement = (
+                    select(func.count(SchemaVersions.id))
+                    .join(SchemaRecords)
+                    .where(where_statement)
+                )
+                find_statement = select(SchemaVersions).join(SchemaRecords).where(where_statement)
+
+            total = session.scalar(total_statement)
 
             results_objects = session.scalars(
-                select(SchemaVersions)
-                .where(where_statement)
-                .limit(page_size)
-                .offset(page * page_size)
-            )
+                find_statement.limit(page_size).offset(page * page_size)
+            ).unique()
 
-        return SchemaVersionSearchResult(
-            pagination=PaginationResult(
-                page=page,
-                page_size=page_size,
-                total=total,
-            ),
-            results=[
-                SchemaVersionAnnotation(
-                    version=result.version,
-                    contributors=result.contributors,
-                    release_notes=result.release_notes,
-                    tags=[tag.tag_name for tag in result.tags_mapping],
-                    release_date=result.release_date,
-                    last_update_date=result.last_update_date,
-                )
-                for result in results_objects
-            ],
-        )
+            return SchemaVersionSearchResult(
+                pagination=PaginationResult(
+                    page=page,
+                    page_size=page_size,
+                    total=total,
+                ),
+                results=[
+                    SchemaVersionAnnotation(
+                        namespace=result.schema_mapping.namespace,
+                        name=result.schema_mapping.name,
+                        version=result.version,
+                        contributors=result.contributors,
+                        release_notes=result.release_notes,
+                        tags=[tag.tag_name for tag in result.tags_mapping],
+                        release_date=result.release_date,
+                        last_update_date=result.last_update_date,
+                    )
+                    for result in results_objects
+                ],
+            )
 
     def delete_schema(self, namespace: str, name: str) -> None:
         """

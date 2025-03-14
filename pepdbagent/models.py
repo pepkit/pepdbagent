@@ -260,6 +260,8 @@ class SchemaVersionAnnotation(BaseModel):
     Schema version annotation model
     """
 
+    namespace: str
+    name: str
     version: str
     contributors: Optional[str] = ""
     release_notes: Optional[str] = ""
