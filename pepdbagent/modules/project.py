@@ -34,7 +34,6 @@ from pepdbagent.db_utils import (
     SchemaRecords,
     SchemaVersions,
     Subsamples,
-    TarNamespace,
     UpdateTypes,
     User,
 )
@@ -48,8 +47,6 @@ from pepdbagent.exceptions import (
     SchemaDoesNotExistError,
 )
 from pepdbagent.models import (
-    TarNamespaceModel,
-    TarNamespaceModelReturn,
     HistoryAnnotationModel,
     HistoryChangeModel,
     ProjectDict,

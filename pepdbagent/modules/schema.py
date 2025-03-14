@@ -2,8 +2,7 @@ import logging
 
 from typing import List, Optional, Union, Dict
 
-from sqlalchemy import Select, and_, delete, func, or_, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -11,8 +10,11 @@ from pepdbagent.const import PKG_NAME, DEFAULT_TAG_VERSION
 from pepdbagent.db_utils import BaseEngine, SchemaRecords, SchemaTags, SchemaVersions, User
 from pepdbagent.exceptions import (
     SchemaAlreadyExistsError,
-    SchemaAlreadyInGroupError,
+    SchemaVersionDoesNotExistError,
     SchemaDoesNotExistError,
+    SchemaTagAlreadyExistsError,
+    SchemaTagDoesNotExistError,
+    SchemaVersionAlreadyExistsError,
 )
 from pepdbagent.models import (
     SchemaRecordAnnotation,
@@ -66,7 +68,9 @@ class PEPDatabaseSchema:
             )
 
             if not schema_obj:
-                raise SchemaDoesNotExistError(f"Schema '{name}' does not exist in the database")
+                raise SchemaVersionDoesNotExistError(
+                    f"Schema '{name}' does not exist in the database"
+                )
 
             return schema_obj.schema_value
 
@@ -192,7 +196,7 @@ class PEPDatabaseSchema:
 
             if version_obj:
                 if not overwrite:
-                    raise SchemaAlreadyExistsError(
+                    raise SchemaVersionAlreadyExistsError(
                         f"Schema '{name}' with version '{version}' already exists in the database"
                     )
 
@@ -264,7 +268,7 @@ class PEPDatabaseSchema:
             )
 
             if not schema_obj:
-                raise SchemaDoesNotExistError(
+                raise SchemaVersionDoesNotExistError(
                     f"Schema '{name}' with version '{version}' does not exist in the database. Unable to update version."
                 )
             schema_obj.last_update_date = func.now()
@@ -412,7 +416,7 @@ class PEPDatabaseSchema:
             )
 
             if not version_obj:
-                raise SchemaDoesNotExistError(
+                raise SchemaVersionDoesNotExistError(
                     f"Schema '{name}' with version '{version}' does not exist in the database"
                 )
 
@@ -422,7 +426,7 @@ class PEPDatabaseSchema:
                 version=version_obj.version,
                 contributors=version_obj.contributors,
                 release_notes=version_obj.release_notes,
-                tags=[tag.tag_name for tag in version_obj.tags_mapping],
+                tags={tag.tag_name: tag.tag_value for tag in version_obj.tags_mapping},
                 release_date=version_obj.release_date,
                 last_update_date=version_obj.last_update_date,
             )
@@ -584,7 +588,7 @@ class PEPDatabaseSchema:
                         version=result.version,
                         contributors=result.contributors,
                         release_notes=result.release_notes,
-                        tags=[tag.tag_name for tag in result.tags_mapping],
+                        tags={tag.tag_name: tag.tag_value for tag in result.tags_mapping},
                         release_date=result.release_date,
                         last_update_date=result.last_update_date,
                     )
@@ -622,7 +626,7 @@ class PEPDatabaseSchema:
         :param name: Name of the schema
         :param version: Version of the Schema
 
-        :raise: SchemaDoesNotExistError if version doesn't exist
+        :raise: SchemaVersionDoesNotExistError if version doesn't exist
         :return: None
         """
         with Session(self._sa_engine) as session:
@@ -638,7 +642,7 @@ class PEPDatabaseSchema:
                 )
             )
             if not schema_obj:
-                raise SchemaDoesNotExistError(
+                raise SchemaVersionDoesNotExistError(
                     f"Schema '{name}' with version '{version}' does not exist in the database. Unable to update version."
                 )
 
@@ -660,7 +664,7 @@ class PEPDatabaseSchema:
         :param version: Version of the Schema
         :param tag: Tag to be added. Can be a string, list of strings or dictionaries
 
-        :raise: SchemaDoesNotExistError if version doesn't exist
+        :raise: SchemaVersionDoesNotExistError if version doesn't exist
         :return: None
         """
 
@@ -679,7 +683,7 @@ class PEPDatabaseSchema:
                 )
             )
             if not schema_obj:
-                raise SchemaDoesNotExistError(
+                raise SchemaVersionDoesNotExistError(
                     f"Schema '{name}' with version '{version}' does not exist in the database. Unable to add tag."
                 )
             if isinstance(tag, str):
@@ -693,7 +697,7 @@ class PEPDatabaseSchema:
                     )
                     session.add(tag_obj)
                 else:
-                    raise SchemaAlreadyInGroupError(
+                    raise SchemaTagAlreadyExistsError(
                         f"Tag '{tag_name}' already exists in the schema"
                     )
 
@@ -708,7 +712,7 @@ class PEPDatabaseSchema:
         :param version: Version of the Schema
         :param tag: Tag to be removed
 
-        :raise: SchemaDoesNotExistError if version doesn't exist
+        :raise: SchemaVersionDoesNotExistError if version doesn't exist
         :return: None
         """
         with Session(self._sa_engine) as session:
@@ -724,7 +728,7 @@ class PEPDatabaseSchema:
                 )
             )
             if not schema_obj:
-                raise SchemaDoesNotExistError(
+                raise SchemaVersionDoesNotExistError(
                     f"Schema '{name}' with version '{version}' does not exist in the database. Unable to remove tag."
                 )
 
@@ -734,7 +738,7 @@ class PEPDatabaseSchema:
                 )
             )
             if not tag_obj:
-                raise SchemaDoesNotExistError(f"Tag '{tag}' does not exist in the schema")
+                raise SchemaTagDoesNotExistError(f"Tag '{tag}' does not exist in the schema")
 
             session.delete(tag_obj)
             session.commit()

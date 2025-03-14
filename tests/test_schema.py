@@ -1,5 +1,3 @@
-from distutils.ccompiler import new_compiler
-
 import pytest
 
 from .utils import PEPDBAgentContextManager
@@ -250,4 +248,4 @@ class TestSchemaTags:
                 namespace, name, DEFAULT_SCHEMA_VERSION, tag=new_tag1
             )
             result = agent.schema.get_version_info(namespace, name, DEFAULT_SCHEMA_VERSION)
-            assert not new_tag1 in result.tags
+            assert new_tag1 not in result.tags

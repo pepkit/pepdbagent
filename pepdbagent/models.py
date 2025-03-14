@@ -265,7 +265,7 @@ class SchemaVersionAnnotation(BaseModel):
     version: str
     contributors: Optional[str] = ""
     release_notes: Optional[str] = ""
-    tags: List[str]
+    tags: Dict[str, Union[str, None]] = {}
     release_date: datetime.datetime
     last_update_date: datetime.datetime
 
