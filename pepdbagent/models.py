@@ -307,6 +307,7 @@ class UpdateSchemaRecordFields(BaseModel):
     lifecycle_stage: Optional[str] = None
     private: Optional[bool] = False
     name: Optional[str] = None
+    description: Optional[str] = None
 
 
 class UpdateSchemaVersionFields(BaseModel):
