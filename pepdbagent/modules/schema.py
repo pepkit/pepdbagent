@@ -786,7 +786,9 @@ class PEPDatabaseSchema:
         :raise: ValueError if tags are not in the correct format
         :return: dictionary of tags
         """
-        if tags is None:
+        if not tags:
+            tags = {}
+        if tags == (None,):
             tags = {}
         elif isinstance(tags, str):
             tags = {tags: None}
