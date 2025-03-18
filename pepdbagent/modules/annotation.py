@@ -212,7 +212,7 @@ class PEPDatabaseAnnotation:
                     last_update_date=str(query_result.last_update_date),
                     digest=query_result.digest,
                     pep_schema=(
-                        f"{query_result.schema_mapping.schema_mapping.namespace}/{query_result.schema_mapping.schema_mapping.name}"
+                        f"{query_result.schema_mapping.schema_mapping.namespace}/{query_result.schema_mapping.schema_mapping.name}:{query_result.schema_mapping.version}"
                         if query_result.schema_mapping
                         else None
                     ),
@@ -349,7 +349,7 @@ class PEPDatabaseAnnotation:
                         last_update_date=str(result.last_update_date),
                         digest=result.digest,
                         pep_schema=(
-                            f"{result.schema_mapping.schema_mapping.namespace}/{result.schema_mapping.schema_mapping.name}"
+                            f"{result.schema_mapping.schema_mapping.namespace}/{result.schema_mapping.schema_mapping.name}:{result.schema_mapping.version}"
                             if result.schema_mapping
                             else None
                         ),

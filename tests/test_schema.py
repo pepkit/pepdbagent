@@ -4,7 +4,7 @@ from .utils import PEPDBAgentContextManager
 
 from pepdbagent.models import UpdateSchemaVersionFields, UpdateSchemaRecordFields
 
-DEFAULT_SCHEMA_VERSION = "default"
+DEFAULT_SCHEMA_VERSION = "1.0.0"
 
 
 @pytest.mark.skipif(
@@ -207,6 +207,14 @@ class TestSamples:
                 namespace=namespace, name=name, version=DEFAULT_SCHEMA_VERSION
             )
             assert agent.schema.schema_exist(namespace=namespace, name=name)
+
+    def test_number_of_schemas_in_namespace(self):
+        with PEPDBAgentContextManager(add_schemas=True) as agent:
+            for k in agent.namespace.info().results:
+                if k.namespace == "namespace1":
+                    assert k.number_of_schemas == 2
+                if k.namespace == "namespace2":
+                    assert k.number_of_schemas == 3
 
 
 class TestSchemaTags:

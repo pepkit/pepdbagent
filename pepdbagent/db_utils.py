@@ -199,9 +199,13 @@ class User(Base):
         order_by="Stars.star_date.desc()",
     )
     number_of_projects: Mapped[int] = mapped_column(default=0)
+    number_of_schemas: Mapped[int] = mapped_column(default=0)
 
     projects_mapping: Mapped[List["Projects"]] = relationship(
         "Projects", back_populates="namespace_mapping"
+    )
+    schemas_mapping: Mapped[List["SchemaRecords"]] = relationship(
+        "SchemaRecords", back_populates="user_mapping"
     )
 
 
@@ -318,8 +322,12 @@ class SchemaRecords(Base):
     __table_args__ = (UniqueConstraint("namespace", "name"),)
 
     versions_mapping: Mapped[List["SchemaVersions"]] = relationship(
-        "SchemaVersions", back_populates="schema_mapping", cascade="all, delete-orphan"
+        "SchemaVersions",
+        back_populates="schema_mapping",
+        cascade="all, delete-orphan",
+        order_by="SchemaVersions.version",
     )
+    user_mapping: Mapped["User"] = relationship("User", back_populates="schemas_mapping")
 
 
 class SchemaVersions(Base):

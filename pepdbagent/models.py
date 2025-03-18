@@ -158,6 +158,7 @@ class NamespaceInfo(BaseModel):
 
     namespace: str
     number_of_projects: int
+    number_of_schemas: int
 
 
 class ListOfNamespaceInfo(BaseModel):

@@ -174,49 +174,6 @@ class PEPDatabaseNamespace:
         )
         return statement
 
-    # old function, that counts namespace info based on Projects table
-    # def info(self, limit: int = DEFAULT_LIMIT_INFO) -> ListOfNamespaceInfo:
-    #     """
-    #     Get list of top n namespaces in the database
-    #
-    #     :param limit: limit of results (top namespace )
-    #     :return: number_of_namespaces: int
-    #              limit: int
-    #              results: { namespace: str
-    #                         number_of_projects: int
-    #                         }
-    #     """
-    #     total_number_of_namespaces = self._count_namespace()
-    #
-    #     statement = (
-    #         select(
-    #             func.count(Projects.namespace).label("number_of_projects"),
-    #             Projects.namespace,
-    #         )
-    #         .select_from(Projects)
-    #         .where(Projects.private.is_(False))
-    #         .limit(limit)
-    #         .order_by(text("number_of_projects desc"))
-    #         .group_by(Projects.namespace)
-    #     )
-    #
-    #     with Session(self._sa_engine) as session:
-    #         query_results = session.execute(statement).all()
-    #
-    #     list_of_results = []
-    #     for result in query_results:
-    #         list_of_results.append(
-    #             NamespaceInfo(
-    #                 namespace=result.namespace,
-    #                 number_of_projects=result.number_of_projects,
-    #             )
-    #         )
-    #     return ListOfNamespaceInfo(
-    #         number_of_namespaces=total_number_of_namespaces,
-    #         limit=limit,
-    #         results=list_of_results,
-    #     )
-
     def info(self, limit: int = DEFAULT_LIMIT_INFO) -> ListOfNamespaceInfo:
         """
         Get list of top n namespaces in the database
@@ -228,6 +185,7 @@ class PEPDatabaseNamespace:
                  limit: int
                  results: { namespace: str
                             number_of_projects: int
+                            number_of_schemas: int
                             }
         """
         with Session(self._sa_engine) as session:
@@ -241,6 +199,7 @@ class PEPDatabaseNamespace:
                     NamespaceInfo(
                         namespace=result.namespace,
                         number_of_projects=result.number_of_projects,
+                        number_of_schemas=result.number_of_schemas,
                     )
                 )
             return ListOfNamespaceInfo(

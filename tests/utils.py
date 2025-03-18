@@ -114,7 +114,7 @@ class PEPDBAgentContextManager:
                     is_private=private,
                     project=prj,
                     overwrite=True,
-                    pep_schema="namespace1/2.0.0:default",
+                    pep_schema="namespace1/2.0.0:1.0.0",  # TODO: test without this line
                 )
 
     def _add_schemas(self):
@@ -126,12 +126,12 @@ class PEPDBAgentContextManager:
                 pepdb_con.schema.create(
                     namespace=namespace,
                     name=name[0:-5],
-                    version="default",
+                    version="1.0.0",
                     schema_value=file_dict,
                     maintainers="Teddy",
                     contributors="Teddy, John",
                     release_notes="Initial release",
-                    tags=["latest", "gf1"],
+                    tags={"maturity_level": "trial_use"},
                 )
 
     @property

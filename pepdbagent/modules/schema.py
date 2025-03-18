@@ -125,6 +125,8 @@ class PEPDatabaseSchema:
                 session.add(user)
                 session.commit()
 
+            user.number_of_schemas += 1
+
             schema_obj = SchemaRecords(
                 namespace=namespace,
                 name=name,
@@ -572,7 +574,9 @@ class PEPDatabaseSchema:
             total = session.scalar(total_statement)
 
             results_objects = session.scalars(
-                find_statement.limit(page_size).offset(page * page_size)
+                find_statement.order_by(SchemaVersions.version.desc())
+                .limit(page_size)
+                .offset(page * page_size)
             ).unique()
 
             return SchemaVersionSearchResult(
@@ -614,6 +618,12 @@ class PEPDatabaseSchema:
 
             if not schema_obj:
                 raise SchemaDoesNotExistError(f"Schema '{name}' does not exist in the database")
+
+            statement = select(User).where(User.namespace == namespace)
+            user = session.scalar(statement)
+            if user:
+                user.number_of_schemas -= 1
+                session.commit()
 
             session.delete(schema_obj)
             session.commit()
