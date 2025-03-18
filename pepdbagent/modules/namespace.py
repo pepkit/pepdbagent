@@ -204,7 +204,7 @@ class PEPDatabaseNamespace:
                 )
             return ListOfNamespaceInfo(
                 number_of_namespaces=len(list_of_results),
-                limit=limit,
+                page_size=limit,
                 results=list_of_results,
             )
 

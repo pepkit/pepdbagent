@@ -167,7 +167,7 @@ class ListOfNamespaceInfo(BaseModel):
     """
 
     number_of_namespaces: int
-    limit: int
+    page_size: int
     results: List[NamespaceInfo]
 
 
