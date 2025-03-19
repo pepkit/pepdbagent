@@ -6,7 +6,7 @@ from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from pepdbagent.const import PKG_NAME, DEFAULT_TAG_VERSION
+from pepdbagent.const import PKG_NAME, DEFAULT_TAG_VERSION, LATEST_SCHEMA_VERSION
 from pepdbagent.db_utils import BaseEngine, SchemaRecords, SchemaTags, SchemaVersions, User
 from pepdbagent.exceptions import (
     SchemaAlreadyExistsError,
@@ -55,17 +55,32 @@ class PEPDatabaseSchema:
         """
 
         with Session(self._sa_engine) as session:
-            schema_obj = session.scalar(
-                select(SchemaVersions)
-                .join(SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id)
-                .where(
-                    and_(
-                        SchemaRecords.namespace == namespace,
-                        SchemaRecords.name == name,
-                        SchemaVersions.version == version,
+            if version == LATEST_SCHEMA_VERSION:
+                schema_obj = session.scalar(
+                    select(SchemaVersions)
+                    .join(SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id)
+                    .where(
+                        and_(
+                            SchemaRecords.namespace == namespace,
+                            SchemaRecords.name == name,
+                        )
+                    )
+                    .order_by(SchemaVersions.version.desc())
+                )
+
+            else:
+
+                schema_obj = session.scalar(
+                    select(SchemaVersions)
+                    .join(SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id)
+                    .where(
+                        and_(
+                            SchemaRecords.namespace == namespace,
+                            SchemaRecords.name == name,
+                            SchemaVersions.version == version,
+                        )
                     )
                 )
-            )
 
             if not schema_obj:
                 raise SchemaVersionDoesNotExistError(
@@ -406,17 +421,28 @@ class PEPDatabaseSchema:
         """
 
         with Session(self._sa_engine) as session:
-            version_obj = session.scalar(
-                select(SchemaVersions)
-                .join(SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id)
-                .where(
-                    and_(
-                        SchemaRecords.namespace == namespace,
-                        SchemaRecords.name == name,
-                        SchemaVersions.version == version,
+
+            # if user provided "latest" version
+            if version == LATEST_SCHEMA_VERSION:
+                version_obj = session.scalar(
+                    select(SchemaVersions)
+                    .join(SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id)
+                    .where(and_(SchemaRecords.namespace == namespace, SchemaRecords.name == name))
+                    .order_by(SchemaVersions.version.desc())
+                    .limit(1)
+                )
+            else:
+                version_obj = session.scalar(
+                    select(SchemaVersions)
+                    .join(SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id)
+                    .where(
+                        and_(
+                            SchemaRecords.namespace == namespace,
+                            SchemaRecords.name == name,
+                            SchemaVersions.version == version,
+                        )
                     )
                 )
-            )
 
             if not version_obj:
                 raise SchemaVersionDoesNotExistError(
