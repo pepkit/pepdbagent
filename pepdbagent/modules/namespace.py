@@ -18,6 +18,7 @@ from pepdbagent.models import (
     NamespaceStats,
     TarNamespaceModel,
     TarNamespaceModelReturn,
+    PaginationResult,
 )
 from pepdbagent.utils import tuple_converter
 
@@ -174,13 +175,16 @@ class PEPDatabaseNamespace:
         )
         return statement
 
-    def info(self, limit: int = DEFAULT_LIMIT_INFO) -> ListOfNamespaceInfo:
+    def info(self, page: int = 0, page_size: int = DEFAULT_LIMIT_INFO, order_by: str = "number_of_projects") -> ListOfNamespaceInfo:
         """
         Get list of top n namespaces in the database
         ! Warning: this function counts number of all projects in namespaces.
         ! it does not filter private projects (It was done for efficiency reasons)
 
-        :param limit: limit of results (top namespace )
+        :param page: page number
+        :param page_size: number of namespaces to show
+        :param order_by: order by field. Options: number_of_projects, number_of_schemas [Default: number_of_projects]
+
         :return: number_of_namespaces: int
                  limit: int
                  results: { namespace: str
@@ -188,9 +192,17 @@ class PEPDatabaseNamespace:
                             number_of_schemas: int
                             }
         """
+
+        statement = select(User)
+
+        if order_by == "number_of_projects":
+            statement = statement.order_by(User.number_of_projects.desc())
+        elif order_by == "number_of_schemas":
+            statement = statement.order_by(User.number_of_schemas.desc())
+
         with Session(self._sa_engine) as session:
             results = session.scalars(
-                select(User).limit(limit).order_by(User.number_of_projects.desc())
+                statement.limit(page_size).offset(page_size*page)
             )
 
             list_of_results = []
@@ -203,9 +215,12 @@ class PEPDatabaseNamespace:
                     )
                 )
             return ListOfNamespaceInfo(
-                number_of_namespaces=len(list_of_results),
-                page_size=limit,
-                results=list_of_results,
+                pagination=PaginationResult(
+                    page=page,
+                    page_size=page_size,
+                    total=len(list_of_results),
+                ),
+                results=list_of_results
             )
 
     def stats(self, namespace: str = None, monthly: bool = False) -> NamespaceStats:

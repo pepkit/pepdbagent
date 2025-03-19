@@ -52,6 +52,12 @@ class AnnotationModel(BaseModel):
             return v
 
 
+class PaginationResult(BaseModel):
+    page: int = 0
+    page_size: int = 10
+    total: int
+
+
 class AnnotationList(BaseModel):
     """
     Annotation return model.
@@ -166,8 +172,8 @@ class ListOfNamespaceInfo(BaseModel):
     Namespace information response model
     """
 
-    number_of_namespaces: int
-    page_size: int
+
+    pagination: PaginationResult
     results: List[NamespaceInfo]
 
 
@@ -248,12 +254,6 @@ class HistoryAnnotationModel(BaseModel):
     name: str
     tag: str = DEFAULT_TAG
     history: List[HistoryChangeModel]
-
-
-class PaginationResult(BaseModel):
-    page: int = 0
-    page_size: int = 10
-    total: int
 
 
 class SchemaVersionAnnotation(BaseModel):
