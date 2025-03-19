@@ -325,7 +325,7 @@ class SchemaRecords(Base):
         "SchemaVersions",
         back_populates="schema_mapping",
         cascade="all, delete-orphan",
-        order_by="SchemaVersions.version",
+        order_by="SchemaVersions.version.desc()",
     )
     user_mapping: Mapped["User"] = relationship("User", back_populates="schemas_mapping")
 

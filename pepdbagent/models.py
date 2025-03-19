@@ -172,7 +172,6 @@ class ListOfNamespaceInfo(BaseModel):
     Namespace information response model
     """
 
-
     pagination: PaginationResult
     results: List[NamespaceInfo]
 
@@ -281,6 +280,7 @@ class SchemaRecordAnnotation(BaseModel):
     description: Optional[str] = ""
     maintainers: str = ""
     lifecycle_stage: str = ""
+    latest_version: str
     private: bool = False
     last_update_date: datetime.datetime
 

@@ -175,7 +175,12 @@ class PEPDatabaseNamespace:
         )
         return statement
 
-    def info(self, page: int = 0, page_size: int = DEFAULT_LIMIT_INFO, order_by: str = "number_of_projects") -> ListOfNamespaceInfo:
+    def info(
+        self,
+        page: int = 0,
+        page_size: int = DEFAULT_LIMIT_INFO,
+        order_by: str = "number_of_projects",
+    ) -> ListOfNamespaceInfo:
         """
         Get list of top n namespaces in the database
         ! Warning: this function counts number of all projects in namespaces.
@@ -201,9 +206,7 @@ class PEPDatabaseNamespace:
             statement = statement.order_by(User.number_of_schemas.desc())
 
         with Session(self._sa_engine) as session:
-            results = session.scalars(
-                statement.limit(page_size).offset(page_size*page)
-            )
+            results = session.scalars(statement.limit(page_size).offset(page_size * page))
 
             list_of_results = []
             for result in results:
@@ -220,7 +223,7 @@ class PEPDatabaseNamespace:
                     page_size=page_size,
                     total=len(list_of_results),
                 ),
-                results=list_of_results
+                results=list_of_results,
             )
 
     def stats(self, namespace: str = None, monthly: bool = False) -> NamespaceStats:

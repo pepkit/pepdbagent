@@ -387,6 +387,7 @@ class PEPDatabaseSchema:
                 namespace=schema_obj.namespace,
                 name=schema_obj.name,
                 description=schema_obj.description,
+                latest_version=schema_obj.versions_mapping[0].version,
                 maintainers=schema_obj.maintainers,
                 private=schema_obj.private,
                 last_update_date=schema_obj.last_update_date,
@@ -492,6 +493,7 @@ class PEPDatabaseSchema:
                     SchemaRecordAnnotation(
                         namespace=result.namespace,
                         name=result.name,
+                        latest_version=result.versions_mapping[0].version,
                         description=result.description,
                         maintainers=result.maintainers,
                         private=result.private,
