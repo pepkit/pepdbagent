@@ -460,6 +460,97 @@ class PEPDatabaseSchema:
                 last_update_date=version_obj.last_update_date,
             )
 
+    def fetch_schemas(
+        self,
+        namespace: str = None,
+        name: str = None,
+        maintainer: str = None,
+        lifecycle_stage: str = None,
+        latest_version: str = None,
+        page: int = 0,
+        page_size: int = 10,
+        order_by: str = "update_date",
+        order_desc: bool = False,
+    ) -> SchemaSearchResult:
+        """
+        Get schemas with providing filters.
+        If not filters provided, return all schemas.
+
+        :param namespace: user namespace [Default: None]. If None, search in all namespaces
+        :param name: schema name [Default: None]
+        :param maintainer: schema maintainer [Default: None]
+        :param lifecycle_stage: schema lifecycle stage [Default: None]
+        :param latest_version: schema latest version [Default: None]
+
+        :param page: page number [Default: 0]
+        :param page_size: number of schemas per page [Default: 0]
+        :param order_by: sort the result-set by the information
+            Options: ["name", "update_date"]
+            [Default: update_date]
+        :param order_desc: Sort the records in descending order. [Default: False]
+
+        :return: {
+            pagination: {page: int,
+                        page_size: int,
+                        total: int},
+            results: [SchemaRecordAnnotation]
+        """
+
+        # filters = [
+        #     SchemaRecords.namespace == namespace if namespace else None,
+        #     SchemaRecords.name == name if name else None,
+        #     SchemaRecords.maintainers == maintainer if maintainer else None,
+        #     SchemaRecords.lifecycle_stage == lifecycle_stage if lifecycle_stage else None,
+        # ]
+        filters = [
+            SchemaRecords.namespace.ilike(f"%{namespace}%") if namespace else None,
+            SchemaRecords.name.ilike(f"%{name}%") if name else None,
+            SchemaRecords.maintainers.ilike(f"%{maintainer}%") if maintainer else None,
+            (
+                SchemaRecords.lifecycle_stage.ilike(f"%{lifecycle_stage}%")
+                if lifecycle_stage
+                else None
+            ),
+        ]
+
+        # Remove None values before applying and_
+        conditions = [f for f in filters if f is not None]
+
+        statement = (
+            select(SchemaRecords).where(and_(*conditions)) if conditions else select(SchemaRecords)
+        )
+        statement_count = (
+            select(func.count(SchemaRecords.id)).where(and_(*conditions))
+            if conditions
+            else select(func.count(SchemaRecords.id))
+        )
+
+        with Session(self._sa_engine) as session:
+            total = session.scalar(statement_count)
+
+            statement = self._add_order_by_schemas_keyword(statement, by=order_by, desc=order_desc)
+
+            results_objects = session.scalars(statement.limit(page_size).offset(page * page_size))
+            return SchemaSearchResult(
+                pagination=PaginationResult(
+                    page=page,
+                    page_size=page_size,
+                    total=total,
+                ),
+                results=[
+                    SchemaRecordAnnotation(
+                        namespace=result.namespace,
+                        name=result.name,
+                        latest_version=result.versions_mapping[0].version,
+                        description=result.description,
+                        maintainers=result.maintainers,
+                        private=result.private,
+                        last_update_date=result.last_update_date,
+                    )
+                    for result in results_objects
+                ],
+            )
+
     def query_schemas(
         self,
         namespace: str = None,
@@ -492,7 +583,6 @@ class PEPDatabaseSchema:
 
         where_statement = or_(
             SchemaRecords.name.ilike(f"%{search_str}%"),
-            SchemaRecords.maintainers.ilike(f"%{search_str}%"),
             SchemaRecords.description.ilike(f"%{search_str}%"),
         )
         if namespace:
