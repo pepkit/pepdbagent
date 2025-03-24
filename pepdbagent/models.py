@@ -162,7 +162,8 @@ class NamespaceInfo(BaseModel):
     Model with information about namespace
     """
 
-    namespace: str
+    namespace_name: str
+    contact_url: Optional[str] = None
     number_of_projects: int
     number_of_schemas: int
 
@@ -261,7 +262,7 @@ class SchemaVersionAnnotation(BaseModel):
     """
 
     namespace: str
-    name: str
+    schema_name: str
     version: str
     contributors: Optional[str] = ""
     release_notes: Optional[str] = ""
@@ -276,11 +277,11 @@ class SchemaRecordAnnotation(BaseModel):
     """
 
     namespace: str
-    name: str
+    schema_name: str
     description: Optional[str] = ""
     maintainers: str = ""
     lifecycle_stage: str = ""
-    latest_version: str
+    latest_released_version: str
     private: bool = False
     last_update_date: datetime.datetime
 

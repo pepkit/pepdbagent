@@ -400,9 +400,9 @@ class PEPDatabaseSchema:
 
             return SchemaRecordAnnotation(
                 namespace=schema_obj.namespace,
-                name=schema_obj.name,
+                schema_name=schema_obj.name,
                 description=schema_obj.description,
-                latest_version=schema_obj.versions_mapping[0].version,
+                latest_released_version=schema_obj.versions_mapping[0].version,
                 maintainers=schema_obj.maintainers,
                 private=schema_obj.private,
                 last_update_date=schema_obj.last_update_date,
@@ -451,7 +451,7 @@ class PEPDatabaseSchema:
 
             return SchemaVersionAnnotation(
                 namespace=version_obj.schema_mapping.namespace,
-                name=version_obj.schema_mapping.name,
+                schema_name=version_obj.schema_mapping.name,
                 version=version_obj.version,
                 contributors=version_obj.contributors,
                 release_notes=version_obj.release_notes,
@@ -540,8 +540,8 @@ class PEPDatabaseSchema:
                 results=[
                     SchemaRecordAnnotation(
                         namespace=result.namespace,
-                        name=result.name,
-                        latest_version=result.versions_mapping[0].version,
+                        schema_name=result.name,
+                        latest_released_version=result.versions_mapping[0].version,
                         description=result.description,
                         maintainers=result.maintainers,
                         private=result.private,
@@ -608,8 +608,8 @@ class PEPDatabaseSchema:
                 results=[
                     SchemaRecordAnnotation(
                         namespace=result.namespace,
-                        name=result.name,
-                        latest_version=result.versions_mapping[0].version,
+                        schema_name=result.name,
+                        latest_released_version=result.versions_mapping[0].version,
                         description=result.description,
                         maintainers=result.maintainers,
                         private=result.private,
@@ -706,7 +706,7 @@ class PEPDatabaseSchema:
                 results=[
                     SchemaVersionAnnotation(
                         namespace=result.schema_mapping.namespace,
-                        name=result.schema_mapping.name,
+                        schema_name=result.schema_mapping.name,
                         version=result.version,
                         contributors=result.contributors,
                         release_notes=result.release_notes,

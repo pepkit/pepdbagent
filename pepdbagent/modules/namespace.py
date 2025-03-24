@@ -212,7 +212,8 @@ class PEPDatabaseNamespace:
             for result in results:
                 list_of_results.append(
                     NamespaceInfo(
-                        namespace=result.namespace,
+                        namespace_name=result.namespace,
+                        contact_url=f"https://github.com/{result.namespace}",
                         number_of_projects=result.number_of_projects,
                         number_of_schemas=result.number_of_schemas,
                     )
