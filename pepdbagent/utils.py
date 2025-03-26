@@ -93,7 +93,7 @@ def schema_path_converter(schema_path: str) -> Tuple[str, str, str]:
             name, version = name_tag.split(":")
             return namespace, name, version
 
-        return namespace, name_tag, "default"
+        return namespace, name_tag, "latest"
     raise RegistryPathError(f"Error in: '{schema_path}'")
 
 
