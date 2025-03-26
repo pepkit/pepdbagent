@@ -1,4 +1,4 @@
-""" Custom error types """
+"""Custom error types"""
 
 
 class PEPDatabaseAgentError(Exception):
