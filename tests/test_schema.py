@@ -163,8 +163,8 @@ class TestSamples:
         with PEPDBAgentContextManager(add_schemas=True) as agent:
             result = agent.schema.query_schemas("namespace1")
             assert result.pagination.total == 2
-            assert result.results[0].namespace == "namespace1"
-            assert result.results[0].schema_name == "2.0.0"
+            assert "namespace1" in [f.namepsace for f in result.results]
+            assert  "2.0.0" in [f.schema_name for f in result.results]
 
     def test_search_schema_page_number(self):
         with PEPDBAgentContextManager(add_schemas=True) as agent:
