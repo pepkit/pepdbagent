@@ -51,7 +51,7 @@ class TestSamples:
             assert result.maintainers == new_maintainers
             assert result.lifecycle_stage == new_lifecycle_stage
             assert result.private == new_private
-            assert result.name == new_name
+            assert result.schema_name == new_name
 
     def test_update_schema_update_date(self):
         with PEPDBAgentContextManager(add_schemas=True) as agent:
@@ -164,7 +164,7 @@ class TestSamples:
             result = agent.schema.query_schemas("namespace1")
             assert result.pagination.total == 2
             assert result.results[0].namespace == "namespace1"
-            assert result.results[0].name == "2.0.0"
+            assert result.results[0].schema_name == "2.0.0"
 
     def test_search_schema_page_number(self):
         with PEPDBAgentContextManager(add_schemas=True) as agent:
@@ -211,9 +211,9 @@ class TestSamples:
     def test_number_of_schemas_in_namespace(self):
         with PEPDBAgentContextManager(add_schemas=True) as agent:
             for k in agent.namespace.info().results:
-                if k.namespace == "namespace1":
+                if k.namespace_name == "namespace1":
                     assert k.number_of_schemas == 2
-                if k.namespace == "namespace2":
+                if k.namespace_name == "namespace2":
                     assert k.number_of_schemas == 3
 
 
