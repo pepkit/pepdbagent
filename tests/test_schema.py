@@ -11,7 +11,7 @@ DEFAULT_SCHEMA_VERSION = "1.0.0"
     not PEPDBAgentContextManager().db_setup(),
     reason="DB is not setup",
 )
-class TestSamples:
+class TestSchemas:
 
     @pytest.mark.parametrize(
         "namespace, name",
