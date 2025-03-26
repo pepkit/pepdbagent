@@ -86,12 +86,11 @@ class Projects(Base):
     last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
         default=deliver_update_date,  # onupdate=deliver_update_date, # This field should not be updated, while we are adding project to favorites
     )
-    pep_schema: Mapped[Optional[str]]
 
     schema_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("schemas.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("schema_versions.id", ondelete="SET NULL"), nullable=True
     )
-    schema_mapping: Mapped["Schemas"] = relationship("Schemas", lazy="joined")
+    schema_mapping: Mapped["SchemaVersions"] = relationship("SchemaVersions", lazy="joined")
 
     pop: Mapped[Optional[bool]] = mapped_column(default=False)
     samples_mapping: Mapped[List["Samples"]] = relationship(
@@ -200,9 +199,13 @@ class User(Base):
         order_by="Stars.star_date.desc()",
     )
     number_of_projects: Mapped[int] = mapped_column(default=0)
+    number_of_schemas: Mapped[int] = mapped_column(default=0)
 
     projects_mapping: Mapped[List["Projects"]] = relationship(
         "Projects", back_populates="namespace_mapping"
+    )
+    schemas_mapping: Mapped[List["SchemaRecords"]] = relationship(
+        "SchemaRecords", back_populates="user_mapping"
     )
 
 
@@ -302,65 +305,68 @@ class HistorySamples(Base):
     )
 
 
-class Schemas(Base):
+class SchemaRecords(Base):
+    __tablename__ = "schema_records"
 
-    __tablename__ = "schemas"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     namespace: Mapped[str] = mapped_column(ForeignKey("users.namespace", ondelete="CASCADE"))
-    name: Mapped[str] = mapped_column(nullable=False, index=True)
-    description: Mapped[Optional[str]] = mapped_column(nullable=True, index=True)
-    schema_json: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
+    name: Mapped[str] = mapped_column(nullable=False)
+    maintainers: Mapped[str] = mapped_column(nullable=True)
+    lifecycle_stage: Mapped[str] = mapped_column(nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(nullable=True)
     private: Mapped[bool] = mapped_column(default=False)
-    submission_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
     last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
         default=deliver_update_date, onupdate=deliver_update_date
     )
 
-    projects_mappings: Mapped[List["Projects"]] = relationship(
-        "Projects", back_populates="schema_mapping"
-    )
-    group_relation_mapping: Mapped[List["SchemaGroupRelations"]] = relationship(
-        "SchemaGroupRelations", back_populates="schema_mapping"
-    )
-
     __table_args__ = (UniqueConstraint("namespace", "name"),)
 
-
-class SchemaGroups(Base):
-
-    __tablename__ = "schema_groups"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    namespace: Mapped[str] = mapped_column(
-        ForeignKey("users.namespace", ondelete="CASCADE"), index=True
+    versions_mapping: Mapped[List["SchemaVersions"]] = relationship(
+        "SchemaVersions",
+        back_populates="schema_mapping",
+        cascade="all, delete-orphan",
+        order_by="SchemaVersions.version.desc()",
     )
-    name: Mapped[str] = mapped_column(nullable=False, index=True)
-    description: Mapped[Optional[str]] = mapped_column(nullable=True)
+    user_mapping: Mapped["User"] = relationship("User", back_populates="schemas_mapping")
 
-    schema_relation_mapping: Mapped[List["SchemaGroupRelations"]] = relationship(
-        "SchemaGroupRelations", back_populates="group_mapping"
+
+class SchemaVersions(Base):
+    __tablename__ = "schema_versions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    schema_id: Mapped[int] = mapped_column(ForeignKey("schema_records.id", ondelete="CASCADE"))
+    version: Mapped[str] = mapped_column(nullable=False)
+    schema_value: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
+    release_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
+    last_update_date: Mapped[Optional[datetime.datetime]] = mapped_column(
+        default=deliver_update_date, onupdate=deliver_update_date
+    )
+    contributors: Mapped[Optional[str]] = mapped_column(nullable=True)
+    release_notes: Mapped[Optional[str]] = mapped_column(nullable=True)
+
+    __table_args__ = (UniqueConstraint("schema_id", "version"),)
+
+    schema_mapping: Mapped["SchemaRecords"] = relationship(
+        "SchemaRecords", back_populates="versions_mapping"
     )
 
-    __table_args__ = (UniqueConstraint("namespace", "name"),)
-
-
-class SchemaGroupRelations(Base):
-
-    __tablename__ = "schema_group_relations"
-
-    schema_id: Mapped[int] = mapped_column(
-        ForeignKey("schemas.id", ondelete="CASCADE"), index=True, primary_key=True
-    )
-    group_id: Mapped[int] = mapped_column(
-        ForeignKey("schema_groups.id", ondelete="CASCADE"), index=True, primary_key=True
+    tags_mapping: Mapped[List["SchemaTags"]] = relationship(
+        "SchemaTags", back_populates="schema_mapping", lazy="joined", cascade="all, delete-orphan"
     )
 
-    schema_mapping: Mapped["Schemas"] = relationship(
-        "Schemas", back_populates="group_relation_mapping"
+
+class SchemaTags(Base):
+    __tablename__ = "schema_tags"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tag_name: Mapped[str] = mapped_column(nullable=False)
+    tag_value: Mapped[str] = mapped_column(nullable=True)
+    schema_version_id: Mapped[int] = mapped_column(
+        ForeignKey("schema_versions.id", ondelete="CASCADE")
     )
-    group_mapping: Mapped["SchemaGroups"] = relationship(
-        "SchemaGroups", back_populates="schema_relation_mapping"
+
+    schema_mapping: Mapped["SchemaVersions"] = relationship(
+        "SchemaVersions", back_populates="tags_mapping"
     )
 
 

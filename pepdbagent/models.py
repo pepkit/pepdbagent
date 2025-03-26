@@ -52,6 +52,12 @@ class AnnotationModel(BaseModel):
             return v
 
 
+class PaginationResult(BaseModel):
+    page: int = 0
+    page_size: int = 10
+    total: int
+
+
 class AnnotationList(BaseModel):
     """
     Annotation return model.
@@ -156,8 +162,10 @@ class NamespaceInfo(BaseModel):
     Model with information about namespace
     """
 
-    namespace: str
+    namespace_name: str
+    contact_url: Optional[str] = None
     number_of_projects: int
+    number_of_schemas: int
 
 
 class ListOfNamespaceInfo(BaseModel):
@@ -165,8 +173,7 @@ class ListOfNamespaceInfo(BaseModel):
     Namespace information response model
     """
 
-    number_of_namespaces: int
-    limit: int
+    pagination: PaginationResult
     results: List[NamespaceInfo]
 
 
@@ -249,17 +256,34 @@ class HistoryAnnotationModel(BaseModel):
     history: List[HistoryChangeModel]
 
 
-class SchemaAnnotation(BaseModel):
+class SchemaVersionAnnotation(BaseModel):
+    """
+    Schema version annotation model
+    """
+
+    namespace: str
+    schema_name: str
+    version: str
+    contributors: Optional[str] = ""
+    release_notes: Optional[str] = ""
+    tags: Dict[str, Union[str, None]] = {}
+    release_date: datetime.datetime
+    last_update_date: datetime.datetime
+
+
+class SchemaRecordAnnotation(BaseModel):
     """
     Schema annotation model
     """
 
     namespace: str
-    name: str
-    last_update_date: str
-    submission_date: str
+    schema_name: str
     description: Optional[str] = ""
-    popularity_number: Optional[int] = 0
+    maintainers: str = ""
+    lifecycle_stage: str = ""
+    latest_released_version: str
+    private: bool = False
+    last_update_date: datetime.datetime
 
 
 class SchemaSearchResult(BaseModel):
@@ -267,32 +291,31 @@ class SchemaSearchResult(BaseModel):
     Schema search result model
     """
 
-    count: int
-    limit: int
-    offset: int
-    results: List[SchemaAnnotation]
+    pagination: PaginationResult
+    results: List[SchemaRecordAnnotation]
 
 
-class SchemaGroupAnnotation(BaseModel):
+class SchemaVersionSearchResult(BaseModel):
     """
-    Schema group annotation model
+    Schema version search result model
     """
 
-    namespace: str
-    name: str
-    description: Optional[str] = ""
-    schemas: List[SchemaAnnotation]
+    pagination: PaginationResult
+    results: List[SchemaVersionAnnotation]
 
 
-class SchemaGroupSearchResult(BaseModel):
-    """
-    Schema group search result model
-    """
+class UpdateSchemaRecordFields(BaseModel):
+    maintainers: Optional[str] = None
+    lifecycle_stage: Optional[str] = None
+    private: Optional[bool] = False
+    name: Optional[str] = None
+    description: Optional[str] = None
 
-    count: int
-    limit: int
-    offset: int
-    results: List[SchemaGroupAnnotation]
+
+class UpdateSchemaVersionFields(BaseModel):
+    contributors: Optional[str] = None
+    schema_value: Optional[dict] = None
+    release_notes: Optional[str] = None
 
 
 class TarNamespaceModel(BaseModel):
