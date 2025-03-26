@@ -207,6 +207,7 @@ class PEPDatabaseNamespace:
 
         with Session(self._sa_engine) as session:
             results = session.scalars(statement.limit(page_size).offset(page_size * page))
+            total_number_of_namespaces = session.execute(select(func.count(User.id))).one()[0]
 
             list_of_results = []
             for result in results:
@@ -222,7 +223,7 @@ class PEPDatabaseNamespace:
                 pagination=PaginationResult(
                     page=page,
                     page_size=page_size,
-                    total=len(list_of_results),
+                    total=total_number_of_namespaces,
                 ),
                 results=list_of_results,
             )

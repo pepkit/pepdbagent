@@ -230,7 +230,6 @@ class PEPDatabaseSchema:
 
             schema_obj.last_update_date = func.now()
 
-
             schema_version_obj = SchemaVersions(
                 schema_id=schema_obj.id,
                 version=version,
