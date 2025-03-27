@@ -7,3 +7,4 @@ pytest-mock
 pydantic>=2.0
 psycopg>=3.1.15
 numpy>=1.24.4
+alembic>=1.15.1

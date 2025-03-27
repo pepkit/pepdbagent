@@ -2,6 +2,10 @@ import datetime
 import enum
 import logging
 from typing import List, Optional
+import os
+
+from alembic import command
+from alembic.config import Config
 
 from sqlalchemy import (
     TIMESTAMP,
@@ -410,6 +414,7 @@ class BaseEngine:
         drivername: str = POSTGRES_DIALECT,
         dsn: str = None,
         echo: bool = False,
+        run_migrations: bool = False,
     ):
         """
         Initialize connection to the pep_db database. You can use The basic connection parameters
@@ -422,6 +427,9 @@ class BaseEngine:
         :param drivername: driver used in
         :param dsn: libpq connection string using the dsn parameter
         (e.g. 'postgresql://user_name:password@host_name:port/db_name')
+
+        :param echo: If True, the Engine will log all statements as well as a repr() of their parameter lists to the
+        :param run_migrations: If True, run database migrations
         """
         if not dsn:
             dsn = URL.create(
@@ -432,6 +440,9 @@ class BaseEngine:
                 password=password,
                 drivername=drivername,
             )
+        if run_migrations:
+            dsn_with_password = f"{drivername}://{user}:{password}@{host}:{port}/{database}"
+            self.run_db_migration(dsn_with_password)
 
         self._engine = create_engine(dsn, echo=echo)
         self.create_schema(self._engine)
@@ -500,3 +511,17 @@ class BaseEngine:
             engine = self._engine
         Base.metadata.drop_all(engine)
         return None
+
+    def run_db_migration(self, database_url: str):
+        """
+        Migrate the database to the required version.
+        """
+        script_directory = os.path.dirname(os.path.abspath(__file__))
+        script_location = os.path.join(script_directory, "alembic")
+
+        alembic_cfg = Config()
+
+        alembic_cfg.set_main_option("script_location", script_location)
+        alembic_cfg.set_main_option("sqlalchemy.url", database_url)
+
+        command.upgrade(alembic_cfg, "head")
