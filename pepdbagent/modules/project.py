@@ -24,6 +24,7 @@ from pepdbagent.const import (
     NAME_KEY,
     PEPHUB_SAMPLE_ID_KEY,
     PKG_NAME,
+    LATEST_SCHEMA_VERSION,
 )
 from pepdbagent.db_utils import (
     BaseEngine,
@@ -369,17 +370,29 @@ class PEPDatabaseProject:
             schema_namespace, schema_name, schema_version = schema_path_converter(pep_schema)
             with Session(self._sa_engine) as session:
 
-                schema_mapping = session.scalar(
-                    select(SchemaVersions)
-                    .join(SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id)
-                    .where(
-                        and_(
-                            SchemaRecords.namespace == schema_namespace,
-                            SchemaRecords.name == schema_name,
-                            SchemaVersions.version == schema_version,
+                if schema_version == LATEST_SCHEMA_VERSION:
+                    schema_mapping = session.scalar(
+                        select(SchemaVersions)
+                        .join(SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id)
+                        .where(
+                            and_(
+                                SchemaRecords.namespace == schema_namespace,
+                                SchemaRecords.name == schema_name,
+                            )
                         )
+                        .order_by(SchemaVersions.version.desc())
                     )
-                )
+
+                else:
+                    where_clause = and_(
+                        SchemaRecords.namespace == schema_namespace,
+                        SchemaRecords.name == schema_name,
+                        SchemaVersions.version == schema_version,
+                    )
+
+                    schema_mapping = session.scalar(
+                        select(SchemaVersions).join(SchemaRecords).where(where_clause)
+                    )
                 if not schema_mapping:
                     raise SchemaDoesNotExistError(
                         f"Schema {schema_namespace}/{schema_name} does not exist. "
@@ -698,15 +711,29 @@ class PEPDatabaseProject:
             schema_namespace, schema_name, schema_version = schema_path_converter(
                 update_values["pep_schema"]
             )
-            where_clause = and_(
-                SchemaRecords.namespace == schema_namespace,
-                SchemaRecords.name == schema_name,
-                SchemaVersions.version == schema_version,
-            )
+            if schema_version == LATEST_SCHEMA_VERSION:
+                schema_mapping = session.scalar(
+                    select(SchemaVersions)
+                    .join(SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id)
+                    .where(
+                        and_(
+                            SchemaRecords.namespace == schema_namespace,
+                            SchemaRecords.name == schema_name,
+                        )
+                    )
+                    .order_by(SchemaVersions.version.desc())
+                )
 
-            schema_mapping = session.scalar(
-                select(SchemaVersions).join(SchemaRecords).where(where_clause)
-            )
+            else:
+                where_clause = and_(
+                    SchemaRecords.namespace == schema_namespace,
+                    SchemaRecords.name == schema_name,
+                    SchemaVersions.version == schema_version,
+                )
+
+                schema_mapping = session.scalar(
+                    select(SchemaVersions).join(SchemaRecords).where(where_clause)
+                )
             if not schema_mapping:
                 raise SchemaDoesNotExistError(
                     f"Schema {schema_namespace}/{schema_name} does not exist. "
