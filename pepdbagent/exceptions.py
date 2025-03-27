@@ -1,4 +1,4 @@
-""" Custom error types """
+"""Custom error types"""
 
 
 class PEPDatabaseAgentError(Exception):
@@ -129,21 +129,21 @@ class SchemaAlreadyExistsError(PEPDatabaseAgentError):
         super().__init__(f"""Schema already exists. {msg}""")
 
 
-class SchemaGroupDoesNotExistError(PEPDatabaseAgentError):
+class SchemaVersionDoesNotExistError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
-        super().__init__(f"""Schema group does not exist. {msg}""")
+        super().__init__(f"""Schema version does not exist. {msg}""")
 
 
-class SchemaGroupAlreadyExistsError(PEPDatabaseAgentError):
+class SchemaVersionAlreadyExistsError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
-        super().__init__(f"""Schema group already exists. {msg}""")
+        super().__init__(f"""Schema version already exists. {msg}""")
 
 
-class SchemaAlreadyInGroupError(PEPDatabaseAgentError):
+class SchemaTagDoesNotExistError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
-        super().__init__(f"""Schema already in the group. {msg}""")
+        super().__init__(f"""Schema tag does not exist. {msg}""")
 
 
-class SchemaIsNotInGroupError(PEPDatabaseAgentError):
+class SchemaTagAlreadyExistsError(PEPDatabaseAgentError):
     def __init__(self, msg=""):
-        super().__init__(f"""Schema not found in group. {msg}""")
+        super().__init__(f"""Schema tag already exists. {msg}""")

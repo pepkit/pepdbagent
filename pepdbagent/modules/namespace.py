@@ -18,6 +18,7 @@ from pepdbagent.models import (
     NamespaceStats,
     TarNamespaceModel,
     TarNamespaceModelReturn,
+    PaginationResult,
 )
 from pepdbagent.utils import tuple_converter
 
@@ -174,78 +175,56 @@ class PEPDatabaseNamespace:
         )
         return statement
 
-    # old function, that counts namespace info based on Projects table
-    # def info(self, limit: int = DEFAULT_LIMIT_INFO) -> ListOfNamespaceInfo:
-    #     """
-    #     Get list of top n namespaces in the database
-    #
-    #     :param limit: limit of results (top namespace )
-    #     :return: number_of_namespaces: int
-    #              limit: int
-    #              results: { namespace: str
-    #                         number_of_projects: int
-    #                         }
-    #     """
-    #     total_number_of_namespaces = self._count_namespace()
-    #
-    #     statement = (
-    #         select(
-    #             func.count(Projects.namespace).label("number_of_projects"),
-    #             Projects.namespace,
-    #         )
-    #         .select_from(Projects)
-    #         .where(Projects.private.is_(False))
-    #         .limit(limit)
-    #         .order_by(text("number_of_projects desc"))
-    #         .group_by(Projects.namespace)
-    #     )
-    #
-    #     with Session(self._sa_engine) as session:
-    #         query_results = session.execute(statement).all()
-    #
-    #     list_of_results = []
-    #     for result in query_results:
-    #         list_of_results.append(
-    #             NamespaceInfo(
-    #                 namespace=result.namespace,
-    #                 number_of_projects=result.number_of_projects,
-    #             )
-    #         )
-    #     return ListOfNamespaceInfo(
-    #         number_of_namespaces=total_number_of_namespaces,
-    #         limit=limit,
-    #         results=list_of_results,
-    #     )
-
-    def info(self, limit: int = DEFAULT_LIMIT_INFO) -> ListOfNamespaceInfo:
+    def info(
+        self,
+        page: int = 0,
+        page_size: int = DEFAULT_LIMIT_INFO,
+        order_by: str = "number_of_projects",
+    ) -> ListOfNamespaceInfo:
         """
         Get list of top n namespaces in the database
         ! Warning: this function counts number of all projects in namespaces.
         ! it does not filter private projects (It was done for efficiency reasons)
 
-        :param limit: limit of results (top namespace )
+        :param page: page number
+        :param page_size: number of namespaces to show
+        :param order_by: order by field. Options: number_of_projects, number_of_schemas [Default: number_of_projects]
+
         :return: number_of_namespaces: int
                  limit: int
                  results: { namespace: str
                             number_of_projects: int
+                            number_of_schemas: int
                             }
         """
+
+        statement = select(User)
+
+        if order_by == "number_of_projects":
+            statement = statement.order_by(User.number_of_projects.desc())
+        elif order_by == "number_of_schemas":
+            statement = statement.order_by(User.number_of_schemas.desc())
+
         with Session(self._sa_engine) as session:
-            results = session.scalars(
-                select(User).limit(limit).order_by(User.number_of_projects.desc())
-            )
+            results = session.scalars(statement.limit(page_size).offset(page_size * page))
+            total_number_of_namespaces = session.execute(select(func.count(User.id))).one()[0]
 
             list_of_results = []
             for result in results:
                 list_of_results.append(
                     NamespaceInfo(
-                        namespace=result.namespace,
+                        namespace_name=result.namespace,
+                        contact_url=f"https://github.com/{result.namespace}",
                         number_of_projects=result.number_of_projects,
+                        number_of_schemas=result.number_of_schemas,
                     )
                 )
             return ListOfNamespaceInfo(
-                number_of_namespaces=len(list_of_results),
-                limit=limit,
+                pagination=PaginationResult(
+                    page=page,
+                    page_size=page_size,
+                    total=total_number_of_namespaces,
+                ),
                 results=list_of_results,
             )
 

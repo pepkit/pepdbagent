@@ -99,16 +99,16 @@ class TestProjectUpdate:
     def test_update_project_schema(self, namespace, name, new_schema):
         with PEPDBAgentContextManager(add_data=True) as agent:
             prj_annot = agent.annotation.get(namespace=namespace, name=name)
-            assert prj_annot.results[0].pep_schema == "namespace1/2.0.0"
+            assert prj_annot.results[0].pep_schema == "namespace1/2.0.0:1.0.0"
 
             agent.project.update(
                 namespace=namespace,
                 name=name,
                 tag="default",
-                update_dict={"pep_schema": "namespace2/bedboss"},
+                update_dict={"pep_schema": "namespace2/bedboss:1.0.0"},
             )
             prj_annot = agent.annotation.get(namespace=namespace, name=name)
-            assert prj_annot.results[0].pep_schema == "namespace2/bedboss"
+            assert prj_annot.results[0].pep_schema == "namespace2/bedboss:1.0.0"
 
     @pytest.mark.parametrize(
         "namespace, name, new_description",
@@ -155,8 +155,8 @@ class TestProjectUpdate:
     @pytest.mark.parametrize(
         "namespace, name, pep_schema",
         [
-            ["namespace1", "amendments1", "namespace2/bedmaker"],
-            ["namespace2", "derive", "namespace2/bedbuncher"],
+            ["namespace1", "amendments1", "namespace2/bedmaker:1.0.0"],
+            ["namespace2", "derive", "namespace2/bedbuncher:1.0.0"],
         ],
     )
     def test_update_pep_schema(self, namespace, name, pep_schema):
