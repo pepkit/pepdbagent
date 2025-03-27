@@ -1,3 +1,5 @@
 include LICENSE.txt
 include requirements/*
 include README.md
+include pepdbagent/alembic/*
+include pepdbagent/alembic/versions/*

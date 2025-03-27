@@ -136,3 +136,42 @@ For more information, developers should use `pepdbagent pytest` as documentation
 ability to write tests that serve as executable examples. 
 This approach not only provides detailed explanations but also ensures that code examples are kept 
 up-to-date with the latest changes in the codebase.
+
+### How to run database migrations:
+First version of database with albemic is pepdbagent:0.11.1 - '44cb1e7a80de'
+
+To add manually this version to the database use the following command:
+```
+CREATE TABLE alembic_version (
+    version_num VARCHAR(32) NOT NULL,
+    CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+);
+INSERT INTO alembic_version (version_num) VALUES ('44cb1e7a80de');
+
+```
+
+### To make revision run the following command:
+```
+alembic revision --autogenerate -m "Initial version"
+```
+where "Initial version" is the message for the revision.
+
+### To update database run the following command:
+```
+alembic upgrade head
+```
+
+### Update database automatically
+To update automatically database you can use pepdbagent. In this case you need to set argument `run_migrations=True`
+in creation of the PEPDBAgent object. For example:
+
+```python
+from pepdbagent import PEPDBAgent
+pdb = PEPDatabaseAgent(
+    user="postgres",
+    password="pass8743hf9h23f87h437",
+    host="localhost",
+    database="pep-db",
+    port=5432,
+)
+```

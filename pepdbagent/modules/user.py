@@ -177,7 +177,11 @@ class PEPDatabaseUser:
                         last_update_date=str(prj.last_update_date),
                         submission_date=str(prj.submission_date),
                         digest=prj.digest,
-                        pep_schema=f"{prj.schema_mapping.schema_mapping.namespace}/{prj.schema_mapping.schema_mapping.name}:{prj.schema_mapping.version}",
+                        pep_schema=(
+                            f"{prj.schema_mapping.schema_mapping.namespace}/{prj.schema_mapping.schema_mapping.name}:{prj.schema_mapping.version}"
+                            if prj.schema_mapping
+                            else None
+                        ),
                         pop=prj.pop,
                         stars_number=prj.number_of_stars,
                         forked_from=(

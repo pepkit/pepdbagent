@@ -20,6 +20,7 @@ class PEPDatabaseAgent(object):
         drivername=POSTGRES_DIALECT,
         dsn=None,
         echo=False,
+        run_migrations=False,
     ):
         """
         Initialize connection to the pep_db database. You can use The basic connection parameters
@@ -32,6 +33,8 @@ class PEPDatabaseAgent(object):
         :param drivername: driver of the database [Default: postgresql]
         :param dsn: libpq connection string using the dsn parameter
         (e.g. "localhost://username:password@pdp_db:5432")
+
+        :param run_migrations: run migrations on the database
         """
 
         pep_db_engine = BaseEngine(
@@ -43,6 +46,7 @@ class PEPDatabaseAgent(object):
             drivername=drivername,
             dsn=dsn,
             echo=echo,
+            run_migrations=run_migrations,
         )
         sa_engine = pep_db_engine.engine
 
