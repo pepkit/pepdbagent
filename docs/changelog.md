@@ -2,6 +2,13 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.12.2] -- 2025-03-27
+- Fixed links between schema and project
+
+## [0.12.1] -- 2025-03-27
+- Added alembic to the project
+- Fixed errors in methods getting user stars
+
 
 ## [0.12.0] -- 2025-03-27
 - New database model for schemas
