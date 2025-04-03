@@ -314,7 +314,7 @@ class UpdateSchemaRecordFields(BaseModel):
 
 class UpdateSchemaVersionFields(BaseModel):
     contributors: Optional[Union[str, None]] = None
-    schema_value: Optional[Union[str, None]] = None
+    schema_value: Optional[dict] = None
     release_notes: Optional[Union[str, None]] = None
 
 
