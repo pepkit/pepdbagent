@@ -264,8 +264,8 @@ class SchemaVersionAnnotation(BaseModel):
     namespace: str
     schema_name: str
     version: str
-    contributors: Optional[str] = ""
-    release_notes: Optional[str] = ""
+    contributors: Optional[Union[str, None]] = ""
+    release_notes: Optional[Union[str, None]] = ""
     tags: Dict[str, Union[str, None]] = {}
     release_date: datetime.datetime
     last_update_date: datetime.datetime
@@ -278,11 +278,11 @@ class SchemaRecordAnnotation(BaseModel):
 
     namespace: str
     schema_name: str
-    description: Optional[str] = ""
-    maintainers: str = ""
-    lifecycle_stage: str = ""
-    latest_released_version: str
-    private: bool = False
+    description: Optional[Union[str, None]] = ""
+    maintainers: Optional[Union[str, None]] = ""
+    lifecycle_stage: Optional[Union[str, None]] = ""
+    latest_released_version: Optional[Union[str, None]]
+    private: Optional[bool] = False
     last_update_date: datetime.datetime
 
 
@@ -305,17 +305,17 @@ class SchemaVersionSearchResult(BaseModel):
 
 
 class UpdateSchemaRecordFields(BaseModel):
-    maintainers: Optional[str] = None
-    lifecycle_stage: Optional[str] = None
-    private: Optional[bool] = False
-    name: Optional[str] = None
-    description: Optional[str] = None
+    maintainers: Optional[Union[str, None]] = None
+    lifecycle_stage: Optional[Union[str, None]] = None
+    private: Optional[Union[str, None]] = False
+    name: Optional[Union[str, None]] = None
+    description: Optional[Union[str, None]] = None
 
 
 class UpdateSchemaVersionFields(BaseModel):
-    contributors: Optional[str] = None
-    schema_value: Optional[dict] = None
-    release_notes: Optional[str] = None
+    contributors: Optional[Union[str, None]] = None
+    schema_value: Optional[Union[str, None]] = None
+    release_notes: Optional[Union[str, None]] = None
 
 
 class TarNamespaceModel(BaseModel):
