@@ -2,6 +2,10 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.12.3] -- 2025-04-03
+- Fixed models for schema records and versions
+
+
 ## [0.12.2] -- 2025-03-27
 - Fixed links between schema and project
 
