@@ -48,6 +48,7 @@ to increase readability, maintainability, and user experience of pepdbagent, whi
 - <u>Sample</u>: Handles the creation, modification, and deletion of samples, without modification of the entire project.
 - <u>View</u>: Manages the creation, modification, and deletion of views for specific projects.
 - <u>User</u>: Contains user-related information such as favorites and other user-related data.
+- <u>Schema</u>: Provides information and functions related to the user schemas.
 
 ## Example:
 
