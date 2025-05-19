@@ -307,14 +307,14 @@ class SchemaVersionSearchResult(BaseModel):
 class UpdateSchemaRecordFields(BaseModel):
     maintainers: Optional[Union[str, None]] = None
     lifecycle_stage: Optional[Union[str, None]] = None
-    private: Optional[Union[str, None]] = False
+    private: Optional[bool] = False
     name: Optional[Union[str, None]] = None
     description: Optional[Union[str, None]] = None
 
 
 class UpdateSchemaVersionFields(BaseModel):
     contributors: Optional[Union[str, None]] = None
-    schema_value: Optional[Union[str, None]] = None
+    schema_value: Optional[dict] = None
     release_notes: Optional[Union[str, None]] = None
 
 
