@@ -106,6 +106,7 @@ class PEPDatabaseAnnotation:
             count=self._count_projects(
                 namespace=namespace,
                 search_str=query,
+                tag=tag,
                 admin=admin,
                 filter_by=filter_by,
                 filter_end_date=filter_end_date,
@@ -115,6 +116,7 @@ class PEPDatabaseAnnotation:
             results=self._get_projects(
                 namespace=namespace,
                 search_str=query,
+                tag=tag,
                 admin=admin,
                 offset=offset,
                 limit=limit,
@@ -235,6 +237,7 @@ class PEPDatabaseAnnotation:
         self,
         namespace: str = None,
         search_str: str = None,
+        tag: str = None,
         admin: Union[str, List[str]] = None,
         filter_by: Optional[Literal["submission_date", "last_update_date"]] = None,
         filter_start_date: Optional[str] = None,
@@ -246,6 +249,7 @@ class PEPDatabaseAnnotation:
 
         :param namespace: namespace where to search for a project
         :param search_str: search string. will be searched in name, tag and description information
+        :param tag: tag of the projects (find projects with specific tag)
         :param admin: string or list of admins [e.g. "Khoroshevskyi", or ["doc_adin","Khoroshevskyi"]]
         :param filter_by: data to use filter on.
             Options: ["submission_date", "last_update_date"]
@@ -270,6 +274,8 @@ class PEPDatabaseAnnotation:
         )
         if pep_type:
             statement = statement.where(Projects.pop.is_(pep_type == "pop"))
+        if tag:
+            statement = statement.where(Projects.tag == tag)
         result = self._pep_db_engine.session_execute(statement).first()
 
         try:
@@ -280,6 +286,7 @@ class PEPDatabaseAnnotation:
     def _get_projects(
         self,
         namespace: str = None,
+        tag: str = None,
         search_str: str = None,
         admin: Union[str, List[str]] = None,
         limit: int = DEFAULT_LIMIT,
@@ -295,6 +302,7 @@ class PEPDatabaseAnnotation:
         Get projects by providing search string.
 
         :param namespace: namespace where to search for a project
+        :param tag: tag of the projects (find projects with specific tag)
         :param search_str: search string that has to be found in the name or tag
         :param admin: True, if user is admin of the namespace [Default: False]
         :param limit: limit of return results
@@ -322,6 +330,7 @@ class PEPDatabaseAnnotation:
             namespace=namespace,
             search_str=search_str,
             admin_list=admin,
+            tag=tag,
         )
         statement = self._add_date_filter_if_provided(
             statement, filter_by, filter_start_date, filter_end_date
@@ -406,6 +415,7 @@ class PEPDatabaseAnnotation:
         namespace: str = None,
         search_str: str = None,
         admin_list: Union[str, List[str]] = None,
+        tag: str = None,
     ) -> Select:
         """
         Add where clause to sqlalchemy statement (in project search)
@@ -414,6 +424,7 @@ class PEPDatabaseAnnotation:
         :param namespace: project namespace sql:(where namespace = "")
         :param search_str: search string that has to be found in the name or tag
         :param admin_list: list or string of admin rights to namespace
+        :param tag: tag of the projects (find projects with specific tag)
         :return: sqlalchemy representation of a SELECT statement with where clause.
         """
         admin_list = tuple_converter(admin_list)
@@ -427,6 +438,9 @@ class PEPDatabaseAnnotation:
             statement = statement.where(search_query)
         if namespace:
             statement = statement.where(Projects.namespace == namespace)
+
+        if tag:
+            statement = statement.where(Projects.tag == tag)
 
         statement = statement.where(
             or_(Projects.private.is_(False), Projects.namespace.in_(admin_list))

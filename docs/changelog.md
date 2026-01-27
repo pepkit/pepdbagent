@@ -2,6 +2,11 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+## [0.12.4] -- 2026-01-26
+- Added project search by tag in annotation module
+- Updated github actions workflows
+
+
 ## [0.12.3] -- 2025-04-03
 - Fixed models for schema records and versions
 
