@@ -1,18 +1,6 @@
 """Package-level data"""
 
-import logging
-
-import coloredlogs
-
 from pepdbagent._version import __version__
 from pepdbagent.pepdbagent import PEPDatabaseAgent
 
 __all__ = ["__version__", "PEPDatabaseAgent"]
-
-
-_LOGGER = logging.getLogger("pepdbagent")
-coloredlogs.install(
-    logger=_LOGGER,
-    datefmt="%H:%M:%S",
-    fmt="[%(levelname)s] [%(asctime)s] %(message)s",
-)
