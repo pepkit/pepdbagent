@@ -2,7 +2,7 @@
 import datetime
 from typing import Dict, List, Optional, Union
 
-from peppy.const import CONFIG_KEY, SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_LIST_KEY
+from peprs.const import CONFIG_KEY, SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_DICT_KEY
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from pepdbagent.const import DEFAULT_TAG
@@ -14,7 +14,7 @@ class ProjectDict(BaseModel):
     """
 
     config: dict = Field(alias=CONFIG_KEY)
-    subsample_list: Optional[Union[list, None]] = Field(alias=SUBSAMPLE_RAW_LIST_KEY)
+    subsample_list: Optional[Union[list, None]] = Field(alias=SUBSAMPLE_RAW_DICT_KEY)
     sample_dict: list = Field(alias=SAMPLE_RAW_DICT_KEY)
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")

@@ -1,6 +1,5 @@
-import peppy
+import peprs
 import pytest
-from peppy.exceptions import IllegalStateException
 
 from pepdbagent.const import PEPHUB_SAMPLE_ID_KEY
 from pepdbagent.exceptions import ProjectDuplicatedSampleGUIDsError, SampleTableUpdateError
@@ -248,16 +247,16 @@ class TestProjectUpdate:
         """
         with PEPDBAgentContextManager(add_data=True) as agent:
             new_prj = agent.project.get(namespace=namespace, name=name, raw=False, with_id=True)
-            prj_dict = new_prj.to_dict(extended=True, orient="records")
+            prj_dict = new_prj.to_dict(raw=True, by_sample=True)
 
-            prj_dict["_sample_dict"].append(
+            prj_dict["samples"].append(
                 {
                     "file": "data/frog23_data.txt",
                     "protocol": "anySample3Type",
                     "sample_name": "frog_2",
                 }
             )
-            prj_dict["_sample_dict"].append(
+            prj_dict["samples"].append(
                 {
                     "file": "data/frog23_data.txt4",
                     "protocol": "anySample3Type4",
@@ -270,12 +269,12 @@ class TestProjectUpdate:
                 namespace=namespace,
                 name=name,
                 tag="default",
-                update_dict={"project": peppy.Project.from_dict(prj_dict)},
+                update_dict={"project": peprs.Project.from_dict(prj_dict)},
             )
 
             prj = agent.project.get(namespace=namespace, name=name, raw=True)
 
-            assert len(prj["_sample_dict"]) == 4
+            assert len(prj["samples"]) == 4
 
 
 @pytest.mark.skipif(
@@ -304,23 +303,23 @@ class TestUpdateProjectWithId:
                 PEPHUB_SAMPLE_ID_KEY: None,
             }
 
-            prj["_sample_dict"].append(new_sample.copy())
-            prj["_sample_dict"][0]["sample_name"] = "new_sample_name2"
-            del prj["_sample_dict"][1]
+            prj["samples"].append(new_sample.copy())
+            prj["samples"][0]["sample_name"] = "new_sample_name2"
+            del prj["samples"][1]
 
             agent.project.update(
                 namespace=namespace,
                 name=name,
                 tag="default",
-                update_dict={"project": peppy.Project.from_dict(prj)},
+                update_dict={"project": peprs.Project.from_dict(prj)},
             )
 
             del new_sample[PEPHUB_SAMPLE_ID_KEY]
-            peppy_prj["_sample_dict"].append(new_sample.copy())  # add sample without id
-            peppy_prj["_sample_dict"][0]["sample_name"] = "new_sample_name2"  # modify sample
-            del peppy_prj["_sample_dict"][1]  # delete sample
+            peppy_prj["samples"].append(new_sample.copy())  # add sample without id
+            peppy_prj["samples"][0]["sample_name"] = "new_sample_name2"  # modify sample
+            del peppy_prj["samples"][1]  # delete sample
 
-            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+            assert peprs.Project.from_dict(peppy_prj) == agent.project.get(
                 namespace=namespace, name=name, raw=False
             )
 
@@ -342,19 +341,19 @@ class TestUpdateProjectWithId:
                 PEPHUB_SAMPLE_ID_KEY: None,
             }
 
-            prj["_sample_dict"].append(new_sample.copy())
+            prj["samples"].append(new_sample.copy())
 
             agent.project.update(
                 namespace=namespace,
                 name=name,
                 tag="default",
-                update_dict={"project": peppy.Project.from_dict(prj)},
+                update_dict={"project": peprs.Project.from_dict(prj)},
             )
 
             del new_sample[PEPHUB_SAMPLE_ID_KEY]
-            peppy_prj["_sample_dict"].append(new_sample.copy())  # add sample without id
+            peppy_prj["samples"].append(new_sample.copy())  # add sample without id
 
-            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+            assert peprs.Project.from_dict(peppy_prj) == agent.project.get(
                 namespace=namespace, name=name, raw=False
             )
 
@@ -381,22 +380,22 @@ class TestUpdateProjectWithId:
                 PEPHUB_SAMPLE_ID_KEY: None,
             }
 
-            prj["_sample_dict"].append(new_sample1.copy())
-            prj["_sample_dict"].append(new_sample2.copy())
+            prj["samples"].append(new_sample1.copy())
+            prj["samples"].append(new_sample2.copy())
 
             agent.project.update(
                 namespace=namespace,
                 name=name,
                 tag="default",
-                update_dict={"project": peppy.Project.from_dict(prj)},
+                update_dict={"project": peprs.Project.from_dict(prj)},
             )
 
             del new_sample1[PEPHUB_SAMPLE_ID_KEY]
             del new_sample2[PEPHUB_SAMPLE_ID_KEY]
-            peppy_prj["_sample_dict"].append(new_sample1.copy())  # add sample without id
-            peppy_prj["_sample_dict"].append(new_sample2.copy())  # add sample without id
+            peppy_prj["samples"].append(new_sample1.copy())  # add sample without id
+            peppy_prj["samples"].append(new_sample2.copy())  # add sample without id
 
-            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+            assert peprs.Project.from_dict(peppy_prj) == agent.project.get(
                 namespace=namespace, name=name, raw=False
             )
 
@@ -407,7 +406,11 @@ class TestUpdateProjectWithId:
         ],
     )
     def test_insert_new_multiple_rows_duplicated_samples(self, namespace, name):
+        """PEP 2.1.0 allows duplicate sample names, so this should succeed."""
         with PEPDBAgentContextManager(add_data=True) as agent:
+            original_count = len(
+                agent.project.get(namespace=namespace, name=name, raw=True)["samples"]
+            )
             prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
 
             new_sample1 = {
@@ -421,16 +424,17 @@ class TestUpdateProjectWithId:
                 PEPHUB_SAMPLE_ID_KEY: None,
             }
 
-            prj["_sample_dict"].append(new_sample1.copy())
-            prj["_sample_dict"].append(new_sample2.copy())
+            prj["samples"].append(new_sample1.copy())
+            prj["samples"].append(new_sample2.copy())
 
-            with pytest.raises(IllegalStateException):
-                agent.project.update(
-                    namespace=namespace,
-                    name=name,
-                    tag="default",
-                    update_dict={"project": peppy.Project.from_dict(prj)},
-                )
+            agent.project.update(
+                namespace=namespace,
+                name=name,
+                tag="default",
+                update_dict={"project": peprs.Project.from_dict(prj)},
+            )
+            updated = agent.project.get(namespace=namespace, name=name, raw=True)
+            assert len(updated["samples"]) == original_count + 2
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -444,20 +448,20 @@ class TestUpdateProjectWithId:
             peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
             prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
 
-            del prj["_sample_dict"][1]
-            del prj["_sample_dict"][2]
+            del prj["samples"][1]
+            del prj["samples"][2]
 
             agent.project.update(
                 namespace=namespace,
                 name=name,
                 tag="default",
-                update_dict={"project": peppy.Project.from_dict(prj)},
+                update_dict={"project": peprs.Project.from_dict(prj)},
             )
 
-            del peppy_prj["_sample_dict"][1]  # delete sample
-            del peppy_prj["_sample_dict"][2]  # delete sample
+            del peppy_prj["samples"][1]  # delete sample
+            del peppy_prj["samples"][2]  # delete sample
 
-            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+            assert peprs.Project.from_dict(peppy_prj) == agent.project.get(
                 namespace=namespace, name=name, raw=False
             )
 
@@ -473,18 +477,18 @@ class TestUpdateProjectWithId:
             peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
             prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
 
-            prj["_sample_dict"][0]["sample_name"] = "new_sample_name2"
+            prj["samples"][0]["sample_name"] = "new_sample_name2"
 
             agent.project.update(
                 namespace=namespace,
                 name=name,
                 tag="default",
-                update_dict={"project": peppy.Project.from_dict(prj)},
+                update_dict={"project": peprs.Project.from_dict(prj)},
             )
 
-            peppy_prj["_sample_dict"][0]["sample_name"] = "new_sample_name2"  # modify sample
+            peppy_prj["samples"][0]["sample_name"] = "new_sample_name2"  # modify sample
 
-            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+            assert peprs.Project.from_dict(peppy_prj) == agent.project.get(
                 namespace=namespace, name=name, raw=False
             )
 
@@ -500,20 +504,20 @@ class TestUpdateProjectWithId:
             peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
             prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
 
-            prj["_sample_dict"][0]["sample_name"] = "new_sample_name2"
-            prj["_sample_dict"][1]["sample_name"] = "new_sample_name3"
+            prj["samples"][0]["sample_name"] = "new_sample_name2"
+            prj["samples"][1]["sample_name"] = "new_sample_name3"
 
             agent.project.update(
                 namespace=namespace,
                 name=name,
                 tag="default",
-                update_dict={"project": peppy.Project.from_dict(prj)},
+                update_dict={"project": peprs.Project.from_dict(prj)},
             )
 
-            peppy_prj["_sample_dict"][0]["sample_name"] = "new_sample_name2"  # modify sample
-            peppy_prj["_sample_dict"][1]["sample_name"] = "new_sample_name3"  # modify sample
+            peppy_prj["samples"][0]["sample_name"] = "new_sample_name2"  # modify sample
+            peppy_prj["samples"][1]["sample_name"] = "new_sample_name3"  # modify sample
 
-            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+            assert peprs.Project.from_dict(peppy_prj) == agent.project.get(
                 namespace=namespace, name=name, raw=False
             )
 
@@ -535,19 +539,19 @@ class TestUpdateProjectWithId:
                 PEPHUB_SAMPLE_ID_KEY: None,
             }
 
-            prj["_sample_dict"].insert(0, new_sample.copy())
+            prj["samples"].insert(0, new_sample.copy())
 
             agent.project.update(
                 namespace=namespace,
                 name=name,
                 tag="default",
-                update_dict={"project": peppy.Project.from_dict(prj)},
+                update_dict={"project": peprs.Project.from_dict(prj)},
             )
 
             del new_sample[PEPHUB_SAMPLE_ID_KEY]
-            peppy_prj["_sample_dict"].insert(0, new_sample.copy())  # add sample without id
+            peppy_prj["samples"].insert(0, new_sample.copy())  # add sample without id
 
-            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+            assert peprs.Project.from_dict(peppy_prj) == agent.project.get(
                 namespace=namespace, name=name, raw=False
             )
 
@@ -563,26 +567,26 @@ class TestUpdateProjectWithId:
             peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
             prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
 
-            sample1 = prj["_sample_dict"][0].copy()
-            sample2 = prj["_sample_dict"][1].copy()
+            sample1 = prj["samples"][0].copy()
+            sample2 = prj["samples"][1].copy()
 
-            prj["_sample_dict"][0] = sample2
-            prj["_sample_dict"][1] = sample1
+            prj["samples"][0] = sample2
+            prj["samples"][1] = sample1
 
             agent.project.update(
                 namespace=namespace,
                 name=name,
                 tag="default",
-                update_dict={"project": peppy.Project.from_dict(prj)},
+                update_dict={"project": peprs.Project.from_dict(prj)},
             )
 
-            peppy_prj["_sample_dict"][0] = sample2
-            peppy_prj["_sample_dict"][1] = sample1
+            peppy_prj["samples"][0] = sample2
+            peppy_prj["samples"][1] = sample1
 
-            del peppy_prj["_sample_dict"][0][PEPHUB_SAMPLE_ID_KEY]
-            del peppy_prj["_sample_dict"][1][PEPHUB_SAMPLE_ID_KEY]
+            del peppy_prj["samples"][0][PEPHUB_SAMPLE_ID_KEY]
+            del peppy_prj["samples"][1][PEPHUB_SAMPLE_ID_KEY]
 
-            assert peppy.Project.from_dict(peppy_prj) == agent.project.get(
+            assert peprs.Project.from_dict(peppy_prj) == agent.project.get(
                 namespace=namespace, name=name, raw=False
             )
 
@@ -597,7 +601,7 @@ class TestUpdateProjectWithId:
         with PEPDBAgentContextManager(add_data=True) as agent:
             prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=False)
 
-            prj["_sample_dict"][0]["sample_name"] = "new_sample_name2"
+            prj["samples"][0]["sample_name"] = "new_sample_name2"
 
             with pytest.raises(SampleTableUpdateError):
 
@@ -605,7 +609,7 @@ class TestUpdateProjectWithId:
                     namespace=namespace,
                     name=name,
                     tag="default",
-                    update_dict={"project": peppy.Project.from_dict(prj)},
+                    update_dict={"project": peprs.Project.from_dict(prj)},
                 )
 
     @pytest.mark.parametrize(
@@ -617,12 +621,12 @@ class TestUpdateProjectWithId:
     def test_update_project_with_duplicated_sample_guids(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
             new_prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
-            new_prj["_sample_dict"].append(new_prj["_sample_dict"][0])
+            new_prj["samples"].append(new_prj["samples"][0])
 
             with pytest.raises(ProjectDuplicatedSampleGUIDsError):
                 agent.project.update(
                     namespace=namespace,
                     name=name,
                     tag="default",
-                    update_dict={"project": peppy.Project.from_dict(new_prj)},
+                    update_dict={"project": peprs.Project.from_dict(new_prj)},
                 )

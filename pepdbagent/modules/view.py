@@ -3,7 +3,7 @@
 import logging
 from typing import List, Union
 
-import peppy
+import peprs
 from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -44,7 +44,7 @@ class PEPDatabaseView:
         tag: str = DEFAULT_TAG,
         view_name: str = None,
         raw: bool = True,
-    ) -> Union[peppy.Project, dict, None]:
+    ) -> Union[peprs.Project, dict, None]:
         """
         Retrieve view of the project from the database.
         View is a subset of the samples in the project. e.g. bed-db project has all the samples in bedbase,
@@ -55,14 +55,7 @@ class PEPDatabaseView:
         :param tag: tag of the project (Default: tag is taken from the project object)
         :param view_name: name of the view
         :param raw: retrieve unprocessed (raw) PEP dict. [Default: True]
-        :return: peppy.Project object with found project or dict with unprocessed
-            PEP elements: {
-                name: str
-                description: str
-                _config: dict
-                _sample_dict: dict
-                _subsample_dict: dict
-            }
+        :return: peprs.Project object or raw dict
         """
         _LOGGER.debug(f"Get view {view_name} from {namespace}/{name}:{tag}")
         view_statement = select(Views).where(
@@ -80,11 +73,11 @@ class PEPDatabaseView:
                 )
             samples = [sample.sample.sample for sample in view.samples]
             config = view.project_mapping.config
-        sub_project_dict = {"_config": config, "_sample_dict": samples, "_subsample_dict": None}
+        sub_project_dict = {"config": config, "samples": samples}
         if raw:
             return sub_project_dict
         else:
-            return peppy.Project.from_dict(sub_project_dict)
+            return peprs.Project.from_dict(sub_project_dict)
 
     def get_annotation(
         self, namespace: str, name: str, tag: str = DEFAULT_TAG, view_name: str = None
@@ -349,7 +342,7 @@ class PEPDatabaseView:
 
     def get_snap_view(
         self, namespace: str, name: str, tag: str, sample_name_list: List[str], raw: bool = False
-    ) -> Union[peppy.Project, dict]:
+    ) -> Union[peprs.Project, dict]:
         """
         Get a snap view of the project. Snap view is a view of the project
         with only the samples in the list. This view won't be saved in the database.
@@ -359,7 +352,7 @@ class PEPDatabaseView:
         :param tag: tag of the project
         :param sample_name_list: list of sample names e.g. ["sample1", "sample2"]
         :param raw: retrieve unprocessed (raw) PEP dict.
-        :return: peppy.Project object
+        :return: peprs.Project object
         """
         _LOGGER.debug(f"Creating snap view for {namespace}/{name}:{tag}")
         project_statement = select(Projects).where(
@@ -390,10 +383,10 @@ class PEPDatabaseView:
             config = project.config
 
         if raw:
-            return {"_config": config, "_sample_dict": samples, "_subsample_dict": None}
+            return {"config": config, "samples": samples}
         else:
-            return peppy.Project.from_dict(
-                {"_config": config, "_sample_dict": samples, "_subsample_dict": None}
+            return peprs.Project.from_dict(
+                {"config": config, "samples": samples}
             )
 
     def get_views_annotation(

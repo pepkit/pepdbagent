@@ -2,8 +2,7 @@ import datetime
 import logging
 from typing import Union
 
-import peppy
-from peppy.const import SAMPLE_TABLE_INDEX_KEY
+import peprs
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
@@ -37,7 +36,7 @@ class PEPDatabaseSample:
         sample_name: str,
         tag: str = DEFAULT_TAG,
         raw: bool = True,
-    ) -> Union[peppy.Sample, dict, None]:
+    ) -> Union[peprs.Sample, dict, None]:
         """
         Retrieve sample from the database using namespace, name, tag, and sample_name
 
@@ -45,15 +44,8 @@ class PEPDatabaseSample:
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
         :param sample_name: sample_name of the sample
-        :param raw: return raw dict or peppy.Sample object [Default: True]
-        :return: peppy.Project object with found project or dict with unprocessed
-            PEP elements: {
-                name: str
-                description: str
-                _config: dict
-                _sample_dict: dict
-                _subsample_dict: dict
-            }
+        :param raw: return raw dict or peprs.Sample object [Default: True]
+        :return: peprs.Sample object or raw dict
         """
         statement_sample = select(Samples).where(
             and_(
@@ -83,13 +75,10 @@ class PEPDatabaseSample:
             if result:
                 if not raw:
                     config = session.execute(project_config_statement).one_or_none()[0]
-                    project = peppy.Project().from_dict(
+                    project = peprs.Project.from_dict(
                         pep_dictionary={
-                            "name": name,
-                            "description": config.get("description"),
-                            "_config": config,
-                            "_sample_dict": [result.sample],
-                            "_subsample_dict": None,
+                            "config": config,
+                            "samples": [result.sample],
                         }
                     )
                     return project.samples[0]
@@ -155,11 +144,11 @@ class PEPDatabaseSample:
                     sample_mapping.sample.update(update_dict)
                 try:
                     sample_mapping.sample_name = sample_mapping.sample[
-                        project_mapping.config.get(SAMPLE_TABLE_INDEX_KEY, "sample_name")
+                        project_mapping.config.get("sample_table_index", "sample_name")
                     ]
                 except KeyError:
                     raise KeyError(
-                        f"Sample index key {project_mapping.config.get(SAMPLE_TABLE_INDEX_KEY, 'sample_name')} not found in sample dict"
+                        f"Sample index key {project_mapping.config.get('sample_table_index', 'sample_name')} not found in sample dict"
                     )
 
                 # This line needed due to: https://github.com/sqlalchemy/sqlalchemy/issues/5218
@@ -206,11 +195,11 @@ class PEPDatabaseSample:
             project_mapping = session.scalar(project_statement)
             try:
                 sample_name = sample_dict[
-                    project_mapping.config.get(SAMPLE_TABLE_INDEX_KEY, "sample_name")
+                    project_mapping.config.get("sample_table_index", "sample_name")
                 ]
             except KeyError:
                 raise KeyError(
-                    f"Sample index key {project_mapping.config.get(SAMPLE_TABLE_INDEX_KEY, 'sample_name')} not found in sample dict"
+                    f"Sample index key {project_mapping.config.get('sample_table_index', 'sample_name')} not found in sample dict"
                 )
             statement = select(Samples).where(
                 and_(Samples.project_id == project_mapping.id, Samples.sample_name == sample_name)

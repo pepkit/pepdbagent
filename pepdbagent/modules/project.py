@@ -4,14 +4,15 @@ import logging
 from typing import Dict, List, NoReturn, Union
 
 import numpy as np
-import peppy
-from peppy.const import (
+import peprs
+from peprs.const import (
     CONFIG_KEY,
-    SAMPLE_NAME_ATTR,
     SAMPLE_RAW_DICT_KEY,
-    SAMPLE_TABLE_INDEX_KEY,
-    SUBSAMPLE_RAW_LIST_KEY,
+    SUBSAMPLE_RAW_DICT_KEY,
 )
+
+SAMPLE_NAME_ATTR = "sample_name"
+SAMPLE_TABLE_INDEX_KEY = "sample_table_index"
 from sqlalchemy import Select, and_, delete, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
@@ -86,7 +87,7 @@ class PEPDatabaseProject:
         tag: str = DEFAULT_TAG,
         raw: bool = True,
         with_id: bool = False,
-    ) -> Union[peppy.Project, dict, None]:
+    ) -> Union[peprs.Project, dict, None]:
         """
         Retrieve project from database by specifying namespace, name and tag
 
@@ -95,7 +96,7 @@ class PEPDatabaseProject:
         :param tag: tag (or version) of the project.
         :param raw: retrieve unprocessed (raw) PEP dict.
         :param with_id: retrieve project with id [default: False]
-        :return: peppy.Project object with found project or dict with unprocessed
+        :return: peprs.Project object with found project or dict with unprocessed
             PEP elements: {
                 name: str
                 description: str
@@ -133,13 +134,13 @@ class PEPDatabaseProject:
                     project_value = {
                         CONFIG_KEY: found_prj.config,
                         SAMPLE_RAW_DICT_KEY: sample_list,
-                        SUBSAMPLE_RAW_LIST_KEY: subsample_list,
+                        SUBSAMPLE_RAW_DICT_KEY: subsample_list,
                     }
 
                     if raw:
                         return project_value
                     else:
-                        project_obj = peppy.Project().from_dict(project_value)
+                        project_obj = peprs.Project.from_dict(project_value)
                         return project_obj
 
                 else:
@@ -224,13 +225,13 @@ class PEPDatabaseProject:
         self,
         registry_path: str,
         raw: bool = False,
-    ) -> Union[peppy.Project, dict, None]:
+    ) -> Union[peprs.Project, dict, None]:
         """
         Retrieve project from database by specifying project registry_path
 
         :param registry_path: project registry_path [e.g. namespace/name:tag]
         :param raw: retrieve unprocessed (raw) PEP dict.
-        :return: peppy.Project object with found project or dict with unprocessed
+        :return: peprs.Project object with found project or dict with unprocessed
             PEP elements: {
                 name: str
                 description: str
@@ -296,7 +297,7 @@ class PEPDatabaseProject:
 
     def create(
         self,
-        project: Union[peppy.Project, dict],
+        project: Union[peprs.Project, dict],
         namespace: str,
         name: str = None,
         tag: str = DEFAULT_TAG,
@@ -312,14 +313,8 @@ class PEPDatabaseProject:
         Project with the key, that already exists won't be uploaded(but case, when argument
         update is set True)
 
-        :param peppy.Project project: Project object that has to be uploaded to the DB
-            danger zone:
-                optionally, project can be a dictionary with PEP elements
-                ({
-                    _config: dict,
-                    _sample_dict: Union[list, dict],
-                    _subsample_list: list
-                })
+        :param project: peprs.Project object or dict with PEP elements
+                ({config: dict, samples: list, subsamples: list})
         :param namespace: namespace of the project (Default: 'other')
         :param name: name of the project (Default: name is taken from the project object)
         :param tag: tag (or version) of the project.
@@ -332,8 +327,8 @@ class PEPDatabaseProject:
         :param description: description of the project
         :return: None
         """
-        if isinstance(project, peppy.Project):
-            proj_dict = project.to_dict(extended=True, orient="records")
+        if isinstance(project, peprs.Project):
+            proj_dict = project.to_dict(raw=True, by_sample=True)
         elif isinstance(project, dict):
             # verify if the dictionary has all necessary elements.
             # samples should be always presented as list of dicts (orient="records"))
@@ -343,11 +338,14 @@ class PEPDatabaseProject:
             proj_dict = ProjectDict(**project).model_dump(by_alias=True)
         else:
             raise PEPDatabaseAgentError(
-                "Project has to be peppy.Project object or dictionary with PEP elements"
+                "Project has to be peprs.Project object or dictionary with PEP elements"
             )
 
         if not description:
-            description = project.get(description, "")
+            if isinstance(project, peprs.Project):
+                description = project.description or ""
+            else:
+                description = proj_dict.get(CONFIG_KEY, {}).get(DESCRIPTION_KEY, "")
         proj_dict[CONFIG_KEY][DESCRIPTION_KEY] = description
 
         namespace = namespace.lower()
@@ -442,8 +440,8 @@ class PEPDatabaseProject:
                     ),
                 )
 
-                if proj_dict[SUBSAMPLE_RAW_LIST_KEY]:
-                    subsamples = proj_dict[SUBSAMPLE_RAW_LIST_KEY]
+                if proj_dict.get(SUBSAMPLE_RAW_DICT_KEY):
+                    subsamples = proj_dict[SUBSAMPLE_RAW_DICT_KEY]
                     self._add_subsamples_to_project(new_prj, subsamples)
 
                 with Session(self._sa_engine) as session:
@@ -553,9 +551,9 @@ class PEPDatabaseProject:
                     sample_table_index=project_dict[CONFIG_KEY].get(SAMPLE_TABLE_INDEX_KEY),
                 )
 
-                if project_dict[SUBSAMPLE_RAW_LIST_KEY]:
+                if project_dict.get(SUBSAMPLE_RAW_DICT_KEY):
                     self._add_subsamples_to_project(
-                        found_prj, project_dict[SUBSAMPLE_RAW_LIST_KEY]
+                        found_prj, project_dict[SUBSAMPLE_RAW_DICT_KEY]
                     )
 
                 session.commit()
@@ -579,7 +577,7 @@ class PEPDatabaseProject:
 
         :param update_dict: dict with update key->values. Dict structure:
             {
-                    project: Optional[peppy.Project]
+                    project: Optional[peprs.Project]
                     is_private: Optional[bool]
                     tag: Optional[str]
                     name: Optional[str]
@@ -603,11 +601,11 @@ class PEPDatabaseProject:
             else:
                 if "project" in update_dict:
                     project_dict = update_dict.pop("project").to_dict(
-                        extended=True, orient="records"
+                        raw=True, by_sample=True
                     )
                     update_dict["config"] = project_dict[CONFIG_KEY]
                     update_dict["samples"] = project_dict[SAMPLE_RAW_DICT_KEY]
-                    update_dict["subsamples"] = project_dict[SUBSAMPLE_RAW_LIST_KEY]
+                    update_dict["subsamples"] = project_dict.get(SUBSAMPLE_RAW_DICT_KEY, [])
 
                 update_values = UpdateItems(**update_dict)
 
@@ -1174,7 +1172,8 @@ class PEPDatabaseProject:
             ).get(SAMPLE_RAW_DICT_KEY)
         return (
             self.get(namespace=namespace, name=name, tag=tag, raw=False, with_id=with_ids)
-            .sample_table.replace({np.nan: None})
+            .to_pandas()
+            .replace({np.nan: None})
             .to_dict(orient="records")
         )
 
@@ -1233,7 +1232,7 @@ class PEPDatabaseProject:
         history_id: int,
         raw: bool = True,
         with_id: bool = False,
-    ) -> Union[dict, peppy.Project]:
+    ) -> Union[dict, peprs.Project]:
         """
         Get project sample history annotation by providing namespace, name, and tag
 
@@ -1319,13 +1318,13 @@ class PEPDatabaseProject:
             return {
                 CONFIG_KEY: project_config or project_mapping.config,
                 SAMPLE_RAW_DICT_KEY: ordered_samples_list,
-                SUBSAMPLE_RAW_LIST_KEY: self.get_subsamples(namespace, name, tag),
+                SUBSAMPLE_RAW_DICT_KEY: self.get_subsamples(namespace, name, tag),
             }
-        return peppy.Project.from_dict(
+        return peprs.Project.from_dict(
             pep_dictionary={
                 CONFIG_KEY: project_config or project_mapping.config,
                 SAMPLE_RAW_DICT_KEY: ordered_samples_list,
-                SUBSAMPLE_RAW_LIST_KEY: self.get_subsamples(namespace, name, tag),
+                SUBSAMPLE_RAW_DICT_KEY: self.get_subsamples(namespace, name, tag),
             }
         )
 
@@ -1440,7 +1439,7 @@ class PEPDatabaseProject:
             with_id=True,
         )
         self.update(
-            update_dict={"project": peppy.Project.from_dict(restore_project)},
+            update_dict={"project": peprs.Project.from_dict(restore_project)},
             namespace=namespace,
             name=name,
             tag=tag,

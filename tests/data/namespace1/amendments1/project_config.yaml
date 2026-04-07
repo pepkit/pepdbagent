@@ -7,7 +7,6 @@ sample_modifiers:
     attributes: [file_path]
     sources:
       source1: /data/lab/project/{organism}_{time}h.fastq
-      source2: /path/from/collaborator/weirdNamingScheme_{external_id}.fastq
 project_modifiers:
   amend:
     newLib:

@@ -1,7 +1,7 @@
 import os
 import warnings
 
-import peppy
+import peprs
 import yaml
 from sqlalchemy.exc import OperationalError
 
@@ -106,7 +106,11 @@ class PEPDBAgentContextManager:
             else:
                 private = False
             for name, path in item.items():
-                prj = peppy.Project(path)
+                try:
+                    prj = peprs.Project(path)
+                except Exception as e:
+                    warnings.warn(f"Skipping {namespace}/{name}: {e}")
+                    continue
                 pepdb_con.project.create(
                     namespace=namespace,
                     name=name,

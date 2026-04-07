@@ -6,7 +6,7 @@ from hashlib import md5
 from typing import List, Tuple, Union
 
 import ubiquerg
-from peppy.const import SAMPLE_RAW_DICT_KEY
+from peprs.const import SAMPLE_RAW_DICT_KEY
 
 from pepdbagent.exceptions import RegistryPathError
 
