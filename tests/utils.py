@@ -109,8 +109,9 @@ class PEPDBAgentContextManager:
                 try:
                     prj = peprs.Project(path)
                 except Exception as e:
-                    warnings.warn(f"Skipping {namespace}/{name}: {e}")
-                    continue
+                    raise RuntimeError(
+                        f"Failed to load test project {namespace}/{name} from {path}"
+                    ) from e
                 pepdb_con.project.create(
                     namespace=namespace,
                     name=name,
