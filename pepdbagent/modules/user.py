@@ -25,17 +25,20 @@ class PEPDatabaseUser:
 
     def __init__(self, pep_db_engine: BaseEngine):
         """
-        :param pep_db_engine: pepdbengine object with sa engine
+        Args:
+            pep_db_engine: PEPDatabaseAgent engine object.
         """
         self._sa_engine = pep_db_engine.engine
         self._pep_db_engine = pep_db_engine
 
     def create_user(self, namespace: str) -> int:
-        """
-        Create new user
+        """Create a new user.
 
-        :param namespace: user namespace
-        :return: user id
+        Args:
+            namespace: User namespace.
+
+        Returns:
+            New user id.
         """
         new_user_raw = User(namespace=namespace)
 
@@ -46,11 +49,13 @@ class PEPDatabaseUser:
         return user_id
 
     def get_user_id(self, namespace: str) -> int | None:
-        """
-        Get user id using username
+        """Get user id by namespace.
 
-        :param namespace: user namespace
-        :return: user id
+        Args:
+            namespace: User namespace.
+
+        Returns:
+            User id, or None if the user does not exist.
         """
         statement = select(User.id).where(User.namespace == namespace)
         with Session(self._sa_engine) as session:
@@ -61,16 +66,19 @@ class PEPDatabaseUser:
         return None
 
     def add_project_to_favorites(
-        self, namespace: str, project_namespace: str, project_name: str, project_tag: str
+        self,
+        namespace: str,
+        project_namespace: str,
+        project_name: str,
+        project_tag: str,
     ) -> None:
-        """
-        Add project to favorites
+        """Add a project to a user's favorites.
 
-        :param namespace: namespace of the user
-        :param project_namespace: namespace of the project
-        :param project_name: name of the project
-        :param project_tag: tag of the project
-        :return: None
+        Args:
+            namespace: Namespace of the user.
+            project_namespace: Namespace of the project.
+            project_name: Name of the project.
+            project_tag: Tag of the project.
         """
 
         user_id = self.get_user_id(namespace)
@@ -90,7 +98,9 @@ class PEPDatabaseUser:
                     )
                 )
 
-                new_favorites_raw = Stars(user_id=user_id, project_id=project_mapping.id)
+                new_favorites_raw = Stars(
+                    user_id=user_id, project_id=project_mapping.id
+                )
 
                 session.add(new_favorites_raw)
                 project_mapping.number_of_stars += 1
@@ -100,16 +110,19 @@ class PEPDatabaseUser:
         return None
 
     def remove_project_from_favorites(
-        self, namespace: str, project_namespace: str, project_name: str, project_tag: str
+        self,
+        namespace: str,
+        project_namespace: str,
+        project_name: str,
+        project_tag: str,
     ) -> None:
-        """
-        Remove project from favorites
+        """Remove a project from a user's favorites.
 
-        :param namespace: namespace of the user
-        :param project_namespace: namespace of the project
-        :param project_name: name of the project
-        :param project_tag: tag of the project
-        :return: None
+        Args:
+            namespace: Namespace of the user.
+            project_namespace: Namespace of the project.
+            project_name: Name of the project.
+            project_tag: Tag of the project.
         """
         _LOGGER.debug(
             f"Removing project {project_namespace}/{project_name}:{project_tag} from favorites in {namespace}"
@@ -144,11 +157,13 @@ class PEPDatabaseUser:
         return None
 
     def get_favorites(self, namespace: str) -> AnnotationList:
-        """
-        Get list of favorites for user
+        """Get list of favorite projects for a user.
 
-        :param namespace: namespace of the user
-        :return: list of favorite projects with annotations
+        Args:
+            namespace: Namespace of the user.
+
+        Returns:
+            AnnotationList of favorite projects.
         """
         _LOGGER.debug(f"Getting favorites for user {namespace}")
         if not self.exists(namespace):
@@ -161,7 +176,9 @@ class PEPDatabaseUser:
         statement = select(User).where(User.namespace == namespace)
         with Session(self._sa_engine) as session:
             query_result = session.scalar(statement)
-            number_of_projects = len([kk.project_mapping for kk in query_result.stars_mapping])
+            number_of_projects = len(
+                [kk.project_mapping for kk in query_result.stars_mapping]
+            )
             project_list = []
             for prj_list in query_result.stars_mapping:
                 prj = prj_list.project_mapping
@@ -202,11 +219,13 @@ class PEPDatabaseUser:
         self,
         namespace: str,
     ) -> bool:
-        """
-        Check if user exists in the database.
+        """Check if a user exists in the database.
 
-        :param namespace: project namespace
-        :return: Returning True if project exist
+        Args:
+            namespace: User namespace.
+
+        Returns:
+            True if the user exists.
         """
 
         statement = select(User.id)
@@ -223,11 +242,10 @@ class PEPDatabaseUser:
             return False
 
     def delete(self, namespace: str) -> None:
-        """
-        Delete user from the database with all related data
+        """Delete a user and all related data from the database.
 
-        :param namespace: user namespace
-        :return: None
+        Args:
+            namespace: User namespace.
         """
         if not self.exists(namespace):
             raise UserNotFoundError

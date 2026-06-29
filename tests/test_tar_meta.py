@@ -29,7 +29,6 @@ class TestGeoTar:
 
     def test_create_meta_tar(self):
         with PEPDBAgentContextManager(add_data=True) as agent:
-
             agent.namespace.upload_tar_info(tar_info=self.tar_info)
 
             result = agent.namespace.get_tar_info(namespace=self.test_namespace)

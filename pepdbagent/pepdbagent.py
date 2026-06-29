@@ -22,19 +22,18 @@ class PEPDatabaseAgent(object):
         echo: bool = False,
         run_migrations: bool = False,
     ):
-        """
-        Initialize connection to the pep_db database. You can use The basic connection parameters
-        or libpq connection string.
-        :param host: database server address e.g., localhost or an IP address.
-        :param port: the port number that defaults to 5432 if it is not provided.
-        :param database: the name of the database that you want to connect.
-        :param user: the username used to authenticate.
-        :param password: password used to authenticate.
-        :param drivername: driver of the database [Default: postgresql]
-        :param dsn: libpq connection string using the dsn parameter
-        (e.g. "localhost://username:password@pdp_db:5432")
+        """Initialize connection to the pep_db database.
 
-        :param run_migrations: run migrations on the database
+        Args:
+            host: Database server address, e.g., localhost or an IP address.
+            port: Port number (default: 5432).
+            database: Name of the database to connect to.
+            user: Username for authentication.
+            password: Password for authentication.
+            drivername: Database driver (default: postgresql).
+            dsn: libpq connection string, e.g., "localhost://username:password@pdp_db:5432".
+            echo: Log all SQL statements if True.
+            run_migrations: Run migrations on the database if True.
         """
 
         pep_db_engine = BaseEngine(

@@ -44,7 +44,7 @@ class AnnotationModel(BaseModel):
     )
 
     @field_validator("is_private")
-    def is_private_should_be_bool(cls, v):
+    def is_private_should_be_bool(cls, v) -> bool:
         if not isinstance(v, bool):
             return False
         else:
@@ -136,19 +136,19 @@ class UpdateModel(BaseModel):
     pop: bool | None = False
 
     @field_validator("tag", "name")
-    def value_must_not_be_empty(cls, v):
+    def value_must_not_be_empty(cls, v) -> str | None:
         if "" == v:
             return None
         return v
 
     @field_validator("tag", "name")
-    def value_must_be_lowercase(cls, v):
+    def value_must_be_lowercase(cls, v) -> str | None:
         if v:
             return v.lower()
         return v
 
     @field_validator("tag", "name")
-    def value_should_not_contain_question(cls, v):
+    def value_should_not_contain_question(cls, v) -> str:
         if "?" in v:
             return ValueError("Question mark (?) is prohibited in name and tag.")
         return v

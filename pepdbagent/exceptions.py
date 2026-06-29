@@ -10,7 +10,9 @@ class PEPDatabaseAgentError(Exception):
 
 class SchemaError(PEPDatabaseAgentError):
     def __init__(self) -> None:
-        super().__init__("""PEP_db connection error! The schema of connected db is incorrect""")
+        super().__init__(
+            """PEP_db connection error! The schema of connected db is incorrect"""
+        )
 
 
 class RegistryPathError(PEPDatabaseAgentError):
