@@ -9,7 +9,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from pepdbagent.const import DEFAULT_TAG, PKG_NAME
-from pepdbagent.db_utils import BaseEngine, Projects, Samples, Views, ViewSampleAssociation
+from pepdbagent.db_utils import (
+    BaseEngine,
+    Projects,
+    Samples,
+    Views,
+    ViewSampleAssociation,
+)
 from pepdbagent.exceptions import (
     ProjectNotFoundError,
     SampleAlreadyInView,

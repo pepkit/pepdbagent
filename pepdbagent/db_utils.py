@@ -1,12 +1,11 @@
 import datetime
 import enum
 import logging
-from typing import List, Optional
 import os
+from typing import List, Optional
 
 from alembic import command
 from alembic.config import Config
-
 from sqlalchemy import (
     TIMESTAMP,
     BigInteger,

@@ -4,7 +4,11 @@ import pytest
 
 from pepdbagent.exceptions import ProjectNotFoundError
 
-from .utils import PEPDBAgentContextManager, get_path_to_example_file, list_of_available_peps
+from .utils import (
+    PEPDBAgentContextManager,
+    get_path_to_example_file,
+    list_of_available_peps,
+)
 
 
 @pytest.mark.skipif(

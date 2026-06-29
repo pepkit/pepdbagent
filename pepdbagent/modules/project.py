@@ -10,8 +10,6 @@ from peprs.const import (
     SAMPLE_RAW_DICT_KEY,
     SUBSAMPLE_RAW_DICT_KEY,
 )
-
-
 from sqlalchemy import Select, and_, delete, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
@@ -20,11 +18,11 @@ from sqlalchemy.orm.attributes import flag_modified
 from pepdbagent.const import (
     DEFAULT_TAG,
     DESCRIPTION_KEY,
+    LATEST_SCHEMA_VERSION,
     MAX_HISTORY_SAMPLES_NUMBER,
     NAME_KEY,
     PEPHUB_SAMPLE_ID_KEY,
     PKG_NAME,
-    LATEST_SCHEMA_VERSION,
     SAMPLE_NAME_ATTR,
     SAMPLE_TABLE_INDEX_KEY,
 )

@@ -3,12 +3,12 @@ from collections import Counter
 from datetime import datetime, timedelta
 from typing import List, Tuple, Union
 
-from sqlalchemy import distinct, func, or_, select, delete
+from sqlalchemy import delete, distinct, func, or_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.selectable import Select
 
 from pepdbagent.const import DEFAULT_LIMIT, DEFAULT_LIMIT_INFO, DEFAULT_OFFSET, PKG_NAME
-from pepdbagent.db_utils import BaseEngine, Projects, User, TarNamespace
+from pepdbagent.db_utils import BaseEngine, Projects, TarNamespace, User
 from pepdbagent.exceptions import NamespaceNotFoundError
 from pepdbagent.models import (
     ListOfNamespaceInfo,
@@ -16,9 +16,9 @@ from pepdbagent.models import (
     NamespaceInfo,
     NamespaceList,
     NamespaceStats,
+    PaginationResult,
     TarNamespaceModel,
     TarNamespaceModelReturn,
-    PaginationResult,
 )
 from pepdbagent.utils import tuple_converter
 

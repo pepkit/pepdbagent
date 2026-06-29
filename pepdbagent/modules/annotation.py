@@ -17,7 +17,11 @@ from pepdbagent.const import (
 from pepdbagent.db_utils import BaseEngine, Projects
 from pepdbagent.exceptions import FilterError, ProjectNotFoundError, RegistryPathError
 from pepdbagent.models import AnnotationList, AnnotationModel, RegistryPath
-from pepdbagent.utils import convert_date_string_to_date, registry_path_converter, tuple_converter
+from pepdbagent.utils import (
+    convert_date_string_to_date,
+    registry_path_converter,
+    tuple_converter,
+)
 
 _LOGGER = logging.getLogger(PKG_NAME)
 

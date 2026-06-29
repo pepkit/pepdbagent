@@ -1,27 +1,32 @@
 import logging
-
-from typing import List, Optional, Union, Dict
+from typing import Dict, List, Optional, Union
 
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from pepdbagent.const import PKG_NAME, DEFAULT_TAG_VERSION, LATEST_SCHEMA_VERSION
-from pepdbagent.db_utils import BaseEngine, SchemaRecords, SchemaTags, SchemaVersions, User
+from pepdbagent.const import DEFAULT_TAG_VERSION, LATEST_SCHEMA_VERSION, PKG_NAME
+from pepdbagent.db_utils import (
+    BaseEngine,
+    SchemaRecords,
+    SchemaTags,
+    SchemaVersions,
+    User,
+)
 from pepdbagent.exceptions import (
     SchemaAlreadyExistsError,
-    SchemaVersionDoesNotExistError,
     SchemaDoesNotExistError,
     SchemaTagAlreadyExistsError,
     SchemaTagDoesNotExistError,
     SchemaVersionAlreadyExistsError,
+    SchemaVersionDoesNotExistError,
 )
 from pepdbagent.models import (
-    SchemaRecordAnnotation,
-    SchemaVersionAnnotation,
     PaginationResult,
-    SchemaVersionSearchResult,
+    SchemaRecordAnnotation,
     SchemaSearchResult,
+    SchemaVersionAnnotation,
+    SchemaVersionSearchResult,
     UpdateSchemaRecordFields,
     UpdateSchemaVersionFields,
 )

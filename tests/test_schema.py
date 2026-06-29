@@ -1,8 +1,8 @@
 import pytest
 
-from .utils import PEPDBAgentContextManager
+from pepdbagent.models import UpdateSchemaRecordFields, UpdateSchemaVersionFields
 
-from pepdbagent.models import UpdateSchemaVersionFields, UpdateSchemaRecordFields
+from .utils import PEPDBAgentContextManager
 
 DEFAULT_SCHEMA_VERSION = "1.0.0"
 

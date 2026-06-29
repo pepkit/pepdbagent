@@ -2,7 +2,10 @@ import peprs
 import pytest
 
 from pepdbagent.const import PEPHUB_SAMPLE_ID_KEY
-from pepdbagent.exceptions import ProjectDuplicatedSampleGUIDsError, SampleTableUpdateError
+from pepdbagent.exceptions import (
+    ProjectDuplicatedSampleGUIDsError,
+    SampleTableUpdateError,
+)
 
 from .utils import PEPDBAgentContextManager
 
