@@ -11,8 +11,7 @@ from peprs.const import (
     SUBSAMPLE_RAW_DICT_KEY,
 )
 
-SAMPLE_NAME_ATTR = "sample_name"
-SAMPLE_TABLE_INDEX_KEY = "sample_table_index"
+
 from sqlalchemy import Select, and_, delete, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
@@ -26,6 +25,8 @@ from pepdbagent.const import (
     PEPHUB_SAMPLE_ID_KEY,
     PKG_NAME,
     LATEST_SCHEMA_VERSION,
+    SAMPLE_NAME_ATTR,
+    SAMPLE_TABLE_INDEX_KEY,
 )
 from pepdbagent.db_utils import (
     BaseEngine,
@@ -600,9 +601,7 @@ class PEPDatabaseProject:
                 update_values = update_dict
             else:
                 if "project" in update_dict:
-                    project_dict = update_dict.pop("project").to_dict(
-                        raw=True, by_sample=True
-                    )
+                    project_dict = update_dict.pop("project").to_dict(raw=True, by_sample=True)
                     update_dict["config"] = project_dict[CONFIG_KEY]
                     update_dict["samples"] = project_dict[SAMPLE_RAW_DICT_KEY]
                     update_dict["subsamples"] = project_dict.get(SUBSAMPLE_RAW_DICT_KEY, [])

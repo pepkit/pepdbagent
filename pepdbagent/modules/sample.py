@@ -7,7 +7,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from pepdbagent.const import DEFAULT_TAG, PKG_NAME
+from pepdbagent.const import DEFAULT_TAG, PKG_NAME, SAMPLE_TABLE_INDEX_KEY
 from pepdbagent.db_utils import BaseEngine, Projects, Samples
 from pepdbagent.exceptions import SampleAlreadyExistsError, SampleNotFoundError
 from pepdbagent.utils import generate_guid, order_samples
@@ -144,7 +144,7 @@ class PEPDatabaseSample:
                     sample_mapping.sample.update(update_dict)
                 try:
                     sample_mapping.sample_name = sample_mapping.sample[
-                        project_mapping.config.get("sample_table_index", "sample_name")
+                        project_mapping.config.get(SAMPLE_TABLE_INDEX_KEY, "sample_name")
                     ]
                 except KeyError:
                     raise KeyError(
@@ -195,7 +195,7 @@ class PEPDatabaseSample:
             project_mapping = session.scalar(project_statement)
             try:
                 sample_name = sample_dict[
-                    project_mapping.config.get("sample_table_index", "sample_name")
+                    project_mapping.config.get(SAMPLE_TABLE_INDEX_KEY, "sample_name")
                 ]
             except KeyError:
                 raise KeyError(

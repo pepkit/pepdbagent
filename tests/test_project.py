@@ -93,10 +93,7 @@ class TestProject:
             )
             orgiginal_prj = peprs.Project(get_path_to_example_file(namespace, name))
 
-            assert (
-                prj_subtables
-                == orgiginal_prj.to_dict(raw=True, by_sample=True)["subsamples"]
-            )
+            assert prj_subtables == orgiginal_prj.to_dict(raw=True, by_sample=True)["subsamples"]
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -111,10 +108,7 @@ class TestProject:
             )
             orgiginal_prj = peprs.Project(get_path_to_example_file(namespace, name))
 
-            assert (
-                prj_samples
-                == orgiginal_prj.to_dict(raw=True, by_sample=True)["samples"]
-            )
+            assert prj_samples == orgiginal_prj.to_dict(raw=True, by_sample=True)["samples"]
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -131,18 +125,13 @@ class TestProject:
                 raw=False,
             )
             orgiginal_prj = peprs.Project(get_path_to_example_file(namespace, name))
-            expected = (
-                orgiginal_prj.to_pandas().replace({np.nan: None}).to_dict(orient="records")
-            )
+            expected = orgiginal_prj.to_pandas().replace({np.nan: None}).to_dict(orient="records")
 
             # Normalize numpy arrays (used for subsample list columns) to plain lists
             # so dict equality works without raising "truth value is ambiguous".
             def _normalize(samples):
                 return [
-                    {
-                        k: (v.tolist() if isinstance(v, np.ndarray) else v)
-                        for k, v in s.items()
-                    }
+                    {k: (v.tolist() if isinstance(v, np.ndarray) else v) for k, v in s.items()}
                     for s in samples
                 ]
 

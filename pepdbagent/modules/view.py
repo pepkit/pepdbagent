@@ -385,9 +385,7 @@ class PEPDatabaseView:
         if raw:
             return {"config": config, "samples": samples}
         else:
-            return peprs.Project.from_dict(
-                {"config": config, "samples": samples}
-            )
+            return peprs.Project.from_dict({"config": config, "samples": samples})
 
     def get_views_annotation(
         self, namespace: str, name: str, tag: str = DEFAULT_TAG
