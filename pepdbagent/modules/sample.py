@@ -1,6 +1,5 @@
 import datetime
 import logging
-from typing import Union
 
 import peprs
 from sqlalchemy import and_, select
@@ -36,7 +35,7 @@ class PEPDatabaseSample:
         sample_name: str,
         tag: str = DEFAULT_TAG,
         raw: bool = True,
-    ) -> Union[peprs.Sample, dict, None]:
+    ) -> peprs.Sample | dict | None:
         """
         Retrieve sample from the database using namespace, name, tag, and sample_name
 

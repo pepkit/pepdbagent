@@ -1,5 +1,4 @@
 import logging
-from typing import Dict, List, Optional, Union
 
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session
@@ -105,7 +104,7 @@ class PEPDatabaseSchema:
         maintainers: str = "",
         contributors: str = "",
         release_notes: str = "",
-        tags: Optional[Union[List[str], str, Dict[str, str], List[Dict[str, str]]]] = None,
+        tags: list[str] | str | dict[str, str] | list[dict[str, str]] | None = None,
         private: bool = False,  # TODO: for simplicity was not implemented yet
     ) -> None:
         """
@@ -188,7 +187,7 @@ class PEPDatabaseSchema:
         release_notes: str = "",
         contributors: str = "",
         overwrite: bool = False,
-        tags: Optional[Union[List[str], str, Dict[str, str], List[Dict[str, str]]]] = None,
+        tags: list[str] | str | dict[str, str] | list[dict[str, str]] | None = None,
     ) -> None:
 
         tags = self._unify_tags(tags)
@@ -259,7 +258,7 @@ class PEPDatabaseSchema:
         namespace: str,
         name: str,
         version: str,
-        update_fields: Union[UpdateSchemaVersionFields, dict],
+        update_fields: UpdateSchemaVersionFields | dict,
     ) -> None:
         """
         Update schema version in the database.
@@ -306,7 +305,7 @@ class PEPDatabaseSchema:
         self,
         namespace: str,
         name: str,
-        update_fields: Union[UpdateSchemaRecordFields, dict],
+        update_fields: UpdateSchemaRecordFields | dict,
     ) -> None:
         """
         Update schema record in the database.
@@ -787,7 +786,7 @@ class PEPDatabaseSchema:
         namespace: str,
         name: str,
         version: str,
-        tag: Optional[Union[List[str], str, Dict[str, str]]],
+        tag: list[str] | str | dict[str, str] | None,
     ) -> None:
         """
         Add tag to the schema
@@ -909,8 +908,8 @@ class PEPDatabaseSchema:
         return statement.order_by(order_by_obj)
 
     def _unify_tags(
-        self, tags: Optional[Union[List[str], str, Dict[str, str], List[Dict[str, str]]]]
-    ) -> [Dict[str, str]]:
+        self, tags: list[str] | str | dict[str, str] | list[dict[str, str]] | None
+    ) -> dict[str, str]:
         """
         Convert provided tags to one standard
 

@@ -1,5 +1,4 @@
 import logging
-from typing import Union
 
 from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import IntegrityError
@@ -46,7 +45,7 @@ class PEPDatabaseUser:
             user_id = new_user_raw.id
         return user_id
 
-    def get_user_id(self, namespace: str) -> Union[int, None]:
+    def get_user_id(self, namespace: str) -> int | None:
         """
         Get user id using username
 

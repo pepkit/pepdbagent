@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import List, Literal, Optional, Union
+from typing import Literal
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
@@ -46,15 +46,15 @@ class PEPDatabaseAnnotation:
         name: str = None,
         tag: str = None,
         query: str = None,
-        admin: Union[List[str], str] = None,
+        admin: list[str] | str | None = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
         order_by: str = "update_date",
         order_desc: bool = False,
-        filter_by: Optional[Literal["submission_date", "last_update_date"]] = None,
-        filter_start_date: Optional[str] = None,
-        filter_end_date: Optional[str] = None,
-        pep_type: Optional[Literal["pep", "pop"]] = None,
+        filter_by: Literal["submission_date", "last_update_date"] | None = None,
+        filter_start_date: str | None = None,
+        filter_end_date: str | None = None,
+        pep_type: Literal["pep", "pop"] | None = None,
     ) -> AnnotationList:
         """
         Get project annotations.
@@ -135,8 +135,8 @@ class PEPDatabaseAnnotation:
 
     def get_by_rp(
         self,
-        registry_paths: Union[List[str], str],
-        admin: Union[List[str], str] = None,
+        registry_paths: list[str] | str,
+        admin: list[str] | str | None = None,
     ) -> AnnotationList:
         """
         Get project annotations by providing registry_path or list of registry paths.
@@ -179,8 +179,8 @@ class PEPDatabaseAnnotation:
         namespace: str,
         name: str,
         tag: str = DEFAULT_TAG,
-        admin: Union[List[str], str] = None,
-    ) -> Union[AnnotationModel, None]:
+        admin: list[str] | str | None = None,
+    ) -> AnnotationModel | None:
         """
         Retrieving project annotation dict by specifying project name
         :param namespace: project registry_path - will return dict of project annotations
@@ -242,11 +242,11 @@ class PEPDatabaseAnnotation:
         namespace: str = None,
         search_str: str = None,
         tag: str = None,
-        admin: Union[str, List[str]] = None,
-        filter_by: Optional[Literal["submission_date", "last_update_date"]] = None,
-        filter_start_date: Optional[str] = None,
-        filter_end_date: Optional[str] = None,
-        pep_type: Optional[Literal["pep", "pop"]] = None,
+        admin: str | list[str] | None = None,
+        filter_by: Literal["submission_date", "last_update_date"] | None = None,
+        filter_start_date: str | None = None,
+        filter_end_date: str | None = None,
+        pep_type: Literal["pep", "pop"] | None = None,
     ) -> int:
         """
         Count projects. [This function is related to _find_projects]
@@ -292,16 +292,16 @@ class PEPDatabaseAnnotation:
         namespace: str = None,
         tag: str = None,
         search_str: str = None,
-        admin: Union[str, List[str]] = None,
+        admin: str | list[str] | None = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
         order_by: str = "update_date",
         order_desc: bool = False,
-        filter_by: Optional[Literal["submission_date", "last_update_date"]] = None,
-        filter_start_date: Optional[str] = None,
-        filter_end_date: Optional[str] = None,
-        pep_type: Optional[Literal["pep", "pop"]] = None,
-    ) -> List[AnnotationModel]:
+        filter_by: Literal["submission_date", "last_update_date"] | None = None,
+        filter_start_date: str | None = None,
+        filter_end_date: str | None = None,
+        pep_type: Literal["pep", "pop"] | None = None,
+    ) -> list[AnnotationModel]:
         """
         Get projects by providing search string.
 
@@ -418,7 +418,7 @@ class PEPDatabaseAnnotation:
         statement: Select,
         namespace: str = None,
         search_str: str = None,
-        admin_list: Union[str, List[str]] = None,
+        admin_list: str | list[str] | None = None,
         tag: str = None,
     ) -> Select:
         """
@@ -455,10 +455,10 @@ class PEPDatabaseAnnotation:
     @staticmethod
     def _add_date_filter_if_provided(
         statement: Select,
-        filter_by: Optional[Literal["submission_date", "last_update_date"]],
-        filter_start_date: Optional[str],
-        filter_end_date: Optional[str] = None,
-    ):
+        filter_by: Literal["submission_date", "last_update_date"] | None,
+        filter_start_date: str | None,
+        filter_end_date: str | None = None,
+    ) -> Select:
         """
         Add filter to where clause to sqlalchemy statement (in project search)
 
@@ -494,7 +494,7 @@ class PEPDatabaseAnnotation:
     def get_project_number_in_namespace(
         self,
         namespace: str,
-        admin: Union[str, List[str]] = None,
+        admin: str | list[str] | None = None,
     ) -> int:
         """
         Get number of found projects by providing search string.
@@ -521,8 +521,8 @@ class PEPDatabaseAnnotation:
 
     def get_by_rp_list(
         self,
-        registry_paths: List[str],
-        admin: Union[str, List[str]] = None,
+        registry_paths: list[str],
+        admin: str | list[str] | None = None,
     ) -> AnnotationList:
         """
         Get project annotations by providing list of registry paths.
@@ -614,16 +614,16 @@ class PEPDatabaseAnnotation:
         self,
         namespace: str = None,
         search_str: str = None,
-        admin: Union[str, List[str]] = None,
+        admin: str | list[str] | None = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
         order_by: str = "update_date",
         order_desc: bool = False,
-        filter_by: Optional[Literal["submission_date", "last_update_date"]] = None,
-        filter_start_date: Optional[str] = None,
-        filter_end_date: Optional[str] = None,
-        pep_type: Optional[Literal["pep", "pop"]] = None,
-    ) -> List[RegistryPath]:
+        filter_by: Literal["submission_date", "last_update_date"] | None = None,
+        filter_start_date: str | None = None,
+        filter_end_date: str | None = None,
+        pep_type: Literal["pep", "pop"] | None = None,
+    ) -> list[RegistryPath]:
         """
         Retrieve a list of projects by providing a search string.
         This function serves as a lightweight version of the full 'get' function,

@@ -1,7 +1,6 @@
 import logging
 from collections import Counter
 from datetime import datetime, timedelta
-from typing import List, Tuple, Union
 
 from sqlalchemy import delete, distinct, func, or_, select
 from sqlalchemy.orm import Session
@@ -42,7 +41,7 @@ class PEPDatabaseNamespace:
     def get(
         self,
         query: str = "",
-        admin: Union[List[str], str] = None,
+        admin: list[str] | str | None = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
     ) -> NamespaceList:
@@ -80,7 +79,7 @@ class PEPDatabaseNamespace:
         admin_nsp: tuple = None,
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
-    ) -> List[Namespace]:
+    ) -> list[Namespace]:
         """
         Search for namespace by providing search string.
 
@@ -153,7 +152,7 @@ class PEPDatabaseNamespace:
     def _add_condition(
         statement: Select,
         search_str: str = None,
-        admin_list: Union[Tuple[str], List[str], str] = None,
+        admin_list: tuple[str, ...] | list[str] | str | None = None,
     ) -> Select:
         """
         Add where clause to sqlalchemy statement (in namespace search)

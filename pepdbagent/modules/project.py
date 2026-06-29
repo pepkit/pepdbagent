@@ -1,7 +1,5 @@
 import datetime
-import json
 import logging
-from typing import Dict, List, NoReturn, Union
 
 import numpy as np
 import peprs
@@ -86,7 +84,7 @@ class PEPDatabaseProject:
         tag: str = DEFAULT_TAG,
         raw: bool = True,
         with_id: bool = False,
-    ) -> Union[peprs.Project, dict, None]:
+    ) -> peprs.Project | dict | None:
         """
         Retrieve project from database by specifying namespace, name and tag
 
@@ -151,7 +149,7 @@ class PEPDatabaseProject:
         except NoResultFound:
             raise ProjectNotFoundError
 
-    def _get_samples(self, session: Session, prj_id: int, with_id: bool) -> List[Dict]:
+    def _get_samples(self, session: Session, prj_id: int, with_id: bool) -> list[dict]:
         """
         Get samples from the project. This method is used to retrieve samples from the project,
             with open session object.
@@ -168,7 +166,7 @@ class PEPDatabaseProject:
         return ordered_samples_list
 
     @staticmethod
-    def _get_samples_dict(prj_id: int, session: Session, with_id: bool) -> Dict:
+    def _get_samples_dict(prj_id: int, session: Session, with_id: bool) -> dict:
         """
         Get not ordered samples from the project. This method is used to retrieve samples from the project
 
@@ -224,7 +222,7 @@ class PEPDatabaseProject:
         self,
         registry_path: str,
         raw: bool = False,
-    ) -> Union[peprs.Project, dict, None]:
+    ) -> peprs.Project | dict | None:
         """
         Retrieve project from database by specifying project registry_path
 
@@ -296,7 +294,7 @@ class PEPDatabaseProject:
 
     def create(
         self,
-        project: Union[peprs.Project, dict],
+        project: peprs.Project | dict,
         namespace: str,
         name: str = None,
         tag: str = DEFAULT_TAG,
@@ -482,7 +480,7 @@ class PEPDatabaseProject:
 
     def _overwrite(
         self,
-        project_dict: json,
+        project_dict: dict,
         namespace: str,
         proj_name: str,
         tag: str,
@@ -565,7 +563,7 @@ class PEPDatabaseProject:
 
     def update(
         self,
-        update_dict: Union[dict, UpdateItems],
+        update_dict: dict | UpdateItems,
         namespace: str,
         name: str,
         tag: str = DEFAULT_TAG,
@@ -692,7 +690,7 @@ class PEPDatabaseProject:
             raise ProjectNotFoundError("No items will be updated!")
 
     @staticmethod
-    def _convert_update_schema_id(session: Session, update_values: dict):
+    def _convert_update_schema_id(session: Session, update_values: dict) -> None:
         """
         Convert schema path to schema_id in update_values and update it in update dict
 
@@ -740,9 +738,9 @@ class PEPDatabaseProject:
     def _update_samples(
         self,
         project_id: int,
-        samples_list: List[Dict[str, str]],
+        samples_list: list[dict[str, str]],
         sample_name_key: str = "sample_name",
-        history_sa_model: Union[HistoryProjects, None] = None,
+        history_sa_model: HistoryProjects | None = None,
     ) -> None:
         """
         Update samples in the project
@@ -762,7 +760,7 @@ class PEPDatabaseProject:
             old_samples_mapping: dict = {sample.guid: sample for sample in old_samples}
 
             # old_child_parent_id needed because of the parent_guid is sometimes set to none in sqlalchemy mapping :( bug
-            old_child_parent_id: Dict[str, str] = {
+            old_child_parent_id: dict[str, str] = {
                 child: mapping.parent_guid for child, mapping in old_samples_mapping.items()
             }
 
@@ -974,7 +972,7 @@ class PEPDatabaseProject:
 
     @staticmethod
     def _add_samples_to_project(
-        projects_sa: Projects, samples: List[dict], sample_table_index: str = "sample_name"
+        projects_sa: Projects, samples: list[dict], sample_table_index: str = "sample_name"
     ) -> None:
         """
         Add samples to the project sa object. (With commit this samples will be added to the 'samples table')
@@ -999,8 +997,8 @@ class PEPDatabaseProject:
 
     @staticmethod
     def _add_subsamples_to_project(
-        projects_sa: Projects, subsamples: List[List[dict]]
-    ) -> NoReturn:
+        projects_sa: Projects, subsamples: list[list[dict]]
+    ) -> None:
         """
         Add subsamples to the project sa object. (With commit this samples will be added to the 'subsamples table')
 
@@ -1014,7 +1012,7 @@ class PEPDatabaseProject:
                     Subsamples(subsample=sub_item, subsample_number=i, row_number=row_number)
                 )
 
-    def get_project_id(self, namespace: str, name: str, tag: str) -> Union[int, None]:
+    def get_project_id(self, namespace: str, name: str, tag: str) -> int | None:
         """
         Get Project id by providing namespace, name, and tag
 
@@ -1098,7 +1096,7 @@ class PEPDatabaseProject:
 
             session.commit()
 
-    def get_config(self, namespace: str, name: str, tag: str) -> Union[dict, None]:
+    def get_config(self, namespace: str, name: str, tag: str) -> dict | None:
         """
         Get project configuration by providing namespace, name, and tag
 
@@ -1117,7 +1115,7 @@ class PEPDatabaseProject:
             return result[0]
         return None
 
-    def get_subsamples(self, namespace: str, name: str, tag: str) -> Union[list, None]:
+    def get_subsamples(self, namespace: str, name: str, tag: str) -> list | None:
         """
         Get project subsamples by providing namespace, name, and tag
 
@@ -1203,7 +1201,7 @@ class PEPDatabaseProject:
                 .order_by(HistoryProjects.update_time.desc())
             )
             results = session.scalars(statement)
-            return_results: List = []
+            return_results: list = []
 
             if results:
                 for result in results:
@@ -1229,7 +1227,7 @@ class PEPDatabaseProject:
         history_id: int,
         raw: bool = True,
         with_id: bool = False,
-    ) -> Union[dict, peprs.Project]:
+    ) -> dict | peprs.Project:
         """
         Get project sample history annotation by providing namespace, name, and tag
 
@@ -1355,7 +1353,7 @@ class PEPDatabaseProject:
         return sample_dict
 
     def delete_history(
-        self, namespace: str, name: str, tag: str, history_id: Union[int, None] = None
+        self, namespace: str, name: str, tag: str, history_id: int | None = None
     ) -> None:
         """
         Delete history from the project

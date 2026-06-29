@@ -3,7 +3,6 @@ import json
 import uuid
 from collections.abc import Iterable
 from hashlib import md5
-from typing import List, Tuple, Union
 
 import ubiquerg
 from peprs.const import SAMPLE_RAW_DICT_KEY
@@ -63,7 +62,7 @@ def create_digest(project_dict: dict) -> str:
     return sample_digest
 
 
-def registry_path_converter(registry_path: str) -> Tuple[str, str, str]:
+def registry_path_converter(registry_path: str) -> tuple[str, str, str]:
     """
     Convert registry path to namespace, name, tag
 
@@ -80,7 +79,7 @@ def registry_path_converter(registry_path: str) -> Tuple[str, str, str]:
     raise RegistryPathError(f"Error in: '{registry_path}'")
 
 
-def schema_path_converter(schema_path: str) -> Tuple[str, str, str]:
+def schema_path_converter(schema_path: str) -> tuple[str, str, str]:
     """
     Convert schema path to namespace, name
 
@@ -97,7 +96,7 @@ def schema_path_converter(schema_path: str) -> Tuple[str, str, str]:
     raise RegistryPathError(f"Error in: '{schema_path}'")
 
 
-def tuple_converter(value: Union[tuple, list, str, None]) -> tuple:
+def tuple_converter(value: tuple | list | str | None) -> tuple:
     """
     Convert string list or tuple to tuple.
     # is used to create admin tuple.
@@ -124,7 +123,7 @@ def convert_date_string_to_date(date_string: str) -> datetime.datetime:
     return datetime.datetime.strptime(date_string, "%Y/%m/%d") + datetime.timedelta(days=1)
 
 
-def order_samples(results: dict) -> List[dict]:
+def order_samples(results: dict) -> list[dict]:
     """
     Order samples by their parent_guid
 

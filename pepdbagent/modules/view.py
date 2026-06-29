@@ -1,7 +1,6 @@
 # View of the PEP. In other words, it is a part of the PEP, or subset of the samples in the PEP.
 
 import logging
-from typing import List, Union
 
 import peprs
 from sqlalchemy import and_, delete, select
@@ -50,7 +49,7 @@ class PEPDatabaseView:
         tag: str = DEFAULT_TAG,
         view_name: str = None,
         raw: bool = True,
-    ) -> Union[peprs.Project, dict, None]:
+    ) -> peprs.Project | dict | None:
         """
         Retrieve view of the project from the database.
         View is a subset of the samples in the project. e.g. bed-db project has all the samples in bedbase,
@@ -129,7 +128,7 @@ class PEPDatabaseView:
     def create(
         self,
         view_name: str,
-        view_dict: Union[dict, CreateViewDictModel],
+        view_dict: dict | CreateViewDictModel,
         description: str = None,
         no_fail: bool = False,
     ) -> None:
@@ -242,8 +241,8 @@ class PEPDatabaseView:
         name: str,
         tag: str,
         view_name: str,
-        sample_name: Union[str, List[str]],
-    ):
+        sample_name: str | list[str],
+    ) -> None:
         """
         Add sample to the view.
 
@@ -347,8 +346,8 @@ class PEPDatabaseView:
             sa_session.commit()
 
     def get_snap_view(
-        self, namespace: str, name: str, tag: str, sample_name_list: List[str], raw: bool = False
-    ) -> Union[peprs.Project, dict]:
+        self, namespace: str, name: str, tag: str, sample_name_list: list[str], raw: bool = False
+    ) -> peprs.Project | dict:
         """
         Get a snap view of the project. Snap view is a view of the project
         with only the samples in the list. This view won't be saved in the database.
@@ -395,7 +394,7 @@ class PEPDatabaseView:
 
     def get_views_annotation(
         self, namespace: str, name: str, tag: str = DEFAULT_TAG
-    ) -> Union[ProjectViews, None]:
+    ) -> ProjectViews | None:
         """
         Get list of views of the project
 

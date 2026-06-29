@@ -12,15 +12,15 @@ from pepdbagent.modules.view import PEPDatabaseView
 class PEPDatabaseAgent(object):
     def __init__(
         self,
-        host="localhost",
-        port=5432,
-        database="pep-db",
-        user=None,
-        password=None,
-        drivername=POSTGRES_DIALECT,
-        dsn=None,
-        echo=False,
-        run_migrations=False,
+        host: str = "localhost",
+        port: int = 5432,
+        database: str = "pep-db",
+        user: str | None = None,
+        password: str | None = None,
+        drivername: str = POSTGRES_DIALECT,
+        dsn: str | None = None,
+        echo: bool = False,
+        run_migrations: bool = False,
     ):
         """
         Initialize connection to the pep_db database. You can use The basic connection parameters
@@ -98,5 +98,5 @@ class PEPDatabaseAgent(object):
         self._sa_engine.__exit__()
 
     @property
-    def connection(self):
+    def connection(self) -> BaseEngine:
         return self._sa_engine
