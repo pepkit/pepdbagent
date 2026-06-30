@@ -43,6 +43,7 @@ test = [
     "coverage",
     "smokeshow",
     "pyyaml",
+    "pandas",
 ]
 
 [build-system]
