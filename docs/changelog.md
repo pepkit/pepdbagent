@@ -11,6 +11,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added support for `"latest"` schema version resolution when uploading/updating projects
 - Moved `SAMPLE_NAME_ATTR` and `SAMPLE_TABLE_INDEX_KEY` constants into `pepdbagent/const.py`
 - Performed code cleanup and refactoring across modules, including modernization of the codestyle, installation and dependencies.
+- ❗`get_raw` method (returning raw project) now returns keys: {config, samples, subsamples} instead of {config, sample_list, subsample_list}
 
 ## [0.12.4] -- 2026-01-26
 - Added project search by tag in annotation module
