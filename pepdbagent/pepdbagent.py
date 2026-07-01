@@ -12,29 +12,28 @@ from pepdbagent.modules.view import PEPDatabaseView
 class PEPDatabaseAgent(object):
     def __init__(
         self,
-        host="localhost",
-        port=5432,
-        database="pep-db",
-        user=None,
-        password=None,
-        drivername=POSTGRES_DIALECT,
-        dsn=None,
-        echo=False,
-        run_migrations=False,
+        host: str = "localhost",
+        port: int = 5432,
+        database: str = "pep-db",
+        user: str | None = None,
+        password: str | None = None,
+        drivername: str = POSTGRES_DIALECT,
+        dsn: str | None = None,
+        echo: bool = False,
+        run_migrations: bool = False,
     ):
-        """
-        Initialize connection to the pep_db database. You can use The basic connection parameters
-        or libpq connection string.
-        :param host: database server address e.g., localhost or an IP address.
-        :param port: the port number that defaults to 5432 if it is not provided.
-        :param database: the name of the database that you want to connect.
-        :param user: the username used to authenticate.
-        :param password: password used to authenticate.
-        :param drivername: driver of the database [Default: postgresql]
-        :param dsn: libpq connection string using the dsn parameter
-        (e.g. "localhost://username:password@pdp_db:5432")
+        """Initialize connection to the pep_db database.
 
-        :param run_migrations: run migrations on the database
+        Args:
+            host: Database server address, e.g., localhost or an IP address.
+            port: Port number (default: 5432).
+            database: Name of the database to connect to.
+            user: Username for authentication.
+            password: Password for authentication.
+            drivername: Database driver (default: postgresql).
+            dsn: libpq connection string, e.g., "localhost://username:password@pdp_db:5432".
+            echo: Log all SQL statements if True.
+            run_migrations: Run migrations on the database if True.
         """
 
         pep_db_engine = BaseEngine(
@@ -98,5 +97,5 @@ class PEPDatabaseAgent(object):
         self._sa_engine.__exit__()
 
     @property
-    def connection(self):
+    def connection(self) -> BaseEngine:
         return self._sa_engine

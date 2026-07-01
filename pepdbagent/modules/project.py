@@ -1,7 +1,5 @@
 import datetime
-import json
 import logging
-from typing import Dict, List, NoReturn, Union
 
 import numpy as np
 import peprs
@@ -74,7 +72,8 @@ class PEPDatabaseProject:
 
     def __init__(self, pep_db_engine: BaseEngine):
         """
-        :param pep_db_engine: pepdbengine object with sa engine
+        Args:
+            pep_db_engine: PEPDatabaseAgent engine object.
         """
         self._sa_engine = pep_db_engine.engine
         self._pep_db_engine = pep_db_engine
@@ -86,23 +85,21 @@ class PEPDatabaseProject:
         tag: str = DEFAULT_TAG,
         raw: bool = True,
         with_id: bool = False,
-    ) -> Union[peprs.Project, dict, None]:
-        """
-        Retrieve project from database by specifying namespace, name and tag
+    ) -> peprs.Project | dict | None:
+        """Retrieve a project from the database.
 
-        :param namespace: namespace of the project
-        :param name: name of the project (Default: name is taken from the project object)
-        :param tag: tag (or version) of the project.
-        :param raw: retrieve unprocessed (raw) PEP dict.
-        :param with_id: retrieve project with id [default: False]
-        :return: peprs.Project object with found project or dict with unprocessed
-            PEP elements: {
-                name: str
-                description: str
-                _config: dict
-                _sample_dict: dict
-                _subsample_dict: dict
-            }
+        Args:
+            namespace: Namespace of the project.
+            name: Name of the project.
+            tag: Tag of the project.
+            raw: Return raw dict if True, peprs.Project object if False.
+            with_id: Include pephub_sample_id in each sample dict if True.
+
+        Returns:
+            Raw dict or peprs.Project object.
+
+        Raises:
+            ProjectNotFoundError: If the project does not exist.
         """
         # name = name.lower()
         namespace = namespace.lower()
@@ -121,7 +118,9 @@ class PEPDatabaseProject:
                         for subsample in found_prj.subsamples_mapping:
                             if subsample.subsample_number not in subsample_dict.keys():
                                 subsample_dict[subsample.subsample_number] = []
-                            subsample_dict[subsample.subsample_number].append(subsample.subsample)
+                            subsample_dict[subsample.subsample_number].append(
+                                subsample.subsample
+                            )
                         subsample_list = list(subsample_dict.values())
                     else:
                         subsample_list = []
@@ -151,14 +150,16 @@ class PEPDatabaseProject:
         except NoResultFound:
             raise ProjectNotFoundError
 
-    def _get_samples(self, session: Session, prj_id: int, with_id: bool) -> List[Dict]:
-        """
-        Get samples from the project. This method is used to retrieve samples from the project,
-            with open session object.
+    def _get_samples(self, session: Session, prj_id: int, with_id: bool) -> list[dict]:
+        """Get ordered samples from a project using an open session.
 
-        :param session: open session object
-        :param prj_id: project id
-        :param with_id: retrieve sample with id
+        Args:
+            session: Open SQLAlchemy session.
+            prj_id: Project id.
+            with_id: Include pephub_sample_id in each sample dict if True.
+
+        Returns:
+            Ordered list of sample dicts.
         """
         result_dict = self._get_samples_dict(prj_id, session, with_id)
 
@@ -168,24 +169,20 @@ class PEPDatabaseProject:
         return ordered_samples_list
 
     @staticmethod
-    def _get_samples_dict(prj_id: int, session: Session, with_id: bool) -> Dict:
-        """
-        Get not ordered samples from the project. This method is used to retrieve samples from the project
+    def _get_samples_dict(prj_id: int, session: Session, with_id: bool) -> dict:
+        """Get unordered samples from a project keyed by guid.
 
-        :param prj_id: project id
-        :param session: open session object
-        :param with_id: retrieve sample with id
+        Args:
+            prj_id: Project id.
+            session: Open SQLAlchemy session.
+            with_id: Include pephub_sample_id in each sample dict if True.
 
-        :return: dictionary with samples:
-            {guid:
-                {
-                    "sample": sample_dict,
-                    "guid": guid,
-                    "parent_guid": parent_guid
-                }
-            }
+        Returns:
+            Dict mapping guid → {sample, guid, parent_guid}.
         """
-        samples_results = session.scalars(select(Samples).where(Samples.project_id == prj_id))
+        samples_results = session.scalars(
+            select(Samples).where(Samples.project_id == prj_id)
+        )
         result_dict = {}
         for sample in samples_results:
             sample_dict = sample.sample
@@ -201,14 +198,18 @@ class PEPDatabaseProject:
         return result_dict
 
     @staticmethod
-    def _create_select_statement(name: str, namespace: str, tag: str = DEFAULT_TAG) -> Select:
-        """
-        Create simple select statement for retrieving project from database
+    def _create_select_statement(
+        name: str, namespace: str, tag: str = DEFAULT_TAG
+    ) -> Select:
+        """Create a SELECT statement for a single project.
 
-        :param name: name of the project
-        :param namespace: namespace of the project
-        :param tag: tag of the project
-        :return: select statement
+        Args:
+            name: Project name.
+            namespace: Project namespace.
+            tag: Project tag.
+
+        Returns:
+            SQLAlchemy SELECT statement for the Projects table.
         """
         statement = select(Projects)
         statement = statement.where(
@@ -224,20 +225,18 @@ class PEPDatabaseProject:
         self,
         registry_path: str,
         raw: bool = False,
-    ) -> Union[peprs.Project, dict, None]:
-        """
-        Retrieve project from database by specifying project registry_path
+    ) -> peprs.Project | dict | None:
+        """Retrieve a project from the database by registry path.
 
-        :param registry_path: project registry_path [e.g. namespace/name:tag]
-        :param raw: retrieve unprocessed (raw) PEP dict.
-        :return: peprs.Project object with found project or dict with unprocessed
-            PEP elements: {
-                name: str
-                description: str
-                _config: dict
-                _sample_dict: dict
-                _subsample_dict: dict
-            }
+        Args:
+            registry_path: Registry path, e.g., "namespace/name:tag".
+            raw: Return raw dict if True, peprs.Project object if False.
+
+        Returns:
+            Raw dict or peprs.Project object.
+
+        Raises:
+            ProjectNotFoundError: If the project does not exist.
         """
         namespace, name, tag = registry_path_converter(registry_path)
         return self.get(namespace=namespace, name=name, tag=tag, raw=raw)
@@ -248,13 +247,15 @@ class PEPDatabaseProject:
         name: str = None,
         tag: str = None,
     ) -> None:
-        """
-        Delete record from database
+        """Delete a project from the database.
 
-        :param namespace: Namespace
-        :param name: Name
-        :param tag: Tag
-        :return: None
+        Args:
+            namespace: Project namespace.
+            name: Project name.
+            tag: Project tag.
+
+        Raises:
+            ProjectNotFoundError: If the project does not exist.
         """
         # name = name.lower()
         namespace = namespace.lower()
@@ -285,18 +286,20 @@ class PEPDatabaseProject:
         self,
         registry_path: str,
     ) -> None:
-        """
-        Delete record from database by using registry_path
+        """Delete a project from the database by registry path.
 
-        :param registry_path: Registry path of the project ('namespace/name:tag')
-        :return: None
+        Args:
+            registry_path: Registry path of the project, e.g., "namespace/name:tag".
+
+        Raises:
+            ProjectNotFoundError: If the project does not exist.
         """
         namespace, name, tag = registry_path_converter(registry_path)
         return self.delete(namespace=namespace, name=name, tag=tag)
 
     def create(
         self,
-        project: Union[peprs.Project, dict],
+        project: peprs.Project | dict,
         namespace: str,
         name: str = None,
         tag: str = DEFAULT_TAG,
@@ -307,24 +310,23 @@ class PEPDatabaseProject:
         overwrite: bool = False,
         update_only: bool = False,
     ) -> None:
-        """
-        Upload project to the database.
-        Project with the key, that already exists won't be uploaded(but case, when argument
-        update is set True)
+        """Upload a project to the database.
 
-        :param project: peprs.Project object or dict with PEP elements
-                ({config: dict, samples: list, subsamples: list})
-        :param namespace: namespace of the project (Default: 'other')
-        :param name: name of the project (Default: name is taken from the project object)
-        :param tag: tag (or version) of the project.
-        :param is_private: boolean value if the project should be visible just for user that creates it.
-        :param pep_schema: assign PEP to a specific schema. Example: 'namespace/name' [Default: None]
-        :param pop: if project is a pep of peps (POP) [Default: False]
-        :param overwrite: if project exists overwrite the project, otherwise upload it.
-            [Default: False - project won't be overwritten if it exists in db]
-        :param update_only: if project exists overwrite it, otherwise do nothing.  [Default: False]
-        :param description: description of the project
-        :return: None
+        Args:
+            project: peprs.Project or dict with config, samples, and subsamples keys.
+            namespace: Namespace to upload to.
+            name: Project name (default: taken from project config).
+            tag: Project tag.
+            description: Project description.
+            is_private: Mark project as private if True.
+            pop: Mark as a PEP-of-PEPs (POP) if True.
+            pep_schema: Schema to associate, e.g., "namespace/name".
+            overwrite: Overwrite the project if it already exists.
+            update_only: Update the project if it exists; do nothing otherwise.
+
+        Raises:
+            ProjectUniqueNameError: If the project already exists and overwrite is False.
+            SchemaDoesNotExistError: If pep_schema is provided but does not exist.
         """
         if isinstance(project, peprs.Project):
             proj_dict = project.to_dict(raw=True, by_sample=True)
@@ -353,7 +355,9 @@ class PEPDatabaseProject:
         elif proj_dict[CONFIG_KEY][NAME_KEY]:
             proj_name = proj_dict[CONFIG_KEY][NAME_KEY].lower()
         else:
-            raise ValueError("Name of the project wasn't provided. Project will not be uploaded.")
+            raise ValueError(
+                "Name of the project wasn't provided. Project will not be uploaded."
+            )
 
         proj_dict[CONFIG_KEY][NAME_KEY] = proj_name
 
@@ -364,13 +368,16 @@ class PEPDatabaseProject:
             number_of_samples = len(proj_dict[SAMPLE_RAW_DICT_KEY])
 
         if pep_schema:
-            schema_namespace, schema_name, schema_version = schema_path_converter(pep_schema)
+            schema_namespace, schema_name, schema_version = schema_path_converter(
+                pep_schema
+            )
             with Session(self._sa_engine) as session:
-
                 if schema_version == LATEST_SCHEMA_VERSION:
                     schema_mapping = session.scalar(
                         select(SchemaVersions)
-                        .join(SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id)
+                        .join(
+                            SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id
+                        )
                         .where(
                             and_(
                                 SchemaRecords.namespace == schema_namespace,
@@ -398,7 +405,9 @@ class PEPDatabaseProject:
                 pep_schema = schema_mapping.id
 
         if update_only:
-            _LOGGER.info(f"Update_only argument is set True. Updating project {proj_name} ...")
+            _LOGGER.info(
+                f"Update_only argument is set True. Updating project {proj_name} ..."
+            )
             self._overwrite(
                 project_dict=proj_dict,
                 namespace=namespace,
@@ -444,7 +453,9 @@ class PEPDatabaseProject:
                     self._add_subsamples_to_project(new_prj, subsamples)
 
                 with Session(self._sa_engine) as session:
-                    user = session.scalar(select(User).where(User.namespace == namespace))
+                    user = session.scalar(
+                        select(User).where(User.namespace == namespace)
+                    )
 
                     if not user:
                         user = User(namespace=namespace)
@@ -482,7 +493,7 @@ class PEPDatabaseProject:
 
     def _overwrite(
         self,
-        project_dict: json,
+        project_dict: dict,
         namespace: str,
         proj_name: str,
         tag: str,
@@ -493,20 +504,22 @@ class PEPDatabaseProject:
         description: str = "",
         pop: bool = False,
     ) -> None:
-        """
-        Update existing project by providing all necessary information.
+        """Overwrite an existing project with new content.
 
-        :param project_dict: project dictionary in json format
-        :param namespace: project namespace
-        :param proj_name: project name
-        :param tag: project tag
-        :param project_digest: project digest
-        :param number_of_samples: number of samples in project
-        :param private: boolean value if the project should be visible just for user that creates it.
-        :param pep_schema: assign PEP to a specific schema. [DefaultL: None]
-        :param description: project description
-        :param pop: if project is a pep of peps, simply POP [Default: False]
-        :return: None
+        Args:
+            project_dict: Full project dict (config, samples, subsamples).
+            namespace: Project namespace.
+            proj_name: Project name.
+            tag: Project tag.
+            project_digest: Pre-computed digest.
+            number_of_samples: Sample count.
+            private: Mark as private if True.
+            pep_schema: Schema id to associate (integer FK).
+            description: Project description.
+            pop: Mark as POP if True.
+
+        Raises:
+            ProjectNotFoundError: If the project does not exist.
         """
         proj_name = proj_name.lower()
         namespace = namespace.lower()
@@ -529,7 +542,9 @@ class PEPDatabaseProject:
                     found_prj.schema_id = pep_schema
                     found_prj.config = project_dict[CONFIG_KEY]
                     found_prj.description = description
-                    found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
+                    found_prj.last_update_date = datetime.datetime.now(
+                        datetime.timezone.utc
+                    )
                     found_prj.pop = pop
 
                     # Deleting old samples and subsamples
@@ -547,7 +562,9 @@ class PEPDatabaseProject:
                 self._add_samples_to_project(
                     found_prj,
                     project_dict[SAMPLE_RAW_DICT_KEY],
-                    sample_table_index=project_dict[CONFIG_KEY].get(SAMPLE_TABLE_INDEX_KEY),
+                    sample_table_index=project_dict[CONFIG_KEY].get(
+                        SAMPLE_TABLE_INDEX_KEY
+                    ),
                 )
 
                 if project_dict.get(SUBSAMPLE_RAW_DICT_KEY):
@@ -557,52 +574,50 @@ class PEPDatabaseProject:
 
                 session.commit()
 
-            _LOGGER.info(f"Project '{namespace}/{proj_name}:{tag}' has been successfully updated!")
+            _LOGGER.info(
+                f"Project '{namespace}/{proj_name}:{tag}' has been successfully updated!"
+            )
             return None
 
         else:
-            raise ProjectNotFoundError("Project does not exist! No project will be updated!")
+            raise ProjectNotFoundError(
+                "Project does not exist! No project will be updated!"
+            )
 
     def update(
         self,
-        update_dict: Union[dict, UpdateItems],
+        update_dict: dict | UpdateItems,
         namespace: str,
         name: str,
         tag: str = DEFAULT_TAG,
         user: str = None,
     ) -> None:
-        """
-        Update partial parts of the record in db
+        """Update specific fields of a project.
 
-        :param update_dict: dict with update key->values. Dict structure:
-            {
-                    project: Optional[peprs.Project]
-                    is_private: Optional[bool]
-                    tag: Optional[str]
-                    name: Optional[str]
-                    description: Optional[str]
-                    is_private: Optional[bool]
-                    pep_schema: Optional[str]
-                    config: Optional[dict]
-                    samples: Optional[List[dict]]
-                    subsamples: Optional[List[List[dict]]]
-                    pop: Optional[bool]
-            }
-        :param namespace: project namespace
-        :param name: project name
-        :param tag: project tag
-        :param user: user that updates the project if user is not provided, user will be set as Namespace
-        :return: None
+        Args:
+            update_dict: Fields to update — any combination of project, is_private, tag, name,
+                description, pep_schema, config, samples, subsamples, pop.
+            namespace: Project namespace.
+            name: Project name.
+            tag: Project tag.
+            user: User performing the update (default: namespace).
+
+        Raises:
+            ProjectNotFoundError: If the project does not exist.
         """
         if self.exists(namespace=namespace, name=name, tag=tag):
             if isinstance(update_dict, UpdateItems):
                 update_values = update_dict
             else:
                 if "project" in update_dict:
-                    project_dict = update_dict.pop("project").to_dict(raw=True, by_sample=True)
+                    project_dict = update_dict.pop("project").to_dict(
+                        raw=True, by_sample=True
+                    )
                     update_dict["config"] = project_dict[CONFIG_KEY]
                     update_dict["samples"] = project_dict[SAMPLE_RAW_DICT_KEY]
-                    update_dict["subsamples"] = project_dict.get(SUBSAMPLE_RAW_DICT_KEY, [])
+                    update_dict["subsamples"] = project_dict.get(
+                        SUBSAMPLE_RAW_DICT_KEY, []
+                    )
 
                 update_values = UpdateItems(**update_dict)
 
@@ -642,7 +657,6 @@ class PEPDatabaseProject:
                                 flag_modified(found_prj, "config")
 
                 if "samples" in update_dict:
-
                     if PEPHUB_SAMPLE_ID_KEY not in update_dict["samples"][0]:
                         raise SampleTableUpdateError(
                             f"pephub_sample_id '{PEPHUB_SAMPLE_ID_KEY}' is missing in samples."
@@ -680,9 +694,13 @@ class PEPDatabaseProject:
 
                     # Adding new subsamples
                     if update_dict["subsamples"]:
-                        self._add_subsamples_to_project(found_prj, update_dict["subsamples"])
+                        self._add_subsamples_to_project(
+                            found_prj, update_dict["subsamples"]
+                        )
 
-                found_prj.last_update_date = datetime.datetime.now(datetime.timezone.utc)
+                found_prj.last_update_date = datetime.datetime.now(
+                    datetime.timezone.utc
+                )
 
                 session.commit()
 
@@ -692,15 +710,15 @@ class PEPDatabaseProject:
             raise ProjectNotFoundError("No items will be updated!")
 
     @staticmethod
-    def _convert_update_schema_id(session: Session, update_values: dict):
-        """
-        Convert schema path to schema_id in update_values and update it in update dict
+    def _convert_update_schema_id(session: Session, update_values: dict) -> None:
+        """Resolve pep_schema path to a schema_id in the update dict.
 
+        Args:
+            session: Open SQLAlchemy session.
+            update_values: Update dict that may contain a "pep_schema" key.
 
-        :param session: open session object
-        :param update_values: dict with update key->values
-
-        return None
+        Raises:
+            SchemaDoesNotExistError: If the schema path does not resolve to an existing schema.
         """
         if "pep_schema" in update_values:
             schema_namespace, schema_name, schema_version = schema_path_converter(
@@ -740,30 +758,36 @@ class PEPDatabaseProject:
     def _update_samples(
         self,
         project_id: int,
-        samples_list: List[Dict[str, str]],
+        samples_list: list[dict[str, str]],
         sample_name_key: str = "sample_name",
-        history_sa_model: Union[HistoryProjects, None] = None,
+        history_sa_model: HistoryProjects | None = None,
     ) -> None:
-        """
-        Update samples in the project
-        This is linked list method, that first finds differences in old and new samples list
-            and then updates, adds, inserts, deletes, or changes the order.
+        """Update samples in a project using a linked-list diff approach.
 
-        :param project_id: project id in PEPhub database
-        :param samples_list: list of samples to be updated
-        :param sample_name_key: key of the sample name
-        :param history_sa_model: HistoryProjects object, to write to the history table
-        :return: None
+        Finds differences between old and new sample lists, then applies inserts, updates,
+        deletes, and order changes.
+
+        Args:
+            project_id: Project id in the database.
+            samples_list: New list of sample dicts (must include pephub_sample_id).
+            sample_name_key: Sample table index key.
+            history_sa_model: HistoryProjects row to append change records to.
+
+        Raises:
+            ProjectDuplicatedSampleGUIDsError: If any pephub_sample_id is duplicated.
         """
 
         with Session(self._sa_engine) as session:
-            old_samples = session.scalars(select(Samples).where(Samples.project_id == project_id))
+            old_samples = session.scalars(
+                select(Samples).where(Samples.project_id == project_id)
+            )
 
             old_samples_mapping: dict = {sample.guid: sample for sample in old_samples}
 
             # old_child_parent_id needed because of the parent_guid is sometimes set to none in sqlalchemy mapping :( bug
-            old_child_parent_id: Dict[str, str] = {
-                child: mapping.parent_guid for child, mapping in old_samples_mapping.items()
+            old_child_parent_id: dict[str, str] = {
+                child: mapping.parent_guid
+                for child, mapping in old_samples_mapping.items()
             }
 
             old_samples_ids_set: set = set(old_samples_mapping.keys())
@@ -791,7 +815,6 @@ class PEPDatabaseProject:
             del new_samples_ids_list, new_samples_ids_set
 
             for remove_id in deleted_ids:
-
                 if history_sa_model:
                     history_sa_model.sample_changes_mapping.append(
                         HistorySamples(
@@ -834,7 +857,6 @@ class PEPDatabaseProject:
                 else:
                     current_history = None
                     if old_samples_mapping[current_id].sample != sample_value:
-
                         if history_sa_model:
                             current_history = HistorySamples(
                                 guid=old_samples_mapping[current_id].guid,
@@ -844,7 +866,9 @@ class PEPDatabaseProject:
                             )
 
                         old_samples_mapping[current_id].sample = sample_value
-                        old_samples_mapping[current_id].sample_name = sample_value[sample_name_key]
+                        old_samples_mapping[current_id].sample_name = sample_value[
+                            sample_name_key
+                        ]
 
                     # !bug workaround: if project was deleted and sometimes old_samples_mapping[current_id].parent_guid
                     # and it can cause an error in history. For this we have `old_child_parent_id` dict
@@ -871,13 +895,13 @@ class PEPDatabaseProject:
 
     @staticmethod
     def __create_update_dict(update_values: UpdateItems) -> dict:
-        """
-        Modify keys and values that set for update and create unified
-        dictionary of the values that have to be updated
+        """Build a normalised update dict from an UpdateItems model.
 
-         :param update_values: UpdateItems (pydantic class) with
-            updating values
-        :return: unified update dict
+        Args:
+            update_values: UpdateItems with fields to apply.
+
+        Returns:
+            Dict of field→value pairs ready for setattr on the Projects row.
         """
         update_final = UpdateModel.model_construct()
 
@@ -898,7 +922,8 @@ class PEPDatabaseProject:
             )
         if update_values.config is not None:
             update_final = UpdateModel(
-                config=update_values.config, **update_final.model_dump(exclude_unset=True)
+                config=update_values.config,
+                **update_final.model_dump(exclude_unset=True),
             )
             name = update_values.config.get(NAME_KEY)
             description = update_values.config.get(DESCRIPTION_KEY)
@@ -910,7 +935,9 @@ class PEPDatabaseProject:
             if description:
                 update_final = UpdateModel(
                     description=description,
-                    **update_final.model_dump(exclude_unset=True, exclude={DESCRIPTION_KEY}),
+                    **update_final.model_dump(
+                        exclude_unset=True, exclude={DESCRIPTION_KEY}
+                    ),
                 )
 
         if update_values.tag is not None:
@@ -949,12 +976,15 @@ class PEPDatabaseProject:
         name: str,
         tag: str = DEFAULT_TAG,
     ) -> bool:
-        """
-        Check if project exists in the database.
-        :param namespace: project namespace
-        :param name: project name
-        :param tag: project tag
-        :return: Returning True if project exist
+        """Check if a project exists in the database.
+
+        Args:
+            namespace: Project namespace.
+            name: Project name.
+            tag: Project tag.
+
+        Returns:
+            True if the project exists.
         """
 
         statement = select(Projects.id)
@@ -974,18 +1004,19 @@ class PEPDatabaseProject:
 
     @staticmethod
     def _add_samples_to_project(
-        projects_sa: Projects, samples: List[dict], sample_table_index: str = "sample_name"
+        projects_sa: Projects,
+        samples: list[dict],
+        sample_table_index: str = "sample_name",
     ) -> None:
-        """
-        Add samples to the project sa object. (With commit this samples will be added to the 'samples table')
-        :param projects_sa: Projects sa object, in open session
-        :param samples: list of samles to be added to the database
-        :param sample_table_index: index of the sample table
-        :return: NoReturn
+        """Append sample rows to a Projects ORM object.
+
+        Args:
+            projects_sa: Projects ORM object in an open session.
+            samples: List of sample dicts to add.
+            sample_table_index: Column name to use as the sample identifier.
         """
         previous_sample_guid = None
         for sample in samples:
-
             sample = Samples(
                 sample=sample,
                 sample_name=sample.get(sample_table_index),
@@ -999,32 +1030,39 @@ class PEPDatabaseProject:
 
     @staticmethod
     def _add_subsamples_to_project(
-        projects_sa: Projects, subsamples: List[List[dict]]
-    ) -> NoReturn:
-        """
-        Add subsamples to the project sa object. (With commit this samples will be added to the 'subsamples table')
+        projects_sa: Projects, subsamples: list[list[dict]]
+    ) -> None:
+        """Append subsample rows to a Projects ORM object.
 
-        :param projects_sa: Projects sa object, in open session
-        :param subsamples: list of subsamles to be added to the database
-        :return: NoReturn
+        Args:
+            projects_sa: Projects ORM object in an open session.
+            subsamples: List of subsample groups (list of list of dicts).
         """
         for i, subs in enumerate(subsamples):
             for row_number, sub_item in enumerate(subs):
                 projects_sa.subsamples_mapping.append(
-                    Subsamples(subsample=sub_item, subsample_number=i, row_number=row_number)
+                    Subsamples(
+                        subsample=sub_item, subsample_number=i, row_number=row_number
+                    )
                 )
 
-    def get_project_id(self, namespace: str, name: str, tag: str) -> Union[int, None]:
-        """
-        Get Project id by providing namespace, name, and tag
+    def get_project_id(self, namespace: str, name: str, tag: str) -> int | None:
+        """Get the database id of a project.
 
-        :param namespace: project namespace
-        :param name: project name
-        :param tag: project tag
-        :return: projects id
+        Args:
+            namespace: Project namespace.
+            name: Project name.
+            tag: Project tag.
+
+        Returns:
+            Project id, or None if the project does not exist.
         """
         statement = select(Projects.id).where(
-            and_(Projects.namespace == namespace, Projects.name == name, Projects.tag == tag)
+            and_(
+                Projects.namespace == namespace,
+                Projects.name == name,
+                Projects.tag == tag,
+            )
         )
         with Session(self._sa_engine) as session:
             result = session.execute(statement).one_or_none()
@@ -1044,18 +1082,20 @@ class PEPDatabaseProject:
         description: str = None,
         private: bool = False,
     ) -> None:
-        """
-        Fork project from one namespace to another
+        """Fork a project into a new namespace.
 
-        :param original_namespace: namespace of the project to be forked
-        :param original_name: name of the project to be forked
-        :param original_tag: tag of the project to be forked
-        :param fork_namespace: namespace of the forked project
-        :param fork_name: name of the forked project
-        :param fork_tag: tag of the forked project
-        :param description: description of the forked project
-        :param private: boolean value if the project should be visible just for user that creates it.
-        :return: None
+        Args:
+            original_namespace: Namespace of the source project.
+            original_name: Name of the source project.
+            original_tag: Tag of the source project.
+            fork_namespace: Target namespace.
+            fork_name: Name for the fork (default: same as original).
+            fork_tag: Tag for the fork (default: same as original).
+            description: Description for the fork.
+            private: Mark fork as private if True.
+
+        Raises:
+            ProjectNotFoundError: If the source project does not exist.
         """
 
         self.create(
@@ -1098,17 +1138,23 @@ class PEPDatabaseProject:
 
             session.commit()
 
-    def get_config(self, namespace: str, name: str, tag: str) -> Union[dict, None]:
-        """
-        Get project configuration by providing namespace, name, and tag
+    def get_config(self, namespace: str, name: str, tag: str) -> dict | None:
+        """Get the config dict for a project.
 
-        :param namespace: project namespace
-        :param name: project name
-        :param tag: project tag
-        :return: project configuration
+        Args:
+            namespace: Project namespace.
+            name: Project name.
+            tag: Project tag.
+
+        Returns:
+            Config dict, or None if the project does not exist.
         """
         statement = select(Projects.config).where(
-            and_(Projects.namespace == namespace, Projects.name == name, Projects.tag == tag)
+            and_(
+                Projects.namespace == namespace,
+                Projects.name == name,
+                Projects.tag == tag,
+            )
         )
         with Session(self._sa_engine) as session:
             result = session.execute(statement).one_or_none()
@@ -1117,29 +1163,37 @@ class PEPDatabaseProject:
             return result[0]
         return None
 
-    def get_subsamples(self, namespace: str, name: str, tag: str) -> Union[list, None]:
-        """
-        Get project subsamples by providing namespace, name, and tag
+    def get_subsamples(self, namespace: str, name: str, tag: str) -> list | None:
+        """Get the subsample list for a project.
 
-        :param namespace: project namespace
-        :param name: project name
-        :param tag: project tag
-        :return: list with project subsamples
+        Args:
+            namespace: Project namespace.
+            name: Project name.
+            tag: Project tag.
+
+        Returns:
+            List of subsample groups, or an empty list if there are no subsamples.
+
+        Raises:
+            ProjectNotFoundError: If the project does not exist.
         """
         statement = self._create_select_statement(name, namespace, tag)
 
         with Session(self._sa_engine) as session:
-
             found_prj = session.scalar(statement)
 
             if found_prj:
-                _LOGGER.info(f"Project has been found: {found_prj.namespace}, {found_prj.name}")
+                _LOGGER.info(
+                    f"Project has been found: {found_prj.namespace}, {found_prj.name}"
+                )
                 subsample_dict = {}
                 if found_prj.subsamples_mapping:
                     for subsample in found_prj.subsamples_mapping:
                         if subsample.subsample_number not in subsample_dict.keys():
                             subsample_dict[subsample.subsample_number] = []
-                        subsample_dict[subsample.subsample_number].append(subsample.subsample)
+                        subsample_dict[subsample.subsample_number].append(
+                            subsample.subsample
+                        )
                     return list(subsample_dict.values())
                 else:
                     return []
@@ -1150,39 +1204,50 @@ class PEPDatabaseProject:
                 )
 
     def get_samples(
-        self, namespace: str, name: str, tag: str, raw: bool = True, with_ids: bool = False
+        self,
+        namespace: str,
+        name: str,
+        tag: str,
+        raw: bool = True,
+        with_ids: bool = False,
     ) -> list:
-        """
-        Get project samples by providing namespace, name, and tag
+        """Get samples for a project.
 
-        :param namespace: project namespace
-        :param name: project name
-        :param tag: project tag
-        :param raw: if True, retrieve unprocessed (raw) PEP dict. [Default: True]
-        :param with_ids: if True, retrieve samples with ids. [Default: False]
+        Args:
+            namespace: Project namespace.
+            name: Project name.
+            tag: Project tag.
+            raw: Return raw dicts if True, records-orient pandas dicts if False.
+            with_ids: Include pephub_sample_id in each sample if True.
 
-        :return: list with project samples
+        Returns:
+            List of sample dicts.
         """
         if raw:
             return self.get(
                 namespace=namespace, name=name, tag=tag, raw=True, with_id=with_ids
             ).get(SAMPLE_RAW_DICT_KEY)
         return (
-            self.get(namespace=namespace, name=name, tag=tag, raw=False, with_id=with_ids)
+            self.get(
+                namespace=namespace, name=name, tag=tag, raw=False, with_id=with_ids
+            )
             .to_pandas()
             .replace({np.nan: None})
             .to_dict(orient="records")
         )
 
-    def get_history(self, namespace: str, name: str, tag: str) -> HistoryAnnotationModel:
-        """
-        Get project history annotation by providing namespace, name, and tag
+    def get_history(
+        self, namespace: str, name: str, tag: str
+    ) -> HistoryAnnotationModel:
+        """Get the list of history entries for a project.
 
-        :param namespace: project namespace
-        :param name: project name
-        :param tag: project tag
+        Args:
+            namespace: Project namespace.
+            name: Project name.
+            tag: Project tag.
 
-        :return: project history annotation
+        Returns:
+            HistoryAnnotationModel with a list of HistoryChangeModel entries.
         """
 
         with Session(self._sa_engine) as session:
@@ -1203,7 +1268,7 @@ class PEPDatabaseProject:
                 .order_by(HistoryProjects.update_time.desc())
             )
             results = session.scalars(statement)
-            return_results: List = []
+            return_results: list = []
 
             if results:
                 for result in results:
@@ -1229,18 +1294,23 @@ class PEPDatabaseProject:
         history_id: int,
         raw: bool = True,
         with_id: bool = False,
-    ) -> Union[dict, peprs.Project]:
-        """
-        Get project sample history annotation by providing namespace, name, and tag
+    ) -> dict | peprs.Project:
+        """Reconstruct a project at a past history checkpoint.
 
-        :param namespace: project namespace
-        :param name: project name
-        :param tag: project tag
-        :param history_id: history id
-        :param raw: if True, retrieve unprocessed (raw) PEP dict. [Default: True]
-        :param with_id: if True, retrieve samples with ids. [Default: False]
+        Args:
+            namespace: Project namespace.
+            name: Project name.
+            tag: Project tag.
+            history_id: Id of the history entry to restore to.
+            raw: Return raw dict if True, peprs.Project object if False.
+            with_id: Include pephub_sample_id in each sample if True.
 
-        :return: project sample history annotation
+        Returns:
+            Raw dict or peprs.Project at the requested history state.
+
+        Raises:
+            ProjectNotFoundError: If the project does not exist.
+            HistoryNotFoundError: If the history entry does not exist.
         """
 
         with Session(self._sa_engine) as session:
@@ -1327,19 +1397,23 @@ class PEPDatabaseProject:
 
     @staticmethod
     def _apply_history_changes(sample_dict: dict, change: HistoryProjects) -> dict:
-        """
-        Apply changes from the history to the sample list
+        """Apply a history change record to a sample dict.
 
-        :param sample_dict: dictionary with samples
-        :param change: history change
-        :return: updated sample list
+        Args:
+            sample_dict: Current sample dict keyed by guid.
+            change: HistoryProjects entry whose sample_changes_mapping to apply.
+
+        Returns:
+            Updated sample dict.
         """
         for sample_change in change.sample_changes_mapping:
             sample_id = sample_change.guid
 
             if sample_change.change_type == UpdateTypes.UPDATE:
                 sample_dict[sample_id]["sample"] = sample_change.sample_json
-                sample_dict[sample_id]["sample"][PEPHUB_SAMPLE_ID_KEY] = sample_change.guid
+                sample_dict[sample_id]["sample"][PEPHUB_SAMPLE_ID_KEY] = (
+                    sample_change.guid
+                )
                 sample_dict[sample_id]["parent_guid"] = sample_change.parent_guid
 
             elif sample_change.change_type == UpdateTypes.DELETE:
@@ -1355,17 +1429,19 @@ class PEPDatabaseProject:
         return sample_dict
 
     def delete_history(
-        self, namespace: str, name: str, tag: str, history_id: Union[int, None] = None
+        self, namespace: str, name: str, tag: str, history_id: int | None = None
     ) -> None:
-        """
-        Delete history from the project
+        """Delete one or all history entries for a project.
 
-        :param namespace: project namespace
-        :param name: project name
-        :param tag: project tag
-        :param history_id: history id. If none is provided, all history will be deleted
+        Args:
+            namespace: Project namespace.
+            name: Project name.
+            tag: Project tag.
+            history_id: Id of the entry to delete; deletes all history if None.
 
-        :return: None
+        Raises:
+            ProjectNotFoundError: If the project does not exist.
+            HistoryNotFoundError: If the specified history entry does not exist.
         """
         with Session(self._sa_engine) as session:
             project_mapping = session.scalar(
@@ -1385,7 +1461,9 @@ class PEPDatabaseProject:
 
             if history_id is None:
                 session.execute(
-                    delete(HistoryProjects).where(HistoryProjects.project_id == project_mapping.id)
+                    delete(HistoryProjects).where(
+                        HistoryProjects.project_id == project_mapping.id
+                    )
                 )
                 session.commit()
                 return None
@@ -1415,16 +1493,14 @@ class PEPDatabaseProject:
         history_id: int,
         user: str = None,
     ) -> None:
-        """
-        Restore project to the specific history state
+        """Restore a project to a past history state.
 
-        :param namespace: project namespace
-        :param name: project name
-        :param tag: project tag
-        :param history_id: history id
-        :param user: user that restores the project if user is not provided, user will be set as Namespace
-
-        :return: None
+        Args:
+            namespace: Project namespace.
+            name: Project name.
+            tag: Project tag.
+            history_id: Id of the history entry to restore to.
+            user: User performing the restore (default: namespace).
         """
 
         restore_project = self.get_project_from_history(
@@ -1444,11 +1520,10 @@ class PEPDatabaseProject:
         )
 
     def clean_history(self, days: int = 90) -> None:
-        """
-        Delete all history data that is older than 3 month, or specific number of days
+        """Delete history entries older than a given number of days.
 
-        :param days: number of days to keep history data
-        :return: None
+        Args:
+            days: Retain history newer than this many days (default: 90).
         """
 
         with Session(self._sa_engine) as session:
