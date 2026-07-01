@@ -35,7 +35,8 @@ class PEPDatabaseAnnotation:
 
     def __init__(self, pep_db_engine: BaseEngine):
         """
-        :param pep_db_engine: pepdbengine object with sa engine
+        Args:
+            pep_db_engine: PEPDatabaseAgent engine object.
         """
         self._sa_engine = pep_db_engine.engine
         self._pep_db_engine = pep_db_engine
@@ -56,34 +57,32 @@ class PEPDatabaseAnnotation:
         filter_end_date: str | None = None,
         pep_type: Literal["pep", "pop"] | None = None,
     ) -> AnnotationList:
-        """
-        Get project annotations.
+        """Get project annotations.
 
-        There is 5 scenarios how to get project or projects annotations:
-            - provide name, namespace and tag. Return: project annotations of exact provided PK(namespace, name, tag)
-            - provide only namespace. Return: list of projects annotations in specified namespace
-            - Nothing is provided. Return: list of projects annotations in all database
-            - provide query. Return: list of projects annotations find in database that have query pattern.
-            - provide query and namespace. Return:  list of projects annotations find in specific namespace
-                that have query pattern.
-        :param namespace: Namespace
-        :param name: Project name
-        :param tag: tag
-        :param query: query (search string): Pattern of name, tag or description
-        :param admin: admin name (namespace), or list of namespaces, where user is admin
-        :param limit: return limit
-        :param offset: return offset
-        :param order_by: sort the result-set by the information
-            Options: ["name", "update_date", "submission_date"]
-            [Default: update_date]
-        :param order_desc: Sort the records in descending order. [Default: False]
-        :param filter_by: data to use filter on.
-            Options: ["submission_date", "last_update_date"]
-            [Default: filter won't be used]
-        :param filter_start_date: Filter start date. Format: "YYYY/MM/DD"
-        :param filter_end_date: Filter end date. Format: "YYYY/MM/DD". if None: present date will be used
-        :param pep_type: Get pep with specified type. Options: ["pep", "pop"]. Default: None, get all peps
-        :return: pydantic model: AnnotationList
+        Five retrieval scenarios:
+        - namespace + name + tag: exact match.
+        - namespace only: all projects in that namespace.
+        - nothing: all projects in the database.
+        - query: full-text search across name, tag, description.
+        - query + namespace: full-text search within a namespace.
+
+        Args:
+            namespace: Namespace to filter by.
+            name: Project name (use with namespace and tag for exact lookup).
+            tag: Project tag.
+            query: Search string matched against name, tag, and description.
+            admin: Namespace(s) where the caller has admin rights.
+            limit: Maximum number of results.
+            offset: Number of results to skip.
+            order_by: Sort field — "name", "update_date", or "submission_date".
+            order_desc: Sort in descending order if True.
+            filter_by: Date field to apply range filter on — "submission_date" or "last_update_date".
+            filter_start_date: Range start in YYYY/MM/DD format.
+            filter_end_date: Range end in YYYY/MM/DD format (default: today).
+            pep_type: Restrict to "pep" or "pop" (default: all).
+
+        Returns:
+            AnnotationList with count, limit, offset, and results.
         """
         if all([namespace, name, tag]):
             found_annotation = [
@@ -102,7 +101,9 @@ class PEPDatabaseAnnotation:
             )
 
         if pep_type not in [None, "pep", "pop"]:
-            raise ValueError(f"pep_type should be one of ['pep', 'pop'], got {pep_type}")
+            raise ValueError(
+                f"pep_type should be one of ['pep', 'pop'], got {pep_type}"
+            )
 
         return AnnotationList(
             limit=limit,
@@ -138,15 +139,14 @@ class PEPDatabaseAnnotation:
         registry_paths: list[str] | str,
         admin: list[str] | str | None = None,
     ) -> AnnotationList:
-        """
-        Get project annotations by providing registry_path or list of registry paths.
-        :param registry_paths: registry path string or list of registry paths
-        :param admin: list of namespaces where user is admin
-                :return: pydantic model: AnnotationReturnModel(
-            limit:
-            offset:
-            count:
-            result: List [AnnotationModel])
+        """Get project annotations by registry path or list of registry paths.
+
+        Args:
+            registry_paths: Single registry path or list of paths ("namespace/name:tag").
+            admin: Namespace(s) where the caller has admin rights.
+
+        Returns:
+            AnnotationList with count, limit, offset, and results.
         """
         if isinstance(registry_paths, list):
             anno_results = []
@@ -157,7 +157,9 @@ class PEPDatabaseAnnotation:
                     _LOGGER.error(str(err), registry_paths)
                     continue
                 try:
-                    single_return = self._get_single_annotation(namespace, name, tag, admin)
+                    single_return = self._get_single_annotation(
+                        namespace, name, tag, admin
+                    )
                     if single_return:
                         anno_results.append(single_return)
                 except ProjectNotFoundError:
@@ -181,13 +183,19 @@ class PEPDatabaseAnnotation:
         tag: str = DEFAULT_TAG,
         admin: list[str] | str | None = None,
     ) -> AnnotationModel | None:
-        """
-        Retrieving project annotation dict by specifying project name
-        :param namespace: project registry_path - will return dict of project annotations
-        :param name: project name in database
-        :param tag: tag of the projects
-        :param admin: string or list of admins [e.g. "Khoroshevskyi", or ["doc_adin","Khoroshevskyi"]]
-        :return: pydantic Annotation Model of annotations of current project
+        """Retrieve annotation for a single project.
+
+        Args:
+            namespace: Project namespace.
+            name: Project name.
+            tag: Project tag.
+            admin: Namespace(s) with admin/private access.
+
+        Returns:
+            AnnotationModel for the project, or None if not found.
+
+        Raises:
+            ProjectNotFoundError: If the project does not exist or is not accessible.
         """
         _LOGGER.info(f"Getting annotation of the project: '{namespace}/{name}:{tag}'")
         admin_tuple = tuple_converter(admin)
@@ -235,7 +243,9 @@ class PEPDatabaseAnnotation:
                 )
                 return annot
             else:
-                raise ProjectNotFoundError(f"Project '{namespace}/{name}:{tag}' was not found.")
+                raise ProjectNotFoundError(
+                    f"Project '{namespace}/{name}:{tag}' was not found."
+                )
 
     def _count_projects(
         self,
@@ -248,21 +258,20 @@ class PEPDatabaseAnnotation:
         filter_end_date: str | None = None,
         pep_type: Literal["pep", "pop"] | None = None,
     ) -> int:
-        """
-        Count projects. [This function is related to _find_projects]
+        """Count projects matching the given filters.
 
-        :param namespace: namespace where to search for a project
-        :param search_str: search string. will be searched in name, tag and description information
-        :param tag: tag of the projects (find projects with specific tag)
-        :param admin: string or list of admins [e.g. "Khoroshevskyi", or ["doc_adin","Khoroshevskyi"]]
-        :param filter_by: data to use filter on.
-            Options: ["submission_date", "last_update_date"]
-            [Default: filter won't be used]
-        :param filter_start_date: Filter start date. Format: "YYYY:MM:DD"
-        :param filter_end_date: Filter end date. Format: "YYYY:MM:DD". if None: present date will be used
-        :param pep_type: Get pep with specified type. Options: ["pep", "pop"]. Default: None, get all peps
+        Args:
+            namespace: Namespace to restrict the search to.
+            search_str: String to search in name, tag, and description.
+            tag: Exact tag to match.
+            admin: Namespace(s) with admin/private access.
+            filter_by: Date field for range filter — "submission_date" or "last_update_date".
+            filter_start_date: Range start in YYYY/MM/DD format.
+            filter_end_date: Range end in YYYY/MM/DD format (default: today).
+            pep_type: Restrict to "pep" or "pop" (default: all).
 
-        :return: number of found project in specified namespace
+        Returns:
+            Number of matching projects.
         """
         if admin is None:
             admin = []
@@ -302,28 +311,28 @@ class PEPDatabaseAnnotation:
         filter_end_date: str | None = None,
         pep_type: Literal["pep", "pop"] | None = None,
     ) -> list[AnnotationModel]:
-        """
-        Get projects by providing search string.
+        """Get projects matching the given filters.
 
-        :param namespace: namespace where to search for a project
-        :param tag: tag of the projects (find projects with specific tag)
-        :param search_str: search string that has to be found in the name or tag
-        :param admin: True, if user is admin of the namespace [Default: False]
-        :param limit: limit of return results
-        :param offset: number of results off set (that were already showed)
-        :param order_by: sort the result-set by the information
-            Options: ["update_date", "name",  "submission_date", "stars"]
-            [Default: "update_date"]
-        :param order_desc: Sort the records in descending order. [Default: False]
-        :param filter_by: data to use filter on.
-            Options: ["submission_date", "last_update_date"]
-            [Default: filter won't be used]
-        :param filter_start_date: Filter start date. Format: "YYYY:MM:DD"
-        :param filter_end_date: Filter end date. Format: "YYYY:MM:DD". if None: present date will be used
-        :param pep_type: Get pep with specified type. Options: ["pep", "pop"]. Default: None, get all peps
-        :return: list of found projects with their annotations.
+        Args:
+            namespace: Namespace to restrict the search to.
+            tag: Exact tag to match.
+            search_str: String to search in name, tag, and description.
+            admin: Namespace(s) with admin/private access.
+            limit: Maximum number of results.
+            offset: Number of results to skip.
+            order_by: Sort field — "update_date", "name", "submission_date", or "stars".
+            order_desc: Sort in descending order if True.
+            filter_by: Date field for range filter — "submission_date" or "last_update_date".
+            filter_start_date: Range start in YYYY/MM/DD format.
+            filter_end_date: Range end in YYYY/MM/DD format (default: today).
+            pep_type: Restrict to "pep" or "pop" (default: all).
+
+        Returns:
+            List of AnnotationModel objects.
         """
-        _LOGGER.info(f"Running annotation search: (namespace: {namespace}, query: {search_str}.")
+        _LOGGER.info(
+            f"Running annotation search: (namespace: {namespace}, query: {search_str}."
+        )
 
         if admin is None:
             admin = []
@@ -381,15 +390,15 @@ class PEPDatabaseAnnotation:
     def _add_order_by_keyword(
         statement: Select, by: str = "update_date", desc: bool = False
     ) -> Select:
-        """
-        Add order by clause to sqlalchemy statement
+        """Add an ORDER BY clause to a SELECT statement.
 
-        :param statement: sqlalchemy representation of a SELECT statement.
-        :param by: sort the result-set by the information
-            Options: ["name", "update_date", "submission_date", "stars"]
-            [Default: "update_date"]
-        :param desc: Sort the records in descending order. [Default: False]
-        :return: sqlalchemy representation of a SELECT statement with order by keyword
+        Args:
+            statement: SQLAlchemy SELECT statement to augment.
+            by: Sort field — "name", "update_date", "submission_date", or "stars".
+            desc: Sort in descending order if True.
+
+        Returns:
+            Statement with ORDER BY applied.
         """
         if by == "update_date":
             order_by_obj = Projects.last_update_date
@@ -421,15 +430,17 @@ class PEPDatabaseAnnotation:
         admin_list: str | list[str] | None = None,
         tag: str = None,
     ) -> Select:
-        """
-        Add where clause to sqlalchemy statement (in project search)
+        """Add a WHERE clause to a project search statement.
 
-        :param statement: sqlalchemy representation of a SELECT statement.
-        :param namespace: project namespace sql:(where namespace = "")
-        :param search_str: search string that has to be found in the name or tag
-        :param admin_list: list or string of admin rights to namespace
-        :param tag: tag of the projects (find projects with specific tag)
-        :return: sqlalchemy representation of a SELECT statement with where clause.
+        Args:
+            statement: SQLAlchemy SELECT statement to augment.
+            namespace: Filter to this namespace.
+            search_str: String to search in name, tag, and description.
+            admin_list: Namespace(s) with admin/private access.
+            tag: Exact tag to match.
+
+        Returns:
+            Statement with WHERE clause applied.
         """
         admin_list = tuple_converter(admin_list)
         if search_str:
@@ -459,15 +470,16 @@ class PEPDatabaseAnnotation:
         filter_start_date: str | None,
         filter_end_date: str | None = None,
     ) -> Select:
-        """
-        Add filter to where clause to sqlalchemy statement (in project search)
+        """Add a date range filter to a SELECT statement.
 
-        :param statement: sqlalchemy representation of a SELECT statement with where clause
-        :param filter_by: data to use filter on.
-            Options: ["submission_date", "last_update_date"]
-        :param filter_start_date: Filter start date. Format: "YYYY:MM:DD"
-        :param filter_end_date: Filter end date. Format: "YYYY:MM:DD". if None: present date will be used
-        :return: sqlalchemy representation of a SELECT statement with where clause with added filter
+        Args:
+            statement: SQLAlchemy SELECT statement to augment.
+            filter_by: Date field to filter on — "submission_date" or "last_update_date".
+            filter_start_date: Range start in YYYY/MM/DD format.
+            filter_end_date: Range end in YYYY/MM/DD format (default: today).
+
+        Returns:
+            Statement with date filter applied.
         """
         if filter_by and filter_start_date:
             start_date = convert_date_string_to_date(filter_start_date)
@@ -488,7 +500,9 @@ class PEPDatabaseAnnotation:
             return statement
         else:
             if filter_by:
-                _LOGGER.warning("filter_start_date was not provided, skipping filter...")
+                _LOGGER.warning(
+                    "filter_start_date was not provided, skipping filter..."
+                )
             return statement
 
     def get_project_number_in_namespace(
@@ -496,17 +510,21 @@ class PEPDatabaseAnnotation:
         namespace: str,
         admin: str | list[str] | None = None,
     ) -> int:
-        """
-        Get number of found projects by providing search string.
+        """Get the number of projects in a namespace.
 
-        :param namespace: namespace where to search for a project
-        :param admin: True, if user is admin of the namespace [Default: False]
-        :return Integer: number of projects in the namepsace
+        Args:
+            namespace: Namespace to count projects in.
+            admin: Namespace(s) with admin/private access.
+
+        Returns:
+            Number of accessible projects in the namespace.
         """
         if admin is None:
             admin = []
         statement = (
-            select(func.count()).select_from(Projects).where(Projects.namespace == namespace)
+            select(func.count())
+            .select_from(Projects)
+            .where(Projects.namespace == namespace)
         )
         statement = statement.where(
             or_(Projects.private.is_(False), Projects.namespace.in_(admin))
@@ -524,16 +542,14 @@ class PEPDatabaseAnnotation:
         registry_paths: list[str],
         admin: str | list[str] | None = None,
     ) -> AnnotationList:
-        """
-        Get project annotations by providing list of registry paths.
+        """Get project annotations for a list of registry paths in a single query.
 
-        :param registry_paths: registry path string or list of registry paths
-        :param admin: list of namespaces where user is admin
-        :return: pydantic model: AnnotationReturnModel(
-            limit:
-            offset:
-            count:
-            result: List [AnnotationModel])
+        Args:
+            registry_paths: List of registry paths ("namespace/name:tag").
+            admin: Namespace(s) where the caller has admin rights.
+
+        Returns:
+            AnnotationList preserving the input order (missing projects returned as None).
         """
         admin_tuple = tuple_converter(admin)
 
@@ -624,30 +640,29 @@ class PEPDatabaseAnnotation:
         filter_end_date: str | None = None,
         pep_type: Literal["pep", "pop"] | None = None,
     ) -> list[RegistryPath]:
-        """
-        Retrieve a list of projects by providing a search string.
-        This function serves as a lightweight version of the full 'get' function,
-        returning only a list of registry paths without annotations.
-        It is designed for use cases where a large list of projects is needed with minimal processing time.
+        """Retrieve a list of registry paths matching the given filters.
 
-        :param namespace: namespace where to search for a project
-        :param search_str: search string that has to be found in the name or tag
-        :param admin: True, if user is admin of the namespace [Default: False]
-        :param limit: limit of return results
-        :param offset: number of results off set (that were already showed)
-        :param order_by: sort the result-set by the information
-            Options: ["name", "update_date", "submission_date", "stars"]
-            [Default: "update_date"]
-        :param order_desc: Sort the records in descending order. [Default: False]
-        :param filter_by: data to use filter on.
-            Options: ["submission_date", "last_update_date"]
-            [Default: filter won't be used]
-        :param filter_start_date: Filter start date. Format: "YYYY:MM:DD"
-        :param filter_end_date: Filter end date. Format: "YYYY:MM:DD". if None: present date will be used
-        :param pep_type: Get pep with specified type. Options: ["pep", "pop"]. Default: None, get all peps
-        :return: list of found projects with their annotations.
+        Lightweight alternative to get() — returns only registry paths, no annotation data.
+
+        Args:
+            namespace: Namespace to restrict the search to.
+            search_str: String to search in name, tag, and description.
+            admin: Namespace(s) with admin/private access.
+            limit: Maximum number of results.
+            offset: Number of results to skip.
+            order_by: Sort field — "name", "update_date", "submission_date", or "stars".
+            order_desc: Sort in descending order if True.
+            filter_by: Date field for range filter — "submission_date" or "last_update_date".
+            filter_start_date: Range start in YYYY/MM/DD format.
+            filter_end_date: Range end in YYYY/MM/DD format (default: today).
+            pep_type: Restrict to "pep" or "pop" (default: all).
+
+        Returns:
+            List of RegistryPath objects.
         """
-        _LOGGER.info(f"Running project search: (namespace: {namespace}, query: {search_str}.")
+        _LOGGER.info(
+            f"Running project search: (namespace: {namespace}, query: {search_str}."
+        )
 
         if admin is None:
             admin = []

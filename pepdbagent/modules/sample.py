@@ -23,7 +23,8 @@ class PEPDatabaseSample:
 
     def __init__(self, pep_db_engine: BaseEngine):
         """
-        :param pep_db_engine: pepdbengine object with sa engine
+        Args:
+            pep_db_engine: PEPDatabaseAgent engine object.
         """
         self._sa_engine = pep_db_engine.engine
         self._pep_db_engine = pep_db_engine
@@ -36,15 +37,20 @@ class PEPDatabaseSample:
         tag: str = DEFAULT_TAG,
         raw: bool = True,
     ) -> peprs.Sample | dict | None:
-        """
-        Retrieve sample from the database using namespace, name, tag, and sample_name
+        """Retrieve a sample from the database.
 
-        :param namespace: namespace of the project
-        :param name: name of the project (Default: name is taken from the project object)
-        :param tag: tag (or version) of the project.
-        :param sample_name: sample_name of the sample
-        :param raw: return raw dict or peprs.Sample object [Default: True]
-        :return: peprs.Sample object or raw dict
+        Args:
+            namespace: Namespace of the project.
+            name: Name of the project.
+            sample_name: Name of the sample.
+            tag: Tag of the project.
+            raw: Return raw dict if True, peprs.Sample object if False.
+
+        Returns:
+            Raw sample dict or peprs.Sample object.
+
+        Raises:
+            SampleNotFoundError: If the sample does not exist.
         """
         statement_sample = select(Samples).where(
             and_(
@@ -97,18 +103,18 @@ class PEPDatabaseSample:
         update_dict: dict,
         full_update: bool = False,
     ) -> None:
-        """
-        Update one sample in the database
+        """Update a sample in the database.
 
-        :param namespace: namespace of the project
-        :param name: name of the project (Default: name is taken from the project object)
-        :param tag: tag (or version) of the project.
-        :param sample_name: sample_name of the sample
-        :param update_dict: dictionary with sample data (key: value pairs). e.g.
-            {"sample_name": "sample1",
-            "sample_protocol": "sample1 protocol"}
-        :param full_update: if True, update all sample fields, if False, update only fields from update_dict
-        :return: None
+        Args:
+            namespace: Namespace of the project.
+            name: Name of the project.
+            tag: Tag of the project.
+            sample_name: Name of the sample.
+            update_dict: Dict of fields to update, e.g., {"sample_name": "s1", "protocol": "rna"}.
+            full_update: Replace all sample fields if True, merge if False.
+
+        Raises:
+            SampleNotFoundError: If the sample does not exist.
         """
         statement = select(Samples).where(
             and_(
@@ -143,7 +149,9 @@ class PEPDatabaseSample:
                     sample_mapping.sample.update(update_dict)
                 try:
                     sample_mapping.sample_name = sample_mapping.sample[
-                        project_mapping.config.get(SAMPLE_TABLE_INDEX_KEY, "sample_name")
+                        project_mapping.config.get(
+                            SAMPLE_TABLE_INDEX_KEY, "sample_name"
+                        )
                     ]
                 except KeyError:
                     raise KeyError(
@@ -153,7 +161,9 @@ class PEPDatabaseSample:
                 # This line needed due to: https://github.com/sqlalchemy/sqlalchemy/issues/5218
                 flag_modified(sample_mapping, "sample")
 
-                project_mapping.last_update_date = datetime.datetime.now(datetime.timezone.utc)
+                project_mapping.last_update_date = datetime.datetime.now(
+                    datetime.timezone.utc
+                )
 
                 session.commit()
             else:
@@ -169,17 +179,17 @@ class PEPDatabaseSample:
         sample_dict: dict,
         overwrite: bool = False,
     ) -> None:
-        """
-        Add one sample to the project in the database
+        """Add a sample to a project in the database.
 
-        :param namespace: namespace of the project
-        :param name: name of the project
-        :param tag: tag (or version) of the project.
-        :param overwrite: overwrite sample if it already exists
-        :param sample_dict: dictionary with sample data (key: value pairs). e.g.
-            {"sample_name": "sample1",
-            "sample_protocol": "sample1 protocol"}
-        :return: None
+        Args:
+            namespace: Namespace of the project.
+            name: Name of the project.
+            tag: Tag of the project.
+            sample_dict: Sample data, e.g., {"sample_name": "s1", "protocol": "rna"}.
+            overwrite: Overwrite the sample if it already exists.
+
+        Raises:
+            SampleAlreadyExistsError: If the sample exists and overwrite is False.
         """
 
         with Session(self._sa_engine) as session:
@@ -201,7 +211,10 @@ class PEPDatabaseSample:
                     f"Sample index key {project_mapping.config.get('sample_table_index', 'sample_name')} not found in sample dict"
                 )
             statement = select(Samples).where(
-                and_(Samples.project_id == project_mapping.id, Samples.sample_name == sample_name)
+                and_(
+                    Samples.project_id == project_mapping.id,
+                    Samples.sample_name == sample_name,
+                )
             )
             sample_mapping = session.scalar(statement)
 
@@ -228,17 +241,21 @@ class PEPDatabaseSample:
                     parent_guid=self._get_last_sample_guid(project_mapping.id),
                 )
                 project_mapping.number_of_samples += 1
-                project_mapping.last_update_date = datetime.datetime.now(datetime.timezone.utc)
+                project_mapping.last_update_date = datetime.datetime.now(
+                    datetime.timezone.utc
+                )
 
                 session.add(sample_mapping)
                 session.commit()
 
     def _get_last_sample_guid(self, project_id: int) -> str:
-        """
-        Get last sample guid from the project
+        """Get the guid of the last sample in the project chain.
 
-        :param project_id: project_id of the project
-        :return: guid of the last sample
+        Args:
+            project_id: Database id of the project.
+
+        Returns:
+            GUID of the last sample.
         """
         statement = select(Samples).where(Samples.project_id == project_id)
         with Session(self._sa_engine) as session:
@@ -262,14 +279,16 @@ class PEPDatabaseSample:
         tag: str,
         sample_name: str,
     ) -> None:
-        """
-        Delete one sample from the database
+        """Delete a sample from the database.
 
-        :param namespace: namespace of the project
-        :param name: name of the project
-        :param tag: tag (or version) of the project.
-        :param sample_name: sample_name of the sample
-        :return: None
+        Args:
+            namespace: Namespace of the project.
+            name: Name of the project.
+            tag: Tag of the project.
+            sample_name: Name of the sample.
+
+        Raises:
+            SampleNotFoundError: If the sample does not exist.
         """
         statement = select(Samples).where(
             and_(
@@ -304,7 +323,9 @@ class PEPDatabaseSample:
                 if child_mapping:
                     child_mapping.parent_mapping = parent_mapping
                 project_mapping.number_of_samples -= 1
-                project_mapping.last_update_date = datetime.datetime.now(datetime.timezone.utc)
+                project_mapping.last_update_date = datetime.datetime.now(
+                    datetime.timezone.utc
+                )
                 session.commit()
             else:
                 raise SampleNotFoundError(

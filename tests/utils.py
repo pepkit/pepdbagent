@@ -70,7 +70,9 @@ class PEPDBAgentContextManager:
     Class with context manager to connect to database. Adds data and drops everything from the database upon exit to ensure.
     """
 
-    def __init__(self, url: str = DSN, add_data: bool = False, add_schemas=True, echo=False):
+    def __init__(
+        self, url: str = DSN, add_data: bool = False, add_schemas=True, echo=False
+    ):
         """
         :param url: database url e.g. "postgresql+psycopg://postgres:docker@localhost:5432/pep-db"
         :param add_data: add data to the database

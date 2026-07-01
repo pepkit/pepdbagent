@@ -50,9 +50,7 @@ class Base(DeclarativeBase):
 
 @event.listens_for(Base.metadata, "after_create")
 def receive_after_create(target, connection, tables, **kw) -> None:
-    """
-    listen for the 'after_create' event
-    """
+    """Listen for the 'after_create' event."""
     if tables:
         _LOGGER.info("A table was created")
     else:
@@ -75,7 +73,9 @@ class Projects(Base):
     __tablename__ = "projects"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    namespace: Mapped[str] = mapped_column(ForeignKey("users.namespace", ondelete="CASCADE"))
+    namespace: Mapped[str] = mapped_column(
+        ForeignKey("users.namespace", ondelete="CASCADE")
+    )
     name: Mapped[str] = mapped_column()
     tag: Mapped[str] = mapped_column()
     digest: Mapped[str] = mapped_column(String(32))
@@ -92,7 +92,9 @@ class Projects(Base):
     schema_id: Mapped[int | None] = mapped_column(
         ForeignKey("schema_versions.id", ondelete="SET NULL"), nullable=True
     )
-    schema_mapping: Mapped["SchemaVersions"] = relationship("SchemaVersions", lazy="joined")
+    schema_mapping: Mapped["SchemaVersions"] = relationship(
+        "SchemaVersions", lazy="joined"
+    )
 
     pop: Mapped[bool | None] = mapped_column(default=False)
     samples_mapping: Mapped[list["Samples"]] = relationship(
@@ -126,7 +128,9 @@ class Projects(Base):
         cascade="save-update, merge, refresh-expire",
     )
 
-    namespace_mapping: Mapped["User"] = relationship("User", back_populates="projects_mapping")
+    namespace_mapping: Mapped["User"] = relationship(
+        "User", back_populates="projects_mapping"
+    )
 
     history_mapping: Mapped[list["HistoryProjects"]] = relationship(
         back_populates="project_mapping", cascade="all, delete-orphan"
@@ -149,7 +153,9 @@ class Samples(Base):
     sample_name: Mapped[str | None] = mapped_column()
     guid: Mapped[str | None] = mapped_column(nullable=False, unique=True)
 
-    submission_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
+    submission_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date
+    )
     last_update_date: Mapped[datetime.datetime | None] = mapped_column(
         default=deliver_update_date,
         onupdate=deliver_update_date,
@@ -164,7 +170,9 @@ class Samples(Base):
     parent_mapping: Mapped["Samples"] = relationship(
         "Samples", remote_side=guid, back_populates="child_mapping"
     )
-    child_mapping: Mapped["Samples"] = relationship("Samples", back_populates="parent_mapping")
+    child_mapping: Mapped["Samples"] = relationship(
+        "Samples", back_populates="parent_mapping"
+    )
 
     views: Mapped[list["ViewSampleAssociation"] | None] = relationship(
         back_populates="sample", cascade="all, delete-orphan"
@@ -183,7 +191,9 @@ class Subsamples(Base):
     subsample_number: Mapped[int]
     row_number: Mapped[int]
     project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
-    subsample_mapping: Mapped["Projects"] = relationship(back_populates="subsamples_mapping")
+    subsample_mapping: Mapped["Projects"] = relationship(
+        back_populates="subsamples_mapping"
+    )
 
 
 class User(Base):
@@ -218,8 +228,12 @@ class Stars(Base):
 
     __tablename__ = "stars"
 
-    user_id = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    project_id = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+    user_id = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    project_id = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
+    )
     user_mapping: Mapped[list["User"]] = relationship(back_populates="stars_mapping")
     project_mapping: Mapped["Projects"] = relationship(back_populates="stars_mapping")
     star_date: Mapped[datetime.datetime] = mapped_column(
@@ -255,19 +269,26 @@ class ViewSampleAssociation(Base):
 
     __tablename__ = "views_samples"
 
-    sample_id = mapped_column(ForeignKey("samples.id", ondelete="CASCADE"), primary_key=True)
-    view_id = mapped_column(ForeignKey("views.id", ondelete="CASCADE"), primary_key=True)
+    sample_id = mapped_column(
+        ForeignKey("samples.id", ondelete="CASCADE"), primary_key=True
+    )
+    view_id = mapped_column(
+        ForeignKey("views.id", ondelete="CASCADE"), primary_key=True
+    )
     sample: Mapped["Samples"] = relationship(back_populates="views")
     view: Mapped["Views"] = relationship(back_populates="samples")
 
 
 class HistoryProjects(Base):
-
     __tablename__ = "project_history"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
-    user: Mapped[str] = mapped_column(ForeignKey("users.namespace", ondelete="SET NULL"))
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE")
+    )
+    user: Mapped[str] = mapped_column(
+        ForeignKey("users.namespace", ondelete="SET NULL")
+    )
     update_time: Mapped[datetime.datetime] = mapped_column(
         TIMESTAMP(timezone=True), default=deliver_update_date
     )
@@ -292,11 +313,12 @@ class UpdateTypes(enum.Enum):
 
 
 class HistorySamples(Base):
-
     __tablename__ = "sample_history"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    history_id: Mapped[int] = mapped_column(ForeignKey("project_history.id", ondelete="CASCADE"))
+    history_id: Mapped[int] = mapped_column(
+        ForeignKey("project_history.id", ondelete="CASCADE")
+    )
     guid: Mapped[str] = mapped_column(nullable=False)
     parent_guid: Mapped[str | None] = mapped_column(nullable=True)
     sample_json: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
@@ -311,7 +333,9 @@ class SchemaRecords(Base):
     __tablename__ = "schema_records"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    namespace: Mapped[str] = mapped_column(ForeignKey("users.namespace", ondelete="CASCADE"))
+    namespace: Mapped[str] = mapped_column(
+        ForeignKey("users.namespace", ondelete="CASCADE")
+    )
     name: Mapped[str] = mapped_column(nullable=False)
     maintainers: Mapped[str] = mapped_column(nullable=True)
     lifecycle_stage: Mapped[str] = mapped_column(nullable=True)
@@ -329,14 +353,18 @@ class SchemaRecords(Base):
         cascade="all, delete-orphan",
         order_by="SchemaVersions.version.desc()",
     )
-    user_mapping: Mapped["User"] = relationship("User", back_populates="schemas_mapping")
+    user_mapping: Mapped["User"] = relationship(
+        "User", back_populates="schemas_mapping"
+    )
 
 
 class SchemaVersions(Base):
     __tablename__ = "schema_versions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    schema_id: Mapped[int] = mapped_column(ForeignKey("schema_records.id", ondelete="CASCADE"))
+    schema_id: Mapped[int] = mapped_column(
+        ForeignKey("schema_records.id", ondelete="CASCADE")
+    )
     version: Mapped[str] = mapped_column(nullable=False)
     schema_value: Mapped[dict] = mapped_column(JSON, server_default=FetchedValue())
     release_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
@@ -353,7 +381,10 @@ class SchemaVersions(Base):
     )
 
     tags_mapping: Mapped[list["SchemaTags"]] = relationship(
-        "SchemaTags", back_populates="schema_mapping", lazy="joined", cascade="all, delete-orphan"
+        "SchemaTags",
+        back_populates="schema_mapping",
+        lazy="joined",
+        cascade="all, delete-orphan",
     )
 
 
@@ -373,13 +404,16 @@ class SchemaTags(Base):
 
 
 class TarNamespace(Base):
-
     __tablename__ = "namespace_archives"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    namespace: Mapped[str] = mapped_column(ForeignKey("users.namespace", ondelete="CASCADE"))
+    namespace: Mapped[str] = mapped_column(
+        ForeignKey("users.namespace", ondelete="CASCADE")
+    )
     file_path: Mapped[str] = mapped_column(nullable=False)
-    creation_date: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
+    creation_date: Mapped[datetime.datetime] = mapped_column(
+        default=deliver_update_date
+    )
     number_of_projects: Mapped[int] = mapped_column(default=0)
     file_size: Mapped[int] = mapped_column(nullable=False)
 
@@ -414,20 +448,18 @@ class BaseEngine:
         echo: bool = False,
         run_migrations: bool = False,
     ) -> None:
-        """
-        Initialize connection to the pep_db database. You can use The basic connection parameters
-        or libpq connection string.
-        :param host: database server address e.g., localhost or an IP address.
-        :param port: the port number that defaults to 5432 if it is not provided.
-        :param database: the name of the database that you want to connect.
-        :param user: the username used to authenticate.
-        :param password: password used to authenticate.
-        :param drivername: driver used in
-        :param dsn: libpq connection string using the dsn parameter
-        (e.g. 'postgresql://user_name:password@host_name:port/db_name')
+        """Initialize connection to the pep_db database.
 
-        :param echo: If True, the Engine will log all statements as well as a repr() of their parameter lists to the
-        :param run_migrations: If True, run database migrations
+        Args:
+            host: Database server address.
+            port: Port number (default: 5432).
+            database: Database name.
+            user: Username for authentication.
+            password: Password for authentication.
+            drivername: Database driver.
+            dsn: libpq connection string, e.g., "postgresql://user:pass@host:port/db".
+            echo: Log all SQL statements if True.
+            run_migrations: Run database migrations if True.
         """
         if not dsn:
             dsn = URL.create(
@@ -439,7 +471,9 @@ class BaseEngine:
                 drivername=drivername,
             )
         if run_migrations:
-            dsn_with_password = f"{drivername}://{user}:{password}@{host}:{port}/{database}"
+            dsn_with_password = (
+                f"{drivername}://{user}:{password}@{host}:{port}/{database}"
+            )
             self.run_db_migration(dsn_with_password)
 
         self._engine = create_engine(dsn, echo=echo)
@@ -447,11 +481,10 @@ class BaseEngine:
         self.check_db_connection()
 
     def create_schema(self, engine=None) -> None:
-        """
-        Create sql schema in the database.
+        """Create SQL schema in the database.
 
-        :param engine: sqlalchemy engine [Default: None]
-        :return: None
+        Args:
+            engine: SQLAlchemy engine (default: uses internal engine).
         """
         if not engine:
             engine = self._engine
@@ -459,12 +492,13 @@ class BaseEngine:
         return None
 
     def session_execute(self, statement: Select) -> Result:
-        """
-        Execute statement using sqlalchemy statement
+        """Execute a SQLAlchemy statement.
 
-        :param statement: SQL query or a SQL expression that is constructed using
-            SQLAlchemy's SQL expression language
-        :return: query result represented with declarative base
+        Args:
+            statement: SQL query or expression to execute.
+
+        Returns:
+            Query result.
         """
         _LOGGER.debug(f"Executing statement: {statement}")
         with Session(self._engine) as session:
@@ -474,9 +508,7 @@ class BaseEngine:
 
     @property
     def session(self) -> Session:
-        """
-        :return: started sqlalchemy session
-        """
+        """Return a started SQLAlchemy session."""
         return self._start_session()
 
     @property
@@ -499,11 +531,10 @@ class BaseEngine:
             raise SchemaError()
 
     def delete_schema(self, engine=None) -> None:
-        """
-        Delete sql schema in the database.
+        """Delete SQL schema from the database.
 
-        :param engine: sqlalchemy engine [Default: None]
-        :return: None
+        Args:
+            engine: SQLAlchemy engine (default: uses internal engine).
         """
         if not engine:
             engine = self._engine
@@ -511,9 +542,7 @@ class BaseEngine:
         return None
 
     def run_db_migration(self, database_url: str) -> None:
-        """
-        Migrate the database to the required version.
-        """
+        """Migrate the database to the latest version."""
         script_directory = os.path.dirname(os.path.abspath(__file__))
         script_location = os.path.join(script_directory, "alembic")
 

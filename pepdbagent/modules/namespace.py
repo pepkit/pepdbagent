@@ -33,7 +33,8 @@ class PEPDatabaseNamespace:
 
     def __init__(self, pep_db_engine: BaseEngine):
         """
-        :param pep_db_engine: pepdbengine object with sa engine
+        Args:
+            pep_db_engine: PEPDatabaseAgent engine object.
         """
         self._sa_engine = pep_db_engine.engine
         self._pep_db_engine = pep_db_engine
@@ -45,21 +46,20 @@ class PEPDatabaseNamespace:
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
     ) -> NamespaceList:
+        """Search available namespaces in the database.
+
+        Args:
+            query: Search string.
+            admin: Namespaces where the user has admin rights.
+            limit: Maximum number of results to return.
+            offset: Number of results to skip.
+
+        Returns:
+            NamespaceList with count, limit, offset, and results.
         """
-        Search available namespaces in the database
-        :param query: search string
-        :param admin: list of namespaces where user is admin
-        :param offset: offset of the search
-        :param limit: limit of the search
-        :return: Search result:
-            {
-                total number of results
-                search limit
-                search offset
-                search results
-            }
-        """
-        _LOGGER.info(f"Getting namespaces annotation with provided info: (query: {query})")
+        _LOGGER.info(
+            f"Getting namespaces annotation with provided info: (query: {query})"
+        )
         admin_tuple = tuple_converter(admin)
         return NamespaceList(
             count=self._count_namespace(search_str=query, admin_nsp=admin_tuple),
@@ -80,19 +80,16 @@ class PEPDatabaseNamespace:
         limit: int = DEFAULT_LIMIT,
         offset: int = DEFAULT_OFFSET,
     ) -> list[Namespace]:
-        """
-        Search for namespace by providing search string.
+        """Search for namespaces matching a search string.
 
-        :param search_str: string of symbols, words, keywords to search in the
-            namespace name.
-        :param admin_nsp: tuple of namespaces where project can be retrieved if they are privet
-        :param limit: limit of return results
-        :param offset: number of results off set (that were already showed)
-        :return: list of dict with structure {
-                namespace,
-                number_of_projects,
-                number_of_samples,
-            }
+        Args:
+            search_str: Keywords to search in namespace names.
+            admin_nsp: Namespaces accessible even when private.
+            limit: Maximum number of results.
+            offset: Number of results to skip.
+
+        Returns:
+            List of Namespace objects.
         """
         statement = (
             select(
@@ -126,14 +123,17 @@ class PEPDatabaseNamespace:
             )
         return results_list
 
-    def _count_namespace(self, search_str: str = None, admin_nsp: tuple = tuple()) -> int:
-        """
-        Get number of found namespace. [This function is related to _get_namespaces]
+    def _count_namespace(
+        self, search_str: str = None, admin_nsp: tuple = tuple()
+    ) -> int:
+        """Count namespaces matching a search string.
 
-        :param search_str: string of symbols, words, keywords to search in the
-            namespace name.
-        :param admin_nsp: tuple of namespaces where project can be retrieved if they are privet
-        :return: number of found namespaces
+        Args:
+            search_str: Keywords to search in namespace names.
+            admin_nsp: Namespaces accessible even when private.
+
+        Returns:
+            Number of matching namespaces.
         """
         statement = select(
             func.count(distinct(Projects.namespace)).label("number_of_namespaces")
@@ -154,13 +154,15 @@ class PEPDatabaseNamespace:
         search_str: str = None,
         admin_list: tuple[str, ...] | list[str] | str | None = None,
     ) -> Select:
-        """
-        Add where clause to sqlalchemy statement (in namespace search)
+        """Add a WHERE clause to a namespace search statement.
 
-        :param statement: sqlalchemy representation of a SELECT statement.
-        :param search_str: search string that has to be found namespace
-        :param admin_list: list or string of admin rights to namespace
-        :return: sqlalchemy representation of a SELECT statement with where clause.
+        Args:
+            statement: SQLAlchemy SELECT statement to augment.
+            search_str: String to search in namespace names.
+            admin_list: Namespaces with admin/private access.
+
+        Returns:
+            Statement with WHERE clause applied.
         """
         if search_str:
             sql_search_str = f"%{search_str}%"
@@ -180,21 +182,17 @@ class PEPDatabaseNamespace:
         page_size: int = DEFAULT_LIMIT_INFO,
         order_by: str = "number_of_projects",
     ) -> ListOfNamespaceInfo:
-        """
-        Get list of top n namespaces in the database
-        ! Warning: this function counts number of all projects in namespaces.
-        ! it does not filter private projects (It was done for efficiency reasons)
+        """Get a paginated list of top namespaces.
 
-        :param page: page number
-        :param page_size: number of namespaces to show
-        :param order_by: order by field. Options: number_of_projects, number_of_schemas [Default: number_of_projects]
+        Warning: counts all projects including private ones (by design, for efficiency).
 
-        :return: number_of_namespaces: int
-                 limit: int
-                 results: { namespace: str
-                            number_of_projects: int
-                            number_of_schemas: int
-                            }
+        Args:
+            page: Page number (zero-based).
+            page_size: Number of namespaces per page.
+            order_by: Sort field — "number_of_projects" or "number_of_schemas".
+
+        Returns:
+            ListOfNamespaceInfo with pagination metadata and results.
         """
 
         statement = select(User)
@@ -205,8 +203,12 @@ class PEPDatabaseNamespace:
             statement = statement.order_by(User.number_of_schemas.desc())
 
         with Session(self._sa_engine) as session:
-            results = session.scalars(statement.limit(page_size).offset(page_size * page))
-            total_number_of_namespaces = session.execute(select(func.count(User.id))).one()[0]
+            results = session.scalars(
+                statement.limit(page_size).offset(page_size * page)
+            )
+            total_number_of_namespaces = session.execute(
+                select(func.count(User.id))
+            ).one()[0]
 
             list_of_results = []
             for result in results:
@@ -228,11 +230,14 @@ class PEPDatabaseNamespace:
             )
 
     def stats(self, namespace: str = None, monthly: bool = False) -> NamespaceStats:
-        """
-        Get statistics for project in the namespace or for all projects in the database.
+        """Get submission/update statistics for a namespace or the whole database.
 
-        :param namespace: namespace name [Default: None (all projects)]
-        :param monthly: if True, get statistics for the last 3 years monthly, else for the last 3 months daily.
+        Args:
+            namespace: Namespace to filter by (default: all namespaces).
+            monthly: Return monthly stats for 3 years if True, daily stats for 3 months if False.
+
+        Returns:
+            NamespaceStats with projects_updated and projects_created histograms.
         """
         if monthly:
             number_of_month = 12 * 3
@@ -247,15 +252,21 @@ class PEPDatabaseNamespace:
             Projects.submission_date.between(three_month_ago, today_date)
         )
         if namespace:
-            statement_last_update = statement_last_update.where(Projects.namespace == namespace)
-            statement_create_date = statement_create_date.where(Projects.namespace == namespace)
+            statement_last_update = statement_last_update.where(
+                Projects.namespace == namespace
+            )
+            statement_create_date = statement_create_date.where(
+                Projects.namespace == namespace
+            )
 
         with Session(self._sa_engine) as session:
             update_results = session.execute(statement_last_update).all()
             create_results = session.execute(statement_create_date).all()
 
         if not update_results:
-            raise NamespaceNotFoundError(f"Namespace {namespace} not found in the database")
+            raise NamespaceNotFoundError(
+                f"Namespace {namespace} not found in the database"
+            )
 
         if monthly:
             year_month_str_submission = [
@@ -282,11 +293,10 @@ class PEPDatabaseNamespace:
         )
 
     def upload_tar_info(self, tar_info: TarNamespaceModel) -> None:
-        """
-        Upload metadata of tar GEO files
+        """Upload metadata for a namespace tar archive.
 
-        tar_info: TarNamespaceModel
-        :return: None
+        Args:
+            tar_info: Tar archive metadata.
         """
 
         with Session(self._sa_engine) as session:
@@ -303,12 +313,13 @@ class PEPDatabaseNamespace:
             _LOGGER.info("Geo tar info was uploaded successfully!")
 
     def get_tar_info(self, namespace: str) -> TarNamespaceModelReturn:
-        """
-        Get metadata of tar GEO files
+        """Get metadata for namespace tar archives.
 
-        :param namespace: namespace of the tar files
+        Args:
+            namespace: Namespace of the tar files.
 
-        :return: list with geo data
+        Returns:
+            TarNamespaceModelReturn with count and list of archive metadata.
         """
 
         with Session(self._sa_engine) as session:
@@ -334,19 +345,18 @@ class PEPDatabaseNamespace:
         return TarNamespaceModelReturn(count=len(results), results=results)
 
     def delete_tar_info(self, namespace: str = None) -> None:
-        """
-        Delete all metadata of tar GEO files
+        """Delete tar archive metadata for a namespace.
 
-        :param namespace: namespace of the tar files
-
-        :return: None
+        Args:
+            namespace: Namespace to delete archives for (default: all namespaces).
         """
 
         with Session(self._sa_engine) as session:
-
             delete_statement = delete(TarNamespace)
             if namespace:
-                delete_statement = delete_statement.where(TarNamespace.namespace == namespace)
+                delete_statement = delete_statement.where(
+                    TarNamespace.namespace == namespace
+                )
             session.execute(delete_statement)
             session.commit()
             _LOGGER.info("Geo tar info was deleted successfully!")

@@ -208,7 +208,9 @@ class TestProjectHistory:
 
             assert len(history.history) == 2
 
-            agent.project.delete_history(namespace, name, tag="default", history_id=None)
+            agent.project.delete_history(
+                namespace, name, tag="default", history_id=None
+            )
 
             history = agent.project.get_history(namespace, name, tag="default")
             assert len(history.history) == 0
@@ -300,6 +302,8 @@ class TestProjectHistory:
 
             agent.project.restore(namespace, name, tag="default", history_id=1)
 
-            restored_project = agent.project.get(namespace, name, tag="default", with_id=False)
+            restored_project = agent.project.get(
+                namespace, name, tag="default", with_id=False
+            )
 
             assert prj_org == restored_project
