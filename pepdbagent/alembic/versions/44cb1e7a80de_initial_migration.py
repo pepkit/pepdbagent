@@ -8,8 +8,8 @@ Create Date: 2025-03-27 12:50:09.406217
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import FetchedValue
 
@@ -64,7 +64,9 @@ def upgrade() -> None:
         sa.UniqueConstraint("namespace", "name"),
     )
     op.create_index(op.f("ix_schema_groups_id"), "schema_groups", ["id"], unique=False)
-    op.create_index(op.f("ix_schema_groups_name"), "schema_groups", ["name"], unique=False)
+    op.create_index(
+        op.f("ix_schema_groups_name"), "schema_groups", ["name"], unique=False
+    )
     op.create_index(
         op.f("ix_schema_groups_namespace"), "schema_groups", ["namespace"], unique=False
     )
@@ -87,7 +89,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("namespace", "name"),
     )
-    op.create_index(op.f("ix_schemas_description"), "schemas", ["description"], unique=False)
+    op.create_index(
+        op.f("ix_schemas_description"), "schemas", ["description"], unique=False
+    )
     op.create_index(op.f("ix_schemas_id"), "schemas", ["id"], unique=False)
     op.create_index(op.f("ix_schemas_name"), "schemas", ["name"], unique=False)
     op.create_table(
@@ -113,7 +117,9 @@ def upgrade() -> None:
         sa.Column("schema_id", sa.Integer(), nullable=True),
         sa.Column("pop", sa.Boolean(), nullable=True),
         sa.Column("forked_from_id", sa.Integer(), nullable=True),
-        sa.ForeignKeyConstraint(["forked_from_id"], ["projects.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(
+            ["forked_from_id"], ["projects.id"], ondelete="SET NULL"
+        ),
         sa.ForeignKeyConstraint(["namespace"], ["users.namespace"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["schema_id"], ["schemas.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
@@ -225,7 +231,9 @@ def upgrade() -> None:
             sa.Enum("UPDATE", "INSERT", "DELETE", name="updatetypes"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(["history_id"], ["project_history.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["history_id"], ["project_history.id"], ondelete="CASCADE"
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
@@ -249,8 +257,12 @@ def downgrade() -> None:
     op.drop_table("stars")
     op.drop_table("samples")
     op.drop_table("project_history")
-    op.drop_index(op.f("ix_schema_group_relations_schema_id"), table_name="schema_group_relations")
-    op.drop_index(op.f("ix_schema_group_relations_group_id"), table_name="schema_group_relations")
+    op.drop_index(
+        op.f("ix_schema_group_relations_schema_id"), table_name="schema_group_relations"
+    )
+    op.drop_index(
+        op.f("ix_schema_group_relations_group_id"), table_name="schema_group_relations"
+    )
     op.drop_table("schema_group_relations")
     op.drop_table("projects")
     op.drop_index(op.f("ix_schemas_name"), table_name="schemas")

@@ -114,7 +114,9 @@ class TestAnnotation:
     @pytest.mark.parametrize("admin", ["private_test"])
     def test_order_by(self, namespace, admin, order_by, first_name):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            result = agent.annotation.get(namespace=namespace, admin=admin, order_by=order_by)
+            result = agent.annotation.get(
+                namespace=namespace, admin=admin, order_by=order_by
+            )
             assert result.results[0].name == first_name
 
     @pytest.mark.parametrize(
@@ -164,7 +166,9 @@ class TestAnnotation:
     )
     def test_name_search_private(self, namespace, query, found_number):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            result = agent.annotation.get(namespace=namespace, query=query, admin="private_test")
+            result = agent.annotation.get(
+                namespace=namespace, query=query, admin="private_test"
+            )
             assert len(result.results) == found_number
 
     @pytest.mark.parametrize(
@@ -289,7 +293,6 @@ class TestAnnotation:
     )
     def test_get_annotation_by_rp_list(self, rp_list, admin, found_number):
         with PEPDBAgentContextManager(add_data=True) as agent:
-
             result = agent.annotation.get_by_rp_list(rp_list)
             assert len(result.results) == found_number
 
@@ -306,7 +309,6 @@ class TestAnnotation:
     )
     def test_search_incorrect_incorrect_pep_type(self, namespace, query, found_number):
         with PEPDBAgentContextManager(add_data=True) as agent:
-
             with pytest.raises(ValueError):
                 agent.annotation.get(namespace=namespace, pep_type="incorrect")
 

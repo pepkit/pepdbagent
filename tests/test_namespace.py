@@ -109,11 +109,17 @@ class TestFavorites:
     )
     def test_remove_from_favorite(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            agent.user.add_project_to_favorites("namespace1", namespace, name, "default")
-            agent.user.add_project_to_favorites("namespace1", namespace, "amendments2", "default")
+            agent.user.add_project_to_favorites(
+                "namespace1", namespace, name, "default"
+            )
+            agent.user.add_project_to_favorites(
+                "namespace1", namespace, "amendments2", "default"
+            )
             result = agent.user.get_favorites("namespace1")
             assert result.count == len(result.results) == 2
-            agent.user.remove_project_from_favorites("namespace1", namespace, name, "default")
+            agent.user.remove_project_from_favorites(
+                "namespace1", namespace, name, "default"
+            )
             result = agent.user.get_favorites("namespace1")
             assert result.count == len(result.results) == 1
 
@@ -126,7 +132,9 @@ class TestFavorites:
     def test_remove_from_favorite_error(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
             with pytest.raises(ProjectNotInFavorites):
-                agent.user.remove_project_from_favorites("namespace1", namespace, name, "default")
+                agent.user.remove_project_from_favorites(
+                    "namespace1", namespace, name, "default"
+                )
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -136,9 +144,13 @@ class TestFavorites:
     )
     def test_favorites_duplication_error(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            agent.user.add_project_to_favorites("namespace1", namespace, name, "default")
+            agent.user.add_project_to_favorites(
+                "namespace1", namespace, name, "default"
+            )
             with pytest.raises(ProjectAlreadyInFavorites):
-                agent.user.add_project_to_favorites("namespace1", namespace, name, "default")
+                agent.user.add_project_to_favorites(
+                    "namespace1", namespace, name, "default"
+                )
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -148,7 +160,9 @@ class TestFavorites:
     )
     def test_annotation_favorite_number(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            agent.user.add_project_to_favorites("namespace1", namespace, name, "default")
+            agent.user.add_project_to_favorites(
+                "namespace1", namespace, name, "default"
+            )
             annotations_in_namespace = agent.annotation.get("namespace1")
 
             for prj_annot in annotations_in_namespace.results:
@@ -169,14 +183,12 @@ class TestUser:
 
     def test_create_user(self):
         with PEPDBAgentContextManager(add_data=True) as agent:
-
             agent.user.create_user("test_user")
 
             assert agent.user.exists("test_user")
 
     def test_delete_user(self):
         with PEPDBAgentContextManager(add_data=True) as agent:
-
             test_user = "test_user"
             agent.user.create_user(test_user)
             assert agent.user.exists(test_user)
@@ -185,7 +197,6 @@ class TestUser:
 
     def test_delete_user_deletes_projects(self):
         with PEPDBAgentContextManager(add_data=True) as agent:
-
             test_user = "namespace1"
 
             assert agent.user.exists(test_user)
