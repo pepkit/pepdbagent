@@ -1,13 +1,15 @@
-"""Package-level data"""
+"""Package-level data."""
+
+from importlib.metadata import version
 
 import coloredlogs
 import logmuse
 
-from pepdbagent._version import __version__
 from pepdbagent.pepdbagent import PEPDatabaseAgent
 
-__all__ = ["__version__", "PEPDatabaseAgent"]
+__version__ = version("pepdbagent")
 
+__all__ = ["__version__", "PEPDatabaseAgent"]
 
 _LOGGER = logmuse.init_logger("pepdbagent")
 coloredlogs.install(

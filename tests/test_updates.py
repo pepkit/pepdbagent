@@ -2,7 +2,10 @@ import peprs
 import pytest
 
 from pepdbagent.const import PEPHUB_SAMPLE_ID_KEY
-from pepdbagent.exceptions import ProjectDuplicatedSampleGUIDsError, SampleTableUpdateError
+from pepdbagent.exceptions import (
+    ProjectDuplicatedSampleGUIDsError,
+    SampleTableUpdateError,
+)
 
 from .utils import PEPDBAgentContextManager
 
@@ -27,7 +30,9 @@ class TestProjectUpdate:
                 tag="default",
                 update_dict={"name": new_name},
             )
-            assert agent.project.exists(namespace=namespace, name=new_name, tag="default")
+            assert agent.project.exists(
+                namespace=namespace, name=new_name, tag="default"
+            )
 
     @pytest.mark.parametrize(
         "namespace, name,new_name",
@@ -38,7 +43,9 @@ class TestProjectUpdate:
     )
     def test_update_project_name_in_config(self, namespace, name, new_name):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            prj = agent.project.get(namespace=namespace, name=name, raw=False, with_id=True)
+            prj = agent.project.get(
+                namespace=namespace, name=name, raw=False, with_id=True
+            )
             prj.name = new_name
             agent.project.update(
                 namespace=namespace,
@@ -46,7 +53,9 @@ class TestProjectUpdate:
                 tag="default",
                 update_dict={"project": prj},
             )
-            assert agent.project.exists(namespace=namespace, name=new_name, tag="default")
+            assert agent.project.exists(
+                namespace=namespace, name=new_name, tag="default"
+            )
 
     @pytest.mark.parametrize(
         "namespace, name, new_tag",
@@ -115,9 +124,13 @@ class TestProjectUpdate:
             ["namespace1", "amendments1", "desc1 f"],
         ],
     )
-    def test_update_project_description_in_config(self, namespace, name, new_description):
+    def test_update_project_description_in_config(
+        self, namespace, name, new_description
+    ):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            prj = agent.project.get(namespace=namespace, name=name, raw=False, with_id=True)
+            prj = agent.project.get(
+                namespace=namespace, name=name, raw=False, with_id=True
+            )
             prj.description = new_description
             agent.project.update(
                 namespace=namespace,
@@ -246,7 +259,9 @@ class TestProjectUpdate:
         ensure that update works correctly
         """
         with PEPDBAgentContextManager(add_data=True) as agent:
-            new_prj = agent.project.get(namespace=namespace, name=name, raw=False, with_id=True)
+            new_prj = agent.project.get(
+                namespace=namespace, name=name, raw=False, with_id=True
+            )
             prj_dict = new_prj.to_dict(raw=True, by_sample=True)
 
             prj_dict["samples"].append(
@@ -295,7 +310,9 @@ class TestUpdateProjectWithId:
         """
         with PEPDBAgentContextManager(add_data=True) as agent:
             peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
-            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+            prj = agent.project.get(
+                namespace=namespace, name=name, raw=True, with_id=True
+            )
 
             new_sample = {
                 "sample_name": "new_sample",
@@ -333,7 +350,9 @@ class TestUpdateProjectWithId:
     def test_insert_new_row(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
             peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
-            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+            prj = agent.project.get(
+                namespace=namespace, name=name, raw=True, with_id=True
+            )
 
             new_sample = {
                 "sample_name": "new_sample",
@@ -367,7 +386,9 @@ class TestUpdateProjectWithId:
     def test_insert_new_multiple_rows(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
             peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
-            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+            prj = agent.project.get(
+                namespace=namespace, name=name, raw=True, with_id=True
+            )
 
             new_sample1 = {
                 "sample_name": "new_sample",
@@ -411,7 +432,9 @@ class TestUpdateProjectWithId:
             original_count = len(
                 agent.project.get(namespace=namespace, name=name, raw=True)["samples"]
             )
-            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+            prj = agent.project.get(
+                namespace=namespace, name=name, raw=True, with_id=True
+            )
 
             new_sample1 = {
                 "sample_name": "new_sample",
@@ -446,7 +469,9 @@ class TestUpdateProjectWithId:
     def test_delete_multiple_rows(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
             peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
-            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+            prj = agent.project.get(
+                namespace=namespace, name=name, raw=True, with_id=True
+            )
 
             del prj["samples"][1]
             del prj["samples"][2]
@@ -475,7 +500,9 @@ class TestUpdateProjectWithId:
     def test_modify_one_row(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
             peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
-            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+            prj = agent.project.get(
+                namespace=namespace, name=name, raw=True, with_id=True
+            )
 
             prj["samples"][0]["sample_name"] = "new_sample_name2"
 
@@ -502,7 +529,9 @@ class TestUpdateProjectWithId:
     def test_modify_multiple_rows(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
             peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
-            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+            prj = agent.project.get(
+                namespace=namespace, name=name, raw=True, with_id=True
+            )
 
             prj["samples"][0]["sample_name"] = "new_sample_name2"
             prj["samples"][1]["sample_name"] = "new_sample_name3"
@@ -531,7 +560,9 @@ class TestUpdateProjectWithId:
     def test_add_new_first_sample(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
             peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
-            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+            prj = agent.project.get(
+                namespace=namespace, name=name, raw=True, with_id=True
+            )
 
             new_sample = {
                 "sample_name": "new_sample",
@@ -565,7 +596,9 @@ class TestUpdateProjectWithId:
     def test_change_sample_order(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
             peppy_prj = agent.project.get(namespace=namespace, name=name, raw=True)
-            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+            prj = agent.project.get(
+                namespace=namespace, name=name, raw=True, with_id=True
+            )
 
             sample1 = prj["samples"][0].copy()
             sample2 = prj["samples"][1].copy()
@@ -599,12 +632,13 @@ class TestUpdateProjectWithId:
     )
     def test_update_porject_without_ids(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=False)
+            prj = agent.project.get(
+                namespace=namespace, name=name, raw=True, with_id=False
+            )
 
             prj["samples"][0]["sample_name"] = "new_sample_name2"
 
             with pytest.raises(SampleTableUpdateError):
-
                 agent.project.update(
                     namespace=namespace,
                     name=name,
@@ -620,7 +654,9 @@ class TestUpdateProjectWithId:
     )
     def test_update_project_with_duplicated_sample_guids(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            new_prj = agent.project.get(namespace=namespace, name=name, raw=True, with_id=True)
+            new_prj = agent.project.get(
+                namespace=namespace, name=name, raw=True, with_id=True
+            )
             new_prj["samples"].append(new_prj["samples"][0])
 
             with pytest.raises(ProjectDuplicatedSampleGUIDsError):

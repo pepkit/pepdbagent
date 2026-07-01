@@ -1,27 +1,31 @@
 import logging
 
-from typing import List, Optional, Union, Dict
-
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from pepdbagent.const import PKG_NAME, DEFAULT_TAG_VERSION, LATEST_SCHEMA_VERSION
-from pepdbagent.db_utils import BaseEngine, SchemaRecords, SchemaTags, SchemaVersions, User
+from pepdbagent.const import DEFAULT_TAG_VERSION, LATEST_SCHEMA_VERSION, PKG_NAME
+from pepdbagent.db_utils import (
+    BaseEngine,
+    SchemaRecords,
+    SchemaTags,
+    SchemaVersions,
+    User,
+)
 from pepdbagent.exceptions import (
     SchemaAlreadyExistsError,
-    SchemaVersionDoesNotExistError,
     SchemaDoesNotExistError,
     SchemaTagAlreadyExistsError,
     SchemaTagDoesNotExistError,
     SchemaVersionAlreadyExistsError,
+    SchemaVersionDoesNotExistError,
 )
 from pepdbagent.models import (
-    SchemaRecordAnnotation,
-    SchemaVersionAnnotation,
     PaginationResult,
-    SchemaVersionSearchResult,
+    SchemaRecordAnnotation,
     SchemaSearchResult,
+    SchemaVersionAnnotation,
+    SchemaVersionSearchResult,
     UpdateSchemaRecordFields,
     UpdateSchemaVersionFields,
 )
@@ -38,20 +42,25 @@ class PEPDatabaseSchema:
 
     def __init__(self, pep_db_engine: BaseEngine):
         """
-        :param pep_db_engine: pepdbengine object with sa engine
+        Args:
+            pep_db_engine: PEPDatabaseAgent engine object.
         """
         self._sa_engine = pep_db_engine.engine
         self._pep_db_engine = pep_db_engine
 
     def get(self, namespace: str, name: str, version: str) -> dict:
-        """
-        Get schema from the database.
+        """Get a schema value from the database.
 
-        :param namespace: user namespace
-        :param name: schema name
-        :param version: schema version
+        Args:
+            namespace: User namespace.
+            name: Schema name.
+            version: Schema version (use "latest" for the most recent).
 
-        :return: schema dict
+        Returns:
+            Schema value dict.
+
+        Raises:
+            SchemaVersionDoesNotExistError: If the schema or version does not exist.
         """
 
         with Session(self._sa_engine) as session:
@@ -69,7 +78,6 @@ class PEPDatabaseSchema:
                 )
 
             else:
-
                 schema_obj = session.scalar(
                     select(SchemaVersions)
                     .join(SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id)
@@ -100,25 +108,26 @@ class PEPDatabaseSchema:
         maintainers: str = "",
         contributors: str = "",
         release_notes: str = "",
-        tags: Optional[Union[List[str], str, Dict[str, str], List[Dict[str, str]]]] = None,
+        tags: list[str] | str | dict[str, str] | list[dict[str, str]] | None = None,
         private: bool = False,  # TODO: for simplicity was not implemented yet
     ) -> None:
-        """
-        Create or update schema in the database.
+        """Create a new schema record in the database.
 
-        :param namespace: user namespace
-        :param name: schema name
-        :param schema_value: schema dict
-        :param version: schema version [Default: "1.0.0"]
-        :param description: schema description [Default: ""]
-        :param lifecycle_stage: schema lifecycle stage [Default: ""]
-        :param maintainers: schema maintainers [Default: ""]
-        :param contributors: schema contributors [Default: ""]
-        :param release_notes: schema release notes [Default: ""]
-        :param tags: schema tags [Default: None]
-        :param private: schema privacy [Default: False]
+        Args:
+            namespace: User namespace.
+            name: Schema name.
+            schema_value: Schema content as a dict.
+            version: Initial version string.
+            description: Schema description.
+            lifecycle_stage: Lifecycle stage, e.g., "stable" or "deprecated".
+            maintainers: Comma-separated maintainer names.
+            contributors: Comma-separated contributor names.
+            release_notes: Release notes for this version.
+            tags: Tags to associate with the schema version.
+            private: Mark schema as private if True.
 
-        :return: None
+        Raises:
+            SchemaAlreadyExistsError: If a schema with the same name exists in the namespace.
         """
 
         tags = self._unify_tags(tags)
@@ -126,12 +135,16 @@ class PEPDatabaseSchema:
         with Session(self._sa_engine) as session:
             schema_obj = session.scalar(
                 select(SchemaRecords).where(
-                    and_(SchemaRecords.namespace == namespace, SchemaRecords.name == name)
+                    and_(
+                        SchemaRecords.namespace == namespace, SchemaRecords.name == name
+                    )
                 )
             )
 
             if schema_obj:
-                raise SchemaAlreadyExistsError(f"Schema '{name}' already exists in the database")
+                raise SchemaAlreadyExistsError(
+                    f"Schema '{name}' already exists in the database"
+                )
 
             user = session.scalar(select(User).where(User.namespace == namespace))
 
@@ -162,10 +175,14 @@ class PEPDatabaseSchema:
             )
 
             for tag_name, tag_value in tags.items():
-                tag_obj = session.scalar(select(SchemaTags).where(SchemaTags.tag_name == tag_name))
+                tag_obj = session.scalar(
+                    select(SchemaTags).where(SchemaTags.tag_name == tag_name)
+                )
                 if not tag_obj:
                     tag_obj = SchemaTags(
-                        tag_name=tag_name, tag_value=tag_value, schema_mapping=schema_version_obj
+                        tag_name=tag_name,
+                        tag_value=tag_value,
+                        schema_mapping=schema_version_obj,
                     )
                     session.add(tag_obj)
 
@@ -183,7 +200,7 @@ class PEPDatabaseSchema:
         release_notes: str = "",
         contributors: str = "",
         overwrite: bool = False,
-        tags: Optional[Union[List[str], str, Dict[str, str], List[Dict[str, str]]]] = None,
+        tags: list[str] | str | dict[str, str] | list[dict[str, str]] | None = None,
     ) -> None:
 
         tags = self._unify_tags(tags)
@@ -191,7 +208,9 @@ class PEPDatabaseSchema:
         with Session(self._sa_engine) as session:
             schema_obj = session.scalar(
                 select(SchemaRecords).where(
-                    and_(SchemaRecords.namespace == namespace, SchemaRecords.name == name)
+                    and_(
+                        SchemaRecords.namespace == namespace, SchemaRecords.name == name
+                    )
                 )
             )
             if not schema_obj:
@@ -240,7 +259,9 @@ class PEPDatabaseSchema:
 
             for tag_name, tag_value in tags.items():
                 tag_obj = SchemaTags(
-                    tag_name=tag_name, tag_value=tag_value, schema_mapping=schema_version_obj
+                    tag_name=tag_name,
+                    tag_value=tag_value,
+                    schema_mapping=schema_version_obj,
                 )
                 session.add(tag_obj)
 
@@ -254,22 +275,24 @@ class PEPDatabaseSchema:
         namespace: str,
         name: str,
         version: str,
-        update_fields: Union[UpdateSchemaVersionFields, dict],
+        update_fields: UpdateSchemaVersionFields | dict,
     ) -> None:
-        """
-        Update schema version in the database.
+        """Update fields of an existing schema version.
 
-        :param namespace: user namespace
-        :param name: schema name
-        :param version: schema version
-        :param update_fields: fields to be updated. Fields are optional, and include:
-            - contributors: str
-            - schema_value: dict
-            - release_notes: str
+        Args:
+            namespace: User namespace.
+            name: Schema name.
+            version: Schema version to update.
+            update_fields: Fields to update — contributors, schema_value, and/or release_notes.
+
+        Raises:
+            SchemaVersionDoesNotExistError: If the version does not exist.
         """
         if isinstance(update_fields, dict):
             update_fields = UpdateSchemaVersionFields(**update_fields)
-        update_fields = update_fields.model_dump(exclude_unset=True, exclude_defaults=True)
+        update_fields = update_fields.model_dump(
+            exclude_unset=True, exclude_defaults=True
+        )
 
         with Session(self._sa_engine) as session:
             schema_obj = session.scalar(
@@ -301,34 +324,39 @@ class PEPDatabaseSchema:
         self,
         namespace: str,
         name: str,
-        update_fields: Union[UpdateSchemaRecordFields, dict],
+        update_fields: UpdateSchemaRecordFields | dict,
     ) -> None:
-        """
-        Update schema record in the database.
+        """Update metadata fields of a schema record.
 
-        :param namespace: user namespace
-        :param name: schema name
-        :param update_fields: fields to be updated. Fields are optional, and include:
-            - maintainers: str
-            - lifecycle_stage: str
-            - private: bool
-            - name: str
+        Args:
+            namespace: User namespace.
+            name: Schema name.
+            update_fields: Fields to update — maintainers, lifecycle_stage, private, and/or name.
+
+        Raises:
+            SchemaDoesNotExistError: If the schema does not exist.
         """
 
         if isinstance(update_fields, dict):
             update_fields = UpdateSchemaRecordFields(**update_fields)
 
-        update_fields = update_fields.model_dump(exclude_unset=True, exclude_defaults=True)
+        update_fields = update_fields.model_dump(
+            exclude_unset=True, exclude_defaults=True
+        )
 
         with Session(self._sa_engine) as session:
             schema_obj = session.scalar(
                 select(SchemaRecords).where(
-                    and_(SchemaRecords.namespace == namespace, SchemaRecords.name == name)
+                    and_(
+                        SchemaRecords.namespace == namespace, SchemaRecords.name == name
+                    )
                 )
             )
 
             if not schema_obj:
-                raise SchemaDoesNotExistError(f"Schema '{name}' does not exist in the database")
+                raise SchemaDoesNotExistError(
+                    f"Schema '{name}' does not exist in the database"
+                )
 
             for field, value in update_fields.items():
                 setattr(schema_obj, field, value)
@@ -336,32 +364,36 @@ class PEPDatabaseSchema:
             session.commit()
 
     def schema_exist(self, namespace: str, name: str) -> bool:
-        """
-        Check if schema exists in the database.
+        """Check whether a schema exists in the database.
 
-        :param namespace: user namespace
-        :param name: schema name
+        Args:
+            namespace: User namespace.
+            name: Schema name.
 
-        :return: True if schema exists, False otherwise
+        Returns:
+            True if the schema exists.
         """
 
         with Session(self._sa_engine) as session:
             schema_obj = session.scalar(
                 select(SchemaRecords).where(
-                    and_(SchemaRecords.namespace == namespace, SchemaRecords.name == name)
+                    and_(
+                        SchemaRecords.namespace == namespace, SchemaRecords.name == name
+                    )
                 )
             )
             return True if schema_obj else False
 
     def version_exist(self, namespace: str, name: str, version: str) -> bool:
-        """
-        Check if schema version exists in the database.
+        """Check whether a specific schema version exists.
 
-        :param namespace: user namespace
-        :param name: schema name
-        :param version: schema version
+        Args:
+            namespace: User namespace.
+            name: Schema name.
+            version: Schema version.
 
-        :return: True if schema version exists, False otherwise
+        Returns:
+            True if the version exists.
         """
 
         with Session(self._sa_engine) as session:
@@ -379,24 +411,32 @@ class PEPDatabaseSchema:
             return True if schema_obj else False
 
     def get_schema_info(self, namespace: str, name: str) -> SchemaRecordAnnotation:
-        """
-        Get schema information from the database.
+        """Get metadata for a schema record.
 
-        :param namespace: user namespace
-        :param name: schema name
+        Args:
+            namespace: User namespace.
+            name: Schema name.
 
-        :return: SchemaRecordAnnotation
+        Returns:
+            SchemaRecordAnnotation with schema metadata.
+
+        Raises:
+            SchemaDoesNotExistError: If the schema does not exist.
         """
 
         with Session(self._sa_engine) as session:
             schema_obj = session.scalar(
                 select(SchemaRecords).where(
-                    and_(SchemaRecords.namespace == namespace, SchemaRecords.name == name)
+                    and_(
+                        SchemaRecords.namespace == namespace, SchemaRecords.name == name
+                    )
                 )
             )
 
             if not schema_obj:
-                raise SchemaDoesNotExistError(f"Schema '{name}' does not exist in the database")
+                raise SchemaDoesNotExistError(
+                    f"Schema '{name}' does not exist in the database"
+                )
 
             return SchemaRecordAnnotation(
                 namespace=schema_obj.namespace,
@@ -409,25 +449,35 @@ class PEPDatabaseSchema:
                 lifecycle_stage=schema_obj.lifecycle_stage,
             )
 
-    def get_version_info(self, namespace: str, name: str, version: str) -> SchemaVersionAnnotation:
-        """
-        Get schema version information from the database.
+    def get_version_info(
+        self, namespace: str, name: str, version: str
+    ) -> SchemaVersionAnnotation:
+        """Get metadata for a specific schema version.
 
-        :param namespace: user namespace
-        :param name: schema name
-        :param version: schema version
+        Args:
+            namespace: User namespace.
+            name: Schema name.
+            version: Schema version (use "latest" for the most recent).
 
-        :return: SchemaVersionAnnotation
+        Returns:
+            SchemaVersionAnnotation with version metadata and tags.
+
+        Raises:
+            SchemaVersionDoesNotExistError: If the version does not exist.
         """
 
         with Session(self._sa_engine) as session:
-
             # if user provided "latest" version
             if version == LATEST_SCHEMA_VERSION:
                 version_obj = session.scalar(
                     select(SchemaVersions)
                     .join(SchemaRecords, SchemaRecords.id == SchemaVersions.schema_id)
-                    .where(and_(SchemaRecords.namespace == namespace, SchemaRecords.name == name))
+                    .where(
+                        and_(
+                            SchemaRecords.namespace == namespace,
+                            SchemaRecords.name == name,
+                        )
+                    )
                     .order_by(SchemaVersions.version.desc())
                     .limit(1)
                 )
@@ -472,28 +522,23 @@ class PEPDatabaseSchema:
         order_by: str = "update_date",
         order_desc: bool = False,
     ) -> SchemaSearchResult:
-        """
-        Get schemas with providing filters.
-        If not filters provided, return all schemas.
+        """Get schemas matching the given filters.
 
-        :param namespace: user namespace [Default: None]. If None, search in all namespaces
-        :param name: schema name [Default: None]
-        :param maintainer: schema maintainer [Default: None]
-        :param lifecycle_stage: schema lifecycle stage [Default: None]
-        :param latest_version: schema latest version [Default: None]
+        Returns all schemas if no filters are provided.
 
-        :param page: page number [Default: 0]
-        :param page_size: number of schemas per page [Default: 0]
-        :param order_by: sort the result-set by the information
-            Options: ["name", "update_date"]
-            [Default: update_date]
-        :param order_desc: Sort the records in descending order. [Default: False]
+        Args:
+            namespace: Restrict to this namespace (default: all namespaces).
+            name: Partial name match.
+            maintainer: Partial maintainer match.
+            lifecycle_stage: Partial lifecycle stage match.
+            latest_version: Partial latest version match.
+            page: Page number (zero-based).
+            page_size: Number of results per page.
+            order_by: Sort field — "name" or "update_date".
+            order_desc: Sort in descending order if True.
 
-        :return: {
-            pagination: {page: int,
-                        page_size: int,
-                        total: int},
-            results: [SchemaRecordAnnotation]
+        Returns:
+            SchemaSearchResult with pagination and list of SchemaRecordAnnotation objects.
         """
 
         # filters = [
@@ -517,7 +562,9 @@ class PEPDatabaseSchema:
         conditions = [f for f in filters if f is not None]
 
         statement = (
-            select(SchemaRecords).where(and_(*conditions)) if conditions else select(SchemaRecords)
+            select(SchemaRecords).where(and_(*conditions))
+            if conditions
+            else select(SchemaRecords)
         )
         statement_count = (
             select(func.count(SchemaRecords.id)).where(and_(*conditions))
@@ -528,9 +575,13 @@ class PEPDatabaseSchema:
         with Session(self._sa_engine) as session:
             total = session.scalar(statement_count)
 
-            statement = self._add_order_by_schemas_keyword(statement, by=order_by, desc=order_desc)
+            statement = self._add_order_by_schemas_keyword(
+                statement, by=order_by, desc=order_desc
+            )
 
-            results_objects = session.scalars(statement.limit(page_size).offset(page * page_size))
+            results_objects = session.scalars(
+                statement.limit(page_size).offset(page * page_size)
+            )
             return SchemaSearchResult(
                 pagination=PaginationResult(
                     page=page,
@@ -560,23 +611,18 @@ class PEPDatabaseSchema:
         order_by: str = "update_date",
         order_desc: bool = False,
     ) -> SchemaSearchResult:
-        """
-        Search schemas in the database with pagination.
+        """Search schemas by name and description with pagination.
 
-        :param namespace: user namespace [Default: None]. If None, search in all namespaces
-        :param search_str: query string. [Default: ""]. If empty, return all schemas
-        :param page: page number [Default: 0]
-        :param page_size: number of schemas per page [Default: 0]
-        :param order_by: sort the result-set by the information
-            Options: ["name", "update_date"]
-            [Default: update_date]
-        :param order_desc: Sort the records in descending order. [Default: False]
+        Args:
+            namespace: Restrict to this namespace (default: all namespaces).
+            search_str: Text to search in name and description (default: all schemas).
+            page: Page number (zero-based).
+            page_size: Number of results per page.
+            order_by: Sort field — "name" or "update_date".
+            order_desc: Sort in descending order if True.
 
-        :return: {
-            pagination: {page: int,
-                        page_size: int,
-                        total: int},
-            results: [SchemaRecordAnnotation]
+        Returns:
+            SchemaSearchResult with pagination and list of SchemaRecordAnnotation objects.
         """
 
         search_str = search_str.lower() if search_str else ""
@@ -586,17 +632,23 @@ class PEPDatabaseSchema:
             SchemaRecords.description.ilike(f"%{search_str}%"),
         )
         if namespace:
-            where_statement = and_(where_statement, SchemaRecords.namespace == namespace)
+            where_statement = and_(
+                where_statement, SchemaRecords.namespace == namespace
+            )
 
         with Session(self._sa_engine) as session:
-            total = session.scalar(select(func.count(SchemaRecords.id)).where(where_statement))
+            total = session.scalar(
+                select(func.count(SchemaRecords.id)).where(where_statement)
+            )
             statement = (
                 select(SchemaRecords)
                 .where(where_statement)
                 .limit(page_size)
                 .offset(page * page_size)
             )
-            statement = self._add_order_by_schemas_keyword(statement, by=order_by, desc=order_desc)
+            statement = self._add_order_by_schemas_keyword(
+                statement, by=order_by, desc=order_desc
+            )
             results_objects = session.scalars(statement)
 
             return SchemaSearchResult(
@@ -628,21 +680,21 @@ class PEPDatabaseSchema:
         page: int = 0,
         page_size: int = 10,
     ) -> SchemaVersionSearchResult:
-        """
-        Search schema versions in the database with pagination.
+        """Search versions of a schema with pagination.
 
-        :param namespace: user namespace
-        :param name: schema name
-        :param tag: tag name. [Default: None]. If None, return versions with all tags
-        :param search_str: query string. [Default: ""]. If empty, return all schemas
-        :param page: result page number [Default: 10]
-        :param page_size: number of schemas per page [Default: 10]
+        Args:
+            namespace: User namespace.
+            name: Schema name.
+            tag: Filter by tag name (default: all tags).
+            search_str: Text to search in version and release_notes.
+            page: Page number (zero-based).
+            page_size: Number of results per page.
 
-        :return: {
-            pagination: {page: int,
-                        page_size: int,
-                        total: int},
-            results: [SchemaVersionAnnotation]
+        Returns:
+            SchemaVersionSearchResult with pagination and list of SchemaVersionAnnotation objects.
+
+        Raises:
+            SchemaDoesNotExistError: If the schema does not exist.
         """
 
         search_str = search_str.lower() if search_str else ""
@@ -650,12 +702,16 @@ class PEPDatabaseSchema:
         with Session(self._sa_engine) as session:
             schema_obj = session.scalar(
                 select(SchemaRecords).where(
-                    and_(SchemaRecords.namespace == namespace, SchemaRecords.name == name)
+                    and_(
+                        SchemaRecords.namespace == namespace, SchemaRecords.name == name
+                    )
                 )
             )
 
             if not schema_obj:
-                raise SchemaDoesNotExistError(f"Schema '{name}' does not exist in the database")
+                raise SchemaDoesNotExistError(
+                    f"Schema '{name}' does not exist in the database"
+                )
 
             where_statement = and_(
                 SchemaRecords.namespace == namespace,
@@ -687,7 +743,9 @@ class PEPDatabaseSchema:
                     .join(SchemaRecords)
                     .where(where_statement)
                 )
-                find_statement = select(SchemaVersions).join(SchemaRecords).where(where_statement)
+                find_statement = (
+                    select(SchemaVersions).join(SchemaRecords).where(where_statement)
+                )
 
             total = session.scalar(total_statement)
 
@@ -710,7 +768,9 @@ class PEPDatabaseSchema:
                         version=result.version,
                         contributors=result.contributors,
                         release_notes=result.release_notes,
-                        tags={tag.tag_name: tag.tag_value for tag in result.tags_mapping},
+                        tags={
+                            tag.tag_name: tag.tag_value for tag in result.tags_mapping
+                        },
                         release_date=result.release_date,
                         last_update_date=result.last_update_date,
                     )
@@ -719,23 +779,29 @@ class PEPDatabaseSchema:
             )
 
     def delete_schema(self, namespace: str, name: str) -> None:
-        """
-        Delete schema from the database.
+        """Delete a schema record and all its versions from the database.
 
-        :param namespace: user namespace
-        :param name: schema name
-        :return: None
+        Args:
+            namespace: User namespace.
+            name: Schema name.
+
+        Raises:
+            SchemaDoesNotExistError: If the schema does not exist.
         """
 
         with Session(self._sa_engine) as session:
             schema_obj = session.scalar(
                 select(SchemaRecords).where(
-                    and_(SchemaRecords.namespace == namespace, SchemaRecords.name == name)
+                    and_(
+                        SchemaRecords.namespace == namespace, SchemaRecords.name == name
+                    )
                 )
             )
 
             if not schema_obj:
-                raise SchemaDoesNotExistError(f"Schema '{name}' does not exist in the database")
+                raise SchemaDoesNotExistError(
+                    f"Schema '{name}' does not exist in the database"
+                )
 
             statement = select(User).where(User.namespace == namespace)
             user = session.scalar(statement)
@@ -747,15 +813,15 @@ class PEPDatabaseSchema:
             session.commit()
 
     def delete_version(self, namespace: str, name: str, version: str) -> None:
-        """
-        Delete version of the schema
+        """Delete a specific schema version.
 
-        :param namespace: Namespace of the schema
-        :param name: Name of the schema
-        :param version: Version of the Schema
+        Args:
+            namespace: Namespace of the schema.
+            name: Name of the schema.
+            version: Version to delete.
 
-        :raise: SchemaVersionDoesNotExistError if version doesn't exist
-        :return: None
+        Raises:
+            SchemaVersionDoesNotExistError: If the version does not exist.
         """
         with Session(self._sa_engine) as session:
             schema_obj = session.scalar(
@@ -782,18 +848,19 @@ class PEPDatabaseSchema:
         namespace: str,
         name: str,
         version: str,
-        tag: Optional[Union[List[str], str, Dict[str, str]]],
+        tag: list[str] | str | dict[str, str] | None,
     ) -> None:
-        """
-        Add tag to the schema
+        """Add a tag to a schema version.
 
-        :param namespace: Namespace of the schema
-        :param name: Name of the schema
-        :param version: Version of the Schema
-        :param tag: Tag to be added. Can be a string, list of strings or dictionaries
+        Args:
+            namespace: Namespace of the schema.
+            name: Name of the schema.
+            version: Schema version.
+            tag: Tag to add — string, list of strings, or dict of name→value pairs.
 
-        :raise: SchemaVersionDoesNotExistError if version doesn't exist
-        :return: None
+        Raises:
+            SchemaVersionDoesNotExistError: If the version does not exist.
+            SchemaTagAlreadyExistsError: If the tag already exists on the version.
         """
 
         tag = self._unify_tags(tag)
@@ -818,10 +885,14 @@ class PEPDatabaseSchema:
                 tag = [tag]
 
             for tag_name, tag_value in tag.items():
-                tag_obj = session.scalar(select(SchemaTags).where(SchemaTags.tag_name == tag_name))
+                tag_obj = session.scalar(
+                    select(SchemaTags).where(SchemaTags.tag_name == tag_name)
+                )
                 if not tag_obj:
                     tag_obj = SchemaTags(
-                        tag_name=tag_name, tag_value=tag_value, schema_mapping=schema_obj
+                        tag_name=tag_name,
+                        tag_value=tag_value,
+                        schema_mapping=schema_obj,
                     )
                     session.add(tag_obj)
                 else:
@@ -831,17 +902,20 @@ class PEPDatabaseSchema:
 
             session.commit()
 
-    def remove_tag_from_schema(self, namespace: str, name: str, version: str, tag: str) -> None:
-        """
-        Remove tag from the schema
+    def remove_tag_from_schema(
+        self, namespace: str, name: str, version: str, tag: str
+    ) -> None:
+        """Remove a tag from a schema version.
 
-        :param namespace: Namespace of the schema
-        :param name: Name of the schema
-        :param version: Version of the Schema
-        :param tag: Tag to be removed
+        Args:
+            namespace: Namespace of the schema.
+            name: Name of the schema.
+            version: Schema version.
+            tag: Name of the tag to remove.
 
-        :raise: SchemaVersionDoesNotExistError if version doesn't exist
-        :return: None
+        Raises:
+            SchemaVersionDoesNotExistError: If the version does not exist.
+            SchemaTagDoesNotExistError: If the tag does not exist on the version.
         """
         with Session(self._sa_engine) as session:
             schema_obj = session.scalar(
@@ -862,11 +936,14 @@ class PEPDatabaseSchema:
 
             tag_obj = session.scalar(
                 select(SchemaTags).where(
-                    SchemaTags.tag_name == tag, SchemaTags.schema_version_id == schema_obj.id
+                    SchemaTags.tag_name == tag,
+                    SchemaTags.schema_version_id == schema_obj.id,
                 )
             )
             if not tag_obj:
-                raise SchemaTagDoesNotExistError(f"Tag '{tag}' does not exist in the schema")
+                raise SchemaTagDoesNotExistError(
+                    f"Tag '{tag}' does not exist in the schema"
+                )
 
             session.delete(tag_obj)
             session.commit()
@@ -875,15 +952,15 @@ class PEPDatabaseSchema:
     def _add_order_by_schemas_keyword(
         statement: Select, by: str = "update_date", desc: bool = False
     ) -> Select:
-        """
-        Add order by clause to sqlalchemy statement
+        """Add an ORDER BY clause for schema queries.
 
-        :param statement: sqlalchemy representation of a SELECT statement.
-        :param by: sort the result-set by the information
-            Options: ["name", "update_date"]
-            [Default: "update_date"]
-        :param desc: Sort the records in descending order. [Default: False]
-        :return: sqlalchemy representation of a SELECT statement with order by keyword
+        Args:
+            statement: SQLAlchemy SELECT statement to augment.
+            by: Sort field — "name" or "update_date".
+            desc: Sort in descending order if True.
+
+        Returns:
+            Statement with ORDER BY applied.
         """
         if by == "update_date":
             order_by_obj = SchemaRecords.last_update_date
@@ -904,15 +981,18 @@ class PEPDatabaseSchema:
         return statement.order_by(order_by_obj)
 
     def _unify_tags(
-        self, tags: Optional[Union[List[str], str, Dict[str, str], List[Dict[str, str]]]]
-    ) -> [Dict[str, str]]:
-        """
-        Convert provided tags to one standard
+        self, tags: list[str] | str | dict[str, str] | list[dict[str, str]] | None
+    ) -> dict[str, str]:
+        """Normalise tags to a dict[str, str] representation.
 
-        :param tags: tags to be converted from types: str, dict, list of str, list of dict
+        Args:
+            tags: Tags as a string, list of strings, dict, or list of dicts.
 
-        :raise: ValueError if tags are not in the correct format
-        :return: dictionary of tags
+        Returns:
+            Dict mapping tag names to tag values.
+
+        Raises:
+            ValueError: If tags are in an unsupported format.
         """
         if not tags:
             tags = {}

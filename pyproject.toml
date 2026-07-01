@@ -1,4 +1,65 @@
-[tool.black]
-line-length = 99
-target-version = ['py38', 'py311']
-include = '\.pyi?$'
+[project]
+name = "pepdbagent"
+version = "0.13.0"
+description = "A python-based database manager for portable encapsulated projects"
+readme = "README.md"
+license = "BSD-2-Clause"
+requires-python = ">=3.10"
+authors = [
+    { name = "Oleksandr Khoroshevskyi" },
+]
+keywords = ["project", "metadata", "bioinformatics", "database"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "sqlalchemy>=2.0.0",
+    "logmuse>=0.2.7",
+    "peprs>=0.2.1",
+    "ubiquerg>=0.6.2",
+    "coloredlogs>=15.0.1",
+    "pydantic>=2.0",
+    "psycopg>=3.1.15",
+    "numpy>=1.24.4",
+    "alembic>=1.15.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/pepkit/pepdbagent/"
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-mock",
+    "python-dotenv",
+    "coverage",
+    "smokeshow",
+    "pyyaml",
+    "pandas",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+addopts = "-rfE"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["F403", "F405", "E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pepdbagent"]
+
+[tool.ruff.lint.per-file-ignores]
+"pepdbagent/alembic/env.py" = ["E402"]

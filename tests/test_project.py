@@ -4,7 +4,11 @@ import pytest
 
 from pepdbagent.exceptions import ProjectNotFoundError
 
-from .utils import PEPDBAgentContextManager, get_path_to_example_file, list_of_available_peps
+from .utils import (
+    PEPDBAgentContextManager,
+    get_path_to_example_file,
+    list_of_available_peps,
+)
 
 
 @pytest.mark.skipif(
@@ -47,7 +51,9 @@ class TestProject:
     )
     def test_get_project(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            kk = agent.project.get(namespace=namespace, name=name, tag="default", raw=True)
+            kk = agent.project.get(
+                namespace=namespace, name=name, tag="default", raw=True
+            )
             ff = peprs.Project(get_path_to_example_file(namespace, name)).to_dict(
                 raw=True, by_sample=True
             )
@@ -93,7 +99,10 @@ class TestProject:
             )
             orgiginal_prj = peprs.Project(get_path_to_example_file(namespace, name))
 
-            assert prj_subtables == orgiginal_prj.to_dict(raw=True, by_sample=True)["subsamples"]
+            assert (
+                prj_subtables
+                == orgiginal_prj.to_dict(raw=True, by_sample=True)["subsamples"]
+            )
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -108,7 +117,10 @@ class TestProject:
             )
             orgiginal_prj = peprs.Project(get_path_to_example_file(namespace, name))
 
-            assert prj_samples == orgiginal_prj.to_dict(raw=True, by_sample=True)["samples"]
+            assert (
+                prj_samples
+                == orgiginal_prj.to_dict(raw=True, by_sample=True)["samples"]
+            )
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -125,13 +137,20 @@ class TestProject:
                 raw=False,
             )
             orgiginal_prj = peprs.Project(get_path_to_example_file(namespace, name))
-            expected = orgiginal_prj.to_pandas().replace({np.nan: None}).to_dict(orient="records")
+            expected = (
+                orgiginal_prj.to_pandas()
+                .replace({np.nan: None})
+                .to_dict(orient="records")
+            )
 
             # Normalize numpy arrays (used for subsample list columns) to plain lists
             # so dict equality works without raising "truth value is ambiguous".
             def _normalize(samples):
                 return [
-                    {k: (v.tolist() if isinstance(v, np.ndarray) else v) for k, v in s.items()}
+                    {
+                        k: (v.tolist() if isinstance(v, np.ndarray) else v)
+                        for k, v in s.items()
+                    }
                     for s in samples
                 ]
 
@@ -173,7 +192,9 @@ class TestProject:
                 overwrite=True,
             )
 
-            assert agent.project.get(namespace=namespace, name=name, raw=False) == new_prj
+            assert (
+                agent.project.get(namespace=namespace, name=name, raw=False) == new_prj
+            )
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -192,7 +213,9 @@ class TestProject:
     def test_delete_not_existing_project(self):
         with PEPDBAgentContextManager(add_data=True) as agent:
             with pytest.raises(ProjectNotFoundError, match="Project does not exist."):
-                agent.project.delete(namespace="namespace1", name="nothing", tag="default")
+                agent.project.delete(
+                    namespace="namespace1", name="nothing", tag="default"
+                )
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -213,7 +236,9 @@ class TestProject:
                 fork_tag="new_tag",
             )
 
-            assert agent.project.exists(namespace="new_namespace", name="new_name", tag="new_tag")
+            assert agent.project.exists(
+                namespace="new_namespace", name="new_name", tag="new_tag"
+            )
             result = agent.annotation.get(
                 namespace="new_namespace", name="new_name", tag="new_tag"
             )
@@ -240,9 +265,13 @@ class TestProject:
                 fork_tag="new_tag",
             )
 
-            assert agent.project.exists(namespace="new_namespace", name="new_name", tag="new_tag")
+            assert agent.project.exists(
+                namespace="new_namespace", name="new_name", tag="new_tag"
+            )
             agent.project.delete(namespace=namespace, name=name, tag="default")
-            assert agent.project.exists(namespace="new_namespace", name="new_name", tag="new_tag")
+            assert agent.project.exists(
+                namespace="new_namespace", name="new_name", tag="new_tag"
+            )
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -265,9 +294,13 @@ class TestProject:
                 fork_tag="new_tag",
             )
 
-            assert agent.project.exists(namespace="new_namespace", name="new_name", tag="new_tag")
+            assert agent.project.exists(
+                namespace="new_namespace", name="new_name", tag="new_tag"
+            )
             assert agent.project.exists(namespace=namespace, name=name, tag="default")
-            agent.project.delete(namespace="new_namespace", name="new_name", tag="new_tag")
+            agent.project.delete(
+                namespace="new_namespace", name="new_name", tag="new_tag"
+            )
             assert agent.project.exists(namespace=namespace, name=name, tag="default")
 
     @pytest.mark.parametrize(

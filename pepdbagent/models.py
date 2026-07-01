@@ -1,6 +1,5 @@
 # file with pydantic models
 import datetime
-from typing import Dict, List, Optional, Union
 
 from peprs.const import CONFIG_KEY, SAMPLE_RAW_DICT_KEY, SUBSAMPLE_RAW_DICT_KEY
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -14,7 +13,7 @@ class ProjectDict(BaseModel):
     """
 
     config: dict = Field(alias=CONFIG_KEY)
-    subsample_list: Optional[Union[list, None]] = Field(alias=SUBSAMPLE_RAW_DICT_KEY)
+    subsample_list: list | None = Field(alias=SUBSAMPLE_RAW_DICT_KEY)
     sample_dict: list = Field(alias=SAMPLE_RAW_DICT_KEY)
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -25,19 +24,19 @@ class AnnotationModel(BaseModel):
     Project Annotation model. All meta metadata
     """
 
-    namespace: Optional[str]
-    name: Optional[str]
-    tag: Optional[str]
-    is_private: Optional[bool]
-    number_of_samples: Optional[int]
-    description: Optional[str]
-    last_update_date: Optional[str]
-    submission_date: Optional[str]
-    digest: Optional[str]
-    pep_schema: Optional[str]
-    pop: Optional[bool] = False
-    stars_number: Optional[int] = 0
-    forked_from: Optional[Union[str, None]] = None
+    namespace: str | None = None
+    name: str | None = None
+    tag: str | None = None
+    is_private: bool | None = None
+    number_of_samples: int | None = None
+    description: str | None = None
+    last_update_date: str | None = None
+    submission_date: str | None = None
+    digest: str | None = None
+    pep_schema: str | None = None
+    pop: bool | None = False
+    stars_number: int | None = 0
+    forked_from: str | None = None
 
     model_config = ConfigDict(
         validate_assignment=True,
@@ -45,7 +44,7 @@ class AnnotationModel(BaseModel):
     )
 
     @field_validator("is_private")
-    def is_private_should_be_bool(cls, v):
+    def is_private_should_be_bool(cls, v) -> bool:
         if not isinstance(v, bool):
             return False
         else:
@@ -66,7 +65,7 @@ class AnnotationList(BaseModel):
     count: int
     limit: int
     offset: int
-    results: List[Union[AnnotationModel, None]]
+    results: list[AnnotationModel | None]
 
 
 class Namespace(BaseModel):
@@ -87,7 +86,7 @@ class NamespaceList(BaseModel):
     count: int
     limit: int
     offset: int
-    results: List[Namespace]
+    results: list[Namespace]
 
 
 class UpdateItems(BaseModel):
@@ -95,17 +94,17 @@ class UpdateItems(BaseModel):
     Model used for updating individual items in db
     """
 
-    name: Optional[str] = None
-    description: Optional[str] = None
-    tag: Optional[str] = None
-    is_private: Optional[bool] = None
-    pep_schema: Optional[str] = None
-    digest: Optional[str] = None
-    config: Optional[dict] = None
-    samples: Optional[List[dict]] = None
-    subsamples: Optional[List[List[dict]]] = None
-    pop: Optional[bool] = None
-    schema_id: Optional[int] = None
+    name: str | None = None
+    description: str | None = None
+    tag: str | None = None
+    is_private: bool | None = None
+    pep_schema: str | None = None
+    digest: str | None = None
+    config: dict | None = None
+    samples: list[dict] | None = None
+    subsamples: list[list[dict]] | None = None
+    pop: bool | None = None
+    schema_id: int | None = None
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -113,7 +112,7 @@ class UpdateItems(BaseModel):
     )
 
     @property
-    def number_of_samples(self) -> Union[int, None]:
+    def number_of_samples(self) -> int | None:
         if self.samples:
             return len(self.samples)
         return None
@@ -125,31 +124,31 @@ class UpdateModel(BaseModel):
     Model used for updating individual items and creating sql string in the code
     """
 
-    config: Optional[dict] = None
-    name: Optional[str] = None
-    tag: Optional[str] = None
-    private: Optional[bool] = Field(alias="is_private", default=None)
-    digest: Optional[str] = None
-    number_of_samples: Optional[int] = None
-    pep_schema: Optional[str] = None
-    description: Optional[str] = ""
-    # last_update_date: Optional[datetime.datetime] = datetime.datetime.now(datetime.timezone.utc)
-    pop: Optional[bool] = False
+    config: dict | None = None
+    name: str | None = None
+    tag: str | None = None
+    private: bool | None = Field(alias="is_private", default=None)
+    digest: str | None = None
+    number_of_samples: int | None = None
+    pep_schema: str | None = None
+    description: str | None = ""
+    # last_update_date: datetime.datetime | None = datetime.datetime.now(datetime.timezone.utc)
+    pop: bool | None = False
 
     @field_validator("tag", "name")
-    def value_must_not_be_empty(cls, v):
+    def value_must_not_be_empty(cls, v) -> str | None:
         if "" == v:
             return None
         return v
 
     @field_validator("tag", "name")
-    def value_must_be_lowercase(cls, v):
+    def value_must_be_lowercase(cls, v) -> str | None:
         if v:
             return v.lower()
         return v
 
     @field_validator("tag", "name")
-    def value_should_not_contain_question(cls, v):
+    def value_should_not_contain_question(cls, v) -> str:
         if "?" in v:
             return ValueError("Question mark (?) is prohibited in name and tag.")
         return v
@@ -163,7 +162,7 @@ class NamespaceInfo(BaseModel):
     """
 
     namespace_name: str
-    contact_url: Optional[str] = None
+    contact_url: str | None = None
     number_of_projects: int
     number_of_schemas: int
 
@@ -174,7 +173,7 @@ class ListOfNamespaceInfo(BaseModel):
     """
 
     pagination: PaginationResult
-    results: List[NamespaceInfo]
+    results: list[NamespaceInfo]
 
 
 class ProjectRegistryPath(BaseModel):
@@ -193,7 +192,7 @@ class ViewAnnotation(BaseModel):
     """
 
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     number_of_samples: int = 0
 
 
@@ -205,7 +204,7 @@ class ProjectViews(BaseModel):
     namespace: str
     name: str
     tag: str = DEFAULT_TAG
-    views: List[ViewAnnotation] = []
+    views: list[ViewAnnotation] = []
 
 
 class CreateViewDictModel(BaseModel):
@@ -216,13 +215,13 @@ class CreateViewDictModel(BaseModel):
     project_namespace: str
     project_name: str
     project_tag: str
-    sample_list: List[str]
+    sample_list: list[str]
 
 
 class RegistryPath(BaseModel):
     namespace: str
     name: str
-    tag: Optional[str] = "default"
+    tag: str | None = "default"
 
 
 class NamespaceStats(BaseModel):
@@ -230,9 +229,9 @@ class NamespaceStats(BaseModel):
     Namespace stats model
     """
 
-    namespace: Union[str, None] = None
-    projects_updated: Dict[str, int] = None
-    projects_created: Dict[str, int] = None
+    namespace: str | None = None
+    projects_updated: dict[str, int] | None = None
+    projects_created: dict[str, int] | None = None
 
 
 class HistoryChangeModel(BaseModel):
@@ -253,7 +252,7 @@ class HistoryAnnotationModel(BaseModel):
     namespace: str
     name: str
     tag: str = DEFAULT_TAG
-    history: List[HistoryChangeModel]
+    history: list[HistoryChangeModel]
 
 
 class SchemaVersionAnnotation(BaseModel):
@@ -264,9 +263,9 @@ class SchemaVersionAnnotation(BaseModel):
     namespace: str
     schema_name: str
     version: str
-    contributors: Optional[Union[str, None]] = ""
-    release_notes: Optional[Union[str, None]] = ""
-    tags: Dict[str, Union[str, None]] = {}
+    contributors: str | None = ""
+    release_notes: str | None = ""
+    tags: dict[str, str | None] = {}
     release_date: datetime.datetime
     last_update_date: datetime.datetime
 
@@ -278,11 +277,11 @@ class SchemaRecordAnnotation(BaseModel):
 
     namespace: str
     schema_name: str
-    description: Optional[Union[str, None]] = ""
-    maintainers: Optional[Union[str, None]] = ""
-    lifecycle_stage: Optional[Union[str, None]] = ""
-    latest_released_version: Optional[Union[str, None]]
-    private: Optional[bool] = False
+    description: str | None = ""
+    maintainers: str | None = ""
+    lifecycle_stage: str | None = ""
+    latest_released_version: str | None = None
+    private: bool | None = False
     last_update_date: datetime.datetime
 
 
@@ -292,7 +291,7 @@ class SchemaSearchResult(BaseModel):
     """
 
     pagination: PaginationResult
-    results: List[SchemaRecordAnnotation]
+    results: list[SchemaRecordAnnotation]
 
 
 class SchemaVersionSearchResult(BaseModel):
@@ -301,21 +300,21 @@ class SchemaVersionSearchResult(BaseModel):
     """
 
     pagination: PaginationResult
-    results: List[SchemaVersionAnnotation]
+    results: list[SchemaVersionAnnotation]
 
 
 class UpdateSchemaRecordFields(BaseModel):
-    maintainers: Optional[Union[str, None]] = None
-    lifecycle_stage: Optional[Union[str, None]] = None
-    private: Optional[bool] = False
-    name: Optional[Union[str, None]] = None
-    description: Optional[Union[str, None]] = None
+    maintainers: str | None = None
+    lifecycle_stage: str | None = None
+    private: bool | None = False
+    name: str | None = None
+    description: str | None = None
 
 
 class UpdateSchemaVersionFields(BaseModel):
-    contributors: Optional[Union[str, None]] = None
-    schema_value: Optional[dict] = None
-    release_notes: Optional[Union[str, None]] = None
+    contributors: str | None = None
+    schema_value: dict | None = None
+    release_notes: str | None = None
 
 
 class TarNamespaceModel(BaseModel):
@@ -323,10 +322,10 @@ class TarNamespaceModel(BaseModel):
     Namespace archive model
     """
 
-    identifier: int = None
+    identifier: int | None = None
     namespace: str
     file_path: str
-    creation_date: datetime.datetime = None
+    creation_date: datetime.datetime | None = None
     number_of_projects: int = 0
     file_size: int = 0
 
@@ -337,4 +336,4 @@ class TarNamespaceModelReturn(BaseModel):
     """
 
     count: int
-    results: List[TarNamespaceModel]
+    results: list[TarNamespaceModel]

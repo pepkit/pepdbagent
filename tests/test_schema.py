@@ -1,8 +1,8 @@
 import pytest
 
-from .utils import PEPDBAgentContextManager
+from pepdbagent.models import UpdateSchemaRecordFields, UpdateSchemaVersionFields
 
-from pepdbagent.models import UpdateSchemaVersionFields, UpdateSchemaRecordFields
+from .utils import PEPDBAgentContextManager
 
 DEFAULT_SCHEMA_VERSION = "1.0.0"
 
@@ -12,7 +12,6 @@ DEFAULT_SCHEMA_VERSION = "1.0.0"
     reason="DB is not setup",
 )
 class TestSchemas:
-
     @pytest.mark.parametrize(
         "namespace, name",
         [
@@ -64,7 +63,9 @@ class TestSchemas:
                 },
             }
 
-            first_time = agent.schema.get_schema_info("namespace1", "2.0.0").last_update_date
+            first_time = agent.schema.get_schema_info(
+                "namespace1", "2.0.0"
+            ).last_update_date
 
             agent.schema.add_version(
                 "namespace1",
@@ -98,10 +99,15 @@ class TestSchemas:
                     release_notes=new_release_notes,
                 ),
             )
-            result = agent.schema.get_version_info("namespace1", "2.0.0", DEFAULT_SCHEMA_VERSION)
+            result = agent.schema.get_version_info(
+                "namespace1", "2.0.0", DEFAULT_SCHEMA_VERSION
+            )
             assert result.contributors == new_contributors
             assert result.release_notes == new_release_notes
-            assert agent.schema.get("namespace1", "2.0.0", DEFAULT_SCHEMA_VERSION) == new_schema
+            assert (
+                agent.schema.get("namespace1", "2.0.0", DEFAULT_SCHEMA_VERSION)
+                == new_schema
+            )
 
     def test_search_schema_version(self):
         with PEPDBAgentContextManager(add_schemas=True) as agent:
@@ -143,12 +149,16 @@ class TestSchemas:
                 release_notes="language",
             )
 
-            result = agent.schema.query_schema_version("namespace1", "2.0.0", tag="tag1")
+            result = agent.schema.query_schema_version(
+                "namespace1", "2.0.0", tag="tag1"
+            )
 
             assert result.pagination.total == 1
             assert len(result.results) == 1
 
-            result = agent.schema.query_schema_version("namespace1", "2.0.0", tag="bioinfo")
+            result = agent.schema.query_schema_version(
+                "namespace1", "2.0.0", tag="bioinfo"
+            )
 
             assert result.pagination.total == 2
             assert len(result.results) == 2
@@ -226,7 +236,9 @@ class TestSchemaTags:
                 "namespace1", "2.0.0", DEFAULT_SCHEMA_VERSION, tag=[new_tag1, new_tag2]
             )
 
-            result = agent.schema.get_version_info("namespace1", "2.0.0", DEFAULT_SCHEMA_VERSION)
+            result = agent.schema.get_version_info(
+                "namespace1", "2.0.0", DEFAULT_SCHEMA_VERSION
+            )
 
             assert new_tag1 in result.tags
             assert new_tag2 in result.tags
@@ -237,7 +249,9 @@ class TestSchemaTags:
             agent.schema.add_tag_to_schema(
                 "namespace1", "2.0.0", DEFAULT_SCHEMA_VERSION, tag=new_tag1
             )
-            result = agent.schema.get_version_info("namespace1", "2.0.0", DEFAULT_SCHEMA_VERSION)
+            result = agent.schema.get_version_info(
+                "namespace1", "2.0.0", DEFAULT_SCHEMA_VERSION
+            )
             assert new_tag1 in result.tags
 
     @pytest.mark.parametrize(
@@ -249,11 +263,17 @@ class TestSchemaTags:
     def test_delete_tag(self, namespace, name):
         with PEPDBAgentContextManager(add_schemas=True) as agent:
             new_tag1 = "new_tag"
-            agent.schema.add_tag_to_schema(namespace, name, DEFAULT_SCHEMA_VERSION, tag=new_tag1)
-            result = agent.schema.get_version_info(namespace, name, DEFAULT_SCHEMA_VERSION)
+            agent.schema.add_tag_to_schema(
+                namespace, name, DEFAULT_SCHEMA_VERSION, tag=new_tag1
+            )
+            result = agent.schema.get_version_info(
+                namespace, name, DEFAULT_SCHEMA_VERSION
+            )
             assert new_tag1 in result.tags
             agent.schema.remove_tag_from_schema(
                 namespace, name, DEFAULT_SCHEMA_VERSION, tag=new_tag1
             )
-            result = agent.schema.get_version_info(namespace, name, DEFAULT_SCHEMA_VERSION)
+            result = agent.schema.get_version_info(
+                namespace, name, DEFAULT_SCHEMA_VERSION
+            )
             assert new_tag1 not in result.tags
