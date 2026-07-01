@@ -2,6 +2,17 @@
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+
+## [0.13.0] -- 2026-07-01
+- Migrated from `peppy` to `peprs` across all modules (project, sample, view, models, utils)
+- Updated subsample key constant: `SUBSAMPLE_RAW_LIST_KEY` → `SUBSAMPLE_RAW_DICT_KEY`
+- Added alembic database migration support; `run_migrations` parameter added to `PEPDatabaseAgent` and `BaseEngine`
+- Fixed nullable fields in schema models (`SchemaVersionAnnotation`, `SchemaRecordAnnotation`, `UpdateSchemaRecordFields`, `UpdateSchemaVersionFields`)
+- Added support for `"latest"` schema version resolution when uploading/updating projects
+- Moved `SAMPLE_NAME_ATTR` and `SAMPLE_TABLE_INDEX_KEY` constants into `pepdbagent/const.py`
+- Performed code cleanup and refactoring across modules, including modernization of the codestyle, installation and dependencies.
+- ❗`get_raw` method (returning raw project) now returns keys: {config, samples, subsamples} instead of {config, sample_list, subsample_list}
+
 ## [0.12.4] -- 2026-01-26
 - Added project search by tag in annotation module
 - Updated github actions workflows

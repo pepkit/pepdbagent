@@ -1,15 +1,20 @@
 # View of the PEP. In other words, it is a part of the PEP, or subset of the samples in the PEP.
 
 import logging
-from typing import List, Union
 
-import peppy
+import peprs
 from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from pepdbagent.const import DEFAULT_TAG, PKG_NAME
-from pepdbagent.db_utils import BaseEngine, Projects, Samples, Views, ViewSampleAssociation
+from pepdbagent.db_utils import (
+    BaseEngine,
+    Projects,
+    Samples,
+    Views,
+    ViewSampleAssociation,
+)
 from pepdbagent.exceptions import (
     ProjectNotFoundError,
     SampleAlreadyInView,
@@ -32,7 +37,8 @@ class PEPDatabaseView:
 
     def __init__(self, pep_db_engine: BaseEngine):
         """
-        :param pep_db_engine: pepdbengine object with sa engine
+        Args:
+            pep_db_engine: PEPDatabaseAgent engine object.
         """
         self._sa_engine = pep_db_engine.engine
         self._pep_db_engine = pep_db_engine
@@ -44,25 +50,23 @@ class PEPDatabaseView:
         tag: str = DEFAULT_TAG,
         view_name: str = None,
         raw: bool = True,
-    ) -> Union[peppy.Project, dict, None]:
-        """
-        Retrieve view of the project from the database.
-        View is a subset of the samples in the project. e.g. bed-db project has all the samples in bedbase,
-        bedset is a view of the bedbase project with only the samples in the bedset.
+    ) -> peprs.Project | dict | None:
+        """Retrieve a view of the project from the database.
 
-        :param namespace: namespace of the project
-        :param name: name of the project (Default: name is taken from the project object)
-        :param tag: tag of the project (Default: tag is taken from the project object)
-        :param view_name: name of the view
-        :param raw: retrieve unprocessed (raw) PEP dict. [Default: True]
-        :return: peppy.Project object with found project or dict with unprocessed
-            PEP elements: {
-                name: str
-                description: str
-                _config: dict
-                _sample_dict: dict
-                _subsample_dict: dict
-            }
+        A view is a subset of samples in the project.
+
+        Args:
+            namespace: Namespace of the project.
+            name: Name of the project.
+            tag: Tag of the project.
+            view_name: Name of the view.
+            raw: Return raw dict if True, peprs.Project object if False.
+
+        Returns:
+            Raw dict or peprs.Project with only the view's samples.
+
+        Raises:
+            ViewNotFoundError: If the view does not exist.
         """
         _LOGGER.debug(f"Get view {view_name} from {namespace}/{name}:{tag}")
         view_statement = select(Views).where(
@@ -80,31 +84,32 @@ class PEPDatabaseView:
                 )
             samples = [sample.sample.sample for sample in view.samples]
             config = view.project_mapping.config
-        sub_project_dict = {"_config": config, "_sample_dict": samples, "_subsample_dict": None}
+        sub_project_dict = {"config": config, "samples": samples}
         if raw:
             return sub_project_dict
         else:
-            return peppy.Project.from_dict(sub_project_dict)
+            return peprs.Project.from_dict(sub_project_dict)
 
     def get_annotation(
         self, namespace: str, name: str, tag: str = DEFAULT_TAG, view_name: str = None
     ) -> ViewAnnotation:
-        """
-        Get annotation of the view.
+        """Get annotation for a view.
 
-        :param namespace: namespace of the project
-        :param name: name of the project
-        :param tag: tag of the project
-        :param view_name: name of the sample
-        :return: ViewAnnotation object:
-            {project_namespace: str,
-             project_name: str,
-             project_tag: str,
-             name: str,
-             description: str,
-             number_of_samples: int}
+        Args:
+            namespace: Namespace of the project.
+            name: Name of the project.
+            tag: Tag of the project.
+            view_name: Name of the view.
+
+        Returns:
+            ViewAnnotation with project coordinates, name, description, and sample count.
+
+        Raises:
+            ViewNotFoundError: If the view does not exist.
         """
-        _LOGGER.debug(f"Get annotation for view {view_name} in {namespace}/{name}:{tag}")
+        _LOGGER.debug(
+            f"Get annotation for view {view_name} in {namespace}/{name}:{tag}"
+        )
         view_statement = select(Views).where(
             and_(
                 Views.project_mapping.has(namespace=namespace, name=name, tag=tag),
@@ -130,27 +135,27 @@ class PEPDatabaseView:
     def create(
         self,
         view_name: str,
-        view_dict: Union[dict, CreateViewDictModel],
+        view_dict: dict | CreateViewDictModel,
         description: str = None,
         no_fail: bool = False,
     ) -> None:
-        """
-        Create a view of the project in the database.
+        """Create a view of a project in the database.
 
-        :param view_name: namespace of the project
-        :param view_dict: dict or CreateViewDictModel object with view samples.
-            Dict should have the following structure:
-                {
-                    project_namespace: str
-                    project_name: str
-                    project_tag: str
-                    sample_list: List[str] # list of sample names
-                }
-        :param description: description of the view
-        :param no_fail: if True, skip samples that doesn't exist in the project
-        retrun: None
+        Args:
+            view_name: Name for the new view.
+            view_dict: View definition with project_namespace, project_name, project_tag,
+                and sample_list keys (or a CreateViewDictModel).
+            description: Optional description of the view.
+            no_fail: Skip samples that do not exist instead of raising an error.
+
+        Raises:
+            ProjectNotFoundError: If the project does not exist.
+            SampleNotFoundError: If a sample does not exist and no_fail is False.
+            ViewAlreadyExistsError: If a view with the same name already exists.
         """
-        _LOGGER.debug(f"Creating view {view_name} with provided info: (view_dict: {view_dict})")
+        _LOGGER.debug(
+            f"Creating view {view_name} with provided info: (view_dict: {view_dict})"
+        )
         if isinstance(view_dict, dict):
             view_dict = CreateViewDictModel(**view_dict)
 
@@ -192,7 +197,9 @@ class PEPDatabaseView:
                     else:
                         continue
 
-                    sa_session.add(ViewSampleAssociation(sample_id=sample_id, view=view))
+                    sa_session.add(
+                        ViewSampleAssociation(sample_id=sample_id, view=view)
+                    )
 
                 sa_session.commit()
         except IntegrityError:
@@ -207,14 +214,16 @@ class PEPDatabaseView:
         project_tag: str = DEFAULT_TAG,
         view_name: str = None,
     ) -> None:
-        """
-        Delete a view of the project in the database.
+        """Delete a view from the database.
 
-        :param project_namespace: namespace of the project
-        :param project_name: name of the project
-        :param project_tag: tag of the project
-        :param view_name: name of the view
-        :return: None
+        Args:
+            project_namespace: Namespace of the project.
+            project_name: Name of the project.
+            project_tag: Tag of the project.
+            view_name: Name of the view to delete.
+
+        Raises:
+            ViewNotFoundError: If the view does not exist.
         """
         _LOGGER.debug(
             f"Deleting view {view_name} from {project_namespace}/{project_name}:{project_tag}"
@@ -243,17 +252,21 @@ class PEPDatabaseView:
         name: str,
         tag: str,
         view_name: str,
-        sample_name: Union[str, List[str]],
-    ):
-        """
-        Add sample to the view.
+        sample_name: str | list[str],
+    ) -> None:
+        """Add one or more samples to a view.
 
-        :param namespace: namespace of the project
-        :param name: name of the project
-        :param tag: tag of the project
-        :param view_name: name of the view
-        :param sample_name: sample name
-        :return: None
+        Args:
+            namespace: Namespace of the project.
+            name: Name of the project.
+            tag: Tag of the project.
+            view_name: Name of the view.
+            sample_name: Sample name or list of sample names.
+
+        Raises:
+            ViewNotFoundError: If the view does not exist.
+            SampleNotFoundError: If a sample does not exist.
+            SampleAlreadyInView: If a sample is already in the view.
         """
         _LOGGER.debug(
             f"Adding sample {sample_name} to view {view_name} in {namespace}/{name}:{tag}"
@@ -301,15 +314,18 @@ class PEPDatabaseView:
         view_name: str,
         sample_name: str,
     ) -> None:
-        """
-        Remove sample from the view.
+        """Remove a sample from a view.
 
-        :param namespace: namespace of the project
-        :param name: name of the project
-        :param tag: tag of the project
-        :param view_name: name of the view
-        :param sample_name: sample name
-        :return: None
+        Args:
+            namespace: Namespace of the project.
+            name: Name of the project.
+            tag: Tag of the project.
+            view_name: Name of the view.
+            sample_name: Name of the sample to remove.
+
+        Raises:
+            ViewNotFoundError: If the view does not exist.
+            SampleNotInViewError: If the sample is not in the view.
         """
         _LOGGER.debug(
             f"Removing sample {sample_name} from view {view_name} in {namespace}/{name}:{tag}"
@@ -348,18 +364,30 @@ class PEPDatabaseView:
             sa_session.commit()
 
     def get_snap_view(
-        self, namespace: str, name: str, tag: str, sample_name_list: List[str], raw: bool = False
-    ) -> Union[peppy.Project, dict]:
-        """
-        Get a snap view of the project. Snap view is a view of the project
-        with only the samples in the list. This view won't be saved in the database.
+        self,
+        namespace: str,
+        name: str,
+        tag: str,
+        sample_name_list: list[str],
+        raw: bool = False,
+    ) -> peprs.Project | dict:
+        """Get an ephemeral view of a project limited to a set of samples.
 
-        :param namespace: project namespace
-        :param name: name of the project
-        :param tag: tag of the project
-        :param sample_name_list: list of sample names e.g. ["sample1", "sample2"]
-        :param raw: retrieve unprocessed (raw) PEP dict.
-        :return: peppy.Project object
+        The snap view is not persisted in the database.
+
+        Args:
+            namespace: Namespace of the project.
+            name: Name of the project.
+            tag: Tag of the project.
+            sample_name_list: Sample names to include, e.g., ["sample1", "sample2"].
+            raw: Return raw dict if True, peprs.Project object if False.
+
+        Returns:
+            Raw dict or peprs.Project containing only the requested samples.
+
+        Raises:
+            ProjectNotFoundError: If the project does not exist.
+            SampleNotFoundError: If any sample does not exist.
         """
         _LOGGER.debug(f"Creating snap view for {namespace}/{name}:{tag}")
         project_statement = select(Projects).where(
@@ -372,7 +400,9 @@ class PEPDatabaseView:
         with Session(self._sa_engine) as sa_session:
             project = sa_session.scalar(project_statement)
             if not project:
-                raise ProjectNotFoundError(f"Project {namespace}/{name}:{tag} does not exist")
+                raise ProjectNotFoundError(
+                    f"Project {namespace}/{name}:{tag} does not exist"
+                )
             samples = []
             for sample_name in sample_name_list:
                 sample_statement = select(Samples).where(
@@ -390,22 +420,22 @@ class PEPDatabaseView:
             config = project.config
 
         if raw:
-            return {"_config": config, "_sample_dict": samples, "_subsample_dict": None}
+            return {"config": config, "samples": samples}
         else:
-            return peppy.Project.from_dict(
-                {"_config": config, "_sample_dict": samples, "_subsample_dict": None}
-            )
+            return peprs.Project.from_dict({"config": config, "samples": samples})
 
     def get_views_annotation(
         self, namespace: str, name: str, tag: str = DEFAULT_TAG
-    ) -> Union[ProjectViews, None]:
-        """
-        Get list of views of the project
+    ) -> ProjectViews | None:
+        """Get annotation for all views of a project.
 
-        :param namespace: namespace of the project
-        :param name: name of the project
-        :param tag: tag of the project
-        :return: list of views of the project
+        Args:
+            namespace: Namespace of the project.
+            name: Name of the project.
+            tag: Tag of the project.
+
+        Returns:
+            ProjectViews with a list of ViewAnnotation objects.
         """
         _LOGGER.debug(f"Get views annotation for {namespace}/{name}:{tag}")
         statement = select(Views).where(

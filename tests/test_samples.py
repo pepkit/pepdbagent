@@ -1,4 +1,4 @@
-import peppy
+import peprs
 import pytest
 
 from pepdbagent.exceptions import SampleNotFoundError
@@ -20,7 +20,7 @@ class TestSamples:
     def test_retrieve_one_sample(self, namespace, name, sample_name):
         with PEPDBAgentContextManager(add_data=True) as agent:
             one_sample = agent.sample.get(namespace, name, sample_name, raw=False)
-            assert isinstance(one_sample, peppy.Sample)
+            assert isinstance(one_sample, peprs.Sample)
             assert one_sample.sample_name == sample_name
 
     @pytest.mark.parametrize(
@@ -41,10 +41,12 @@ class TestSamples:
             ["namespace2", "custom_index", "frog_1"],
         ],
     )
-    def test_retrieve_sample_with_modified_sample_id(self, namespace, name, sample_name):
+    def test_retrieve_sample_with_modified_sample_id(
+        self, namespace, name, sample_name
+    ):
         with PEPDBAgentContextManager(add_data=True) as agent:
             one_sample = agent.sample.get(namespace, name, sample_name, raw=False)
-            assert isinstance(one_sample, peppy.Sample)
+            assert isinstance(one_sample, peprs.Sample)
             assert one_sample.sample_id == "frog_1"
 
     @pytest.mark.parametrize(
@@ -142,7 +144,8 @@ class TestSamples:
             annotation2 = agent.annotation.get(namespace, name, "default")
 
             assert (
-                annotation1.results[0].last_update_date != annotation2.results[0].last_update_date
+                annotation1.results[0].last_update_date
+                != annotation2.results[0].last_update_date
             )
 
     @pytest.mark.parametrize(
@@ -154,7 +157,7 @@ class TestSamples:
     def test_delete_sample(self, namespace, name, sample_name):
         with PEPDBAgentContextManager(add_data=True) as agent:
             one_sample = agent.sample.get(namespace, name, sample_name, raw=False)
-            assert isinstance(one_sample, peppy.Sample)
+            assert isinstance(one_sample, peprs.Sample)
 
             agent.sample.delete(namespace, name, tag="default", sample_name=sample_name)
 
@@ -203,7 +206,12 @@ class TestSamples:
     )
     def test_overwrite_sample(self, namespace, name, tag, sample_dict):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            assert agent.project.get(namespace, name, raw=False).get_sample("pig_0h").time == "0"
+            # peprs/polars infers numeric values from the sample table, so the
+            # original time is loaded as int (not string).
+            assert (
+                agent.project.get(namespace, name, raw=False).get_sample("pig_0h").time
+                == 0
+            )
             agent.sample.add(namespace, name, tag, sample_dict, overwrite=True)
 
             assert (
@@ -232,4 +240,7 @@ class TestSamples:
             agent.sample.delete(namespace, name, tag, "pig_0h")
             agent.sample.add(namespace, name, tag, sample_dict)
             prj2 = agent.project.get(namespace, name, raw=False)
-            assert prj.get_sample("pig_0h").to_dict() == prj2.get_sample("pig_0h").to_dict()
+            assert (
+                prj.get_sample("pig_0h").to_dict()
+                == prj2.get_sample("pig_0h").to_dict()
+            )

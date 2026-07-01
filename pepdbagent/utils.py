@@ -3,22 +3,23 @@ import json
 import uuid
 from collections.abc import Iterable
 from hashlib import md5
-from typing import List, Tuple, Union
 
 import ubiquerg
-from peppy.const import SAMPLE_RAW_DICT_KEY
+from peprs.const import SAMPLE_RAW_DICT_KEY
 
 from pepdbagent.exceptions import RegistryPathError
 
 
 def is_valid_registry_path(rpath: str) -> bool:
-    """
-    Verify that a registry path is valid. Checks for two things:
-    1. Contains forward slash ("/"), and
-    2. Forward slash divides two strings
+    """Verify that a registry path is valid.
 
-    :param str rpath: registry path to test
-    :return bool: Is it a valid registry or not.
+    Checks that the path contains a forward slash dividing two non-empty strings.
+
+    Args:
+        rpath: Registry path to test.
+
+    Returns:
+        True if the path is a valid registry path.
     """
     # check for string
     if not isinstance(rpath, str):
@@ -33,11 +34,13 @@ def is_valid_registry_path(rpath: str) -> bool:
 
 
 def all_elements_are_strings(iterable: Iterable) -> bool:
-    """
-    Helper method to determine if an iterable only contains `str` objects.
+    """Check if every element of an iterable is a str.
 
-    :param Iterable iterable: An iterable item
-    :returns bool: Boolean value indicating if the iterable only contains strings.
+    Args:
+        iterable: An iterable item.
+
+    Returns:
+        True if every element is a string.
     """
     if not isinstance(iterable, Iterable):
         return False
@@ -45,11 +48,13 @@ def all_elements_are_strings(iterable: Iterable) -> bool:
 
 
 def create_digest(project_dict: dict) -> str:
-    """
-    Create digest for PEP project
+    """Create an MD5 digest for a PEP project.
 
-    :param project_dict: project dict
-    :return: digest string
+    Args:
+        project_dict: Project dictionary.
+
+    Returns:
+        MD5 hex digest of the sample table.
     """
     sample_digest = md5(
         json.dumps(
@@ -63,12 +68,17 @@ def create_digest(project_dict: dict) -> str:
     return sample_digest
 
 
-def registry_path_converter(registry_path: str) -> Tuple[str, str, str]:
-    """
-    Convert registry path to namespace, name, tag
+def registry_path_converter(registry_path: str) -> tuple[str, str, str]:
+    """Convert a registry path to (namespace, name, tag).
 
-    :param registry_path: registry path that has structure: "namespace/name:tag"
-    :return: tuple(namespace, name, tag)
+    Args:
+        registry_path: Registry path with structure "namespace/name:tag".
+
+    Returns:
+        Tuple of (namespace, name, tag).
+
+    Raises:
+        RegistryPathError: If the path is not a valid registry path.
     """
     if is_valid_registry_path(registry_path):
         reg = ubiquerg.parse_registry_path(registry_path)
@@ -80,12 +90,17 @@ def registry_path_converter(registry_path: str) -> Tuple[str, str, str]:
     raise RegistryPathError(f"Error in: '{registry_path}'")
 
 
-def schema_path_converter(schema_path: str) -> Tuple[str, str, str]:
-    """
-    Convert schema path to namespace, name
+def schema_path_converter(schema_path: str) -> tuple[str, str, str]:
+    """Convert a schema path to (namespace, name, version).
 
-    :param schema_path: schema path that has structure: "namespace/name.yaml"
-    :return: tuple(namespace, name, version)
+    Args:
+        schema_path: Schema path with structure "namespace/name:version".
+
+    Returns:
+        Tuple of (namespace, name, version).
+
+    Raises:
+        RegistryPathError: If the path is invalid.
     """
     if "/" in schema_path:
         namespace, name_tag = schema_path.split("/")
@@ -97,13 +112,14 @@ def schema_path_converter(schema_path: str) -> Tuple[str, str, str]:
     raise RegistryPathError(f"Error in: '{schema_path}'")
 
 
-def tuple_converter(value: Union[tuple, list, str, None]) -> tuple:
-    """
-    Convert string list or tuple to tuple.
-    # is used to create admin tuple.
+def tuple_converter(value: tuple | list | str | None) -> tuple:
+    """Convert a string, list, or tuple to a tuple.
 
-    :param value: Any value that has to be converted to tuple
-    :return: tuple of strings
+    Args:
+        value: Value to convert.
+
+    Returns:
+        Tuple of strings.
     """
     if isinstance(value, str):
         value = [value]
@@ -115,28 +131,30 @@ def tuple_converter(value: Union[tuple, list, str, None]) -> tuple:
 
 
 def convert_date_string_to_date(date_string: str) -> datetime.datetime:
-    """
-    Convert string into datetime format
+    """Convert a date string to a datetime.
 
-    :param date_string: date string in format [YYYY/MM/DD]. e.g. 2022/02/22
-    :return: datetime format
+    Args:
+        date_string: Date string in format YYYY/MM/DD, e.g., "2022/02/22".
+
+    Returns:
+        Parsed datetime offset by one day.
     """
-    return datetime.datetime.strptime(date_string, "%Y/%m/%d") + datetime.timedelta(days=1)
+    return datetime.datetime.strptime(date_string, "%Y/%m/%d") + datetime.timedelta(
+        days=1
+    )
 
 
-def order_samples(results: dict) -> List[dict]:
-    """
-    Order samples by their parent_guid
+def order_samples(results: dict) -> list[dict]:
+    """Order samples by their parent_guid chain.
 
     # TODO: To make this function more efficient, we should write it in Rust!
 
-    :param results: dictionary of samples. Structure: {
-                            "sample": sample_dict,
-                            "guid": sample.guid,
-                            "parent_guid": sample.parent_guid,
-                        }
+    Args:
+        results: Dict of samples keyed by guid, each value a dict with
+            "sample", "guid", and "parent_guid" keys.
 
-    :return: ordered list of samples
+    Returns:
+        Ordered list of samples from root to leaf.
     """
     # Find the Root Node
     # Create a lookup dictionary for nodes by their GUIDs

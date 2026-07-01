@@ -1,10 +1,14 @@
 import numpy as np
-import peppy
+import peprs
 import pytest
 
 from pepdbagent.exceptions import ProjectNotFoundError
 
-from .utils import PEPDBAgentContextManager, get_path_to_example_file, list_of_available_peps
+from .utils import (
+    PEPDBAgentContextManager,
+    get_path_to_example_file,
+    list_of_available_peps,
+)
 
 
 @pytest.mark.skipif(
@@ -18,15 +22,15 @@ class TestProject:
 
     def test_create_project(self):
         with PEPDBAgentContextManager(add_data=False) as agent:
-            prj = peppy.Project(list_of_available_peps()["namespace3"]["subtables"])
+            prj = peprs.Project(list_of_available_peps()["namespace3"]["subtables"])
             agent.project.create(prj, namespace="test", name="imply", overwrite=False)
             assert True
 
     def test_create_project_from_dict(self):
         with PEPDBAgentContextManager(add_data=False) as agent:
-            prj = peppy.Project(list_of_available_peps()["namespace3"]["subtables"])
+            prj = peprs.Project(list_of_available_peps()["namespace3"]["subtables"])
             agent.project.create(
-                prj.to_dict(extended=True, orient="records"),
+                prj.to_dict(raw=True, by_sample=True),
                 namespace="test",
                 name="imply",
                 overwrite=True,
@@ -47,9 +51,18 @@ class TestProject:
     )
     def test_get_project(self, namespace, name):
         with PEPDBAgentContextManager(add_data=True) as agent:
-            kk = agent.project.get(namespace=namespace, name=name, tag="default", raw=False)
-            ff = peppy.Project(get_path_to_example_file(namespace, name))
-            assert kk == ff
+            kk = agent.project.get(
+                namespace=namespace, name=name, tag="default", raw=True
+            )
+            ff = peprs.Project(get_path_to_example_file(namespace, name)).to_dict(
+                raw=True, by_sample=True
+            )
+            # pepdbagent always sets the registry name on the stored config,
+            # overriding any name in the file (which may be empty or different).
+            ff["config"]["name"] = name
+            assert kk["config"] == ff["config"]
+            assert kk["samples"] == ff["samples"]
+            assert kk.get("subsamples", []) == ff.get("subsamples", [])
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -65,10 +78,11 @@ class TestProject:
                 name=name,
                 tag="default",
             )
-            ff = peppy.Project(get_path_to_example_file(namespace, name))
-            ff["_original_config"]["description"] = description
-            ff["_original_config"]["name"] = name
-            assert kk == ff["_original_config"]
+            ff = peprs.Project(get_path_to_example_file(namespace, name))
+            expected_config = ff.config.copy()
+            expected_config["description"] = description
+            expected_config["name"] = name
+            assert kk == expected_config
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -83,11 +97,11 @@ class TestProject:
                 name=name,
                 tag="default",
             )
-            orgiginal_prj = peppy.Project(get_path_to_example_file(namespace, name))
+            orgiginal_prj = peprs.Project(get_path_to_example_file(namespace, name))
 
             assert (
                 prj_subtables
-                == orgiginal_prj.to_dict(extended=True, orient="records")["_subsample_list"]
+                == orgiginal_prj.to_dict(raw=True, by_sample=True)["subsamples"]
             )
 
     @pytest.mark.parametrize(
@@ -101,11 +115,11 @@ class TestProject:
             prj_samples = agent.project.get_samples(
                 namespace=namespace, name=name, tag="default", raw=True
             )
-            orgiginal_prj = peppy.Project(get_path_to_example_file(namespace, name))
+            orgiginal_prj = peprs.Project(get_path_to_example_file(namespace, name))
 
             assert (
                 prj_samples
-                == orgiginal_prj.to_dict(extended=True, orient="records")["_sample_dict"]
+                == orgiginal_prj.to_dict(raw=True, by_sample=True)["samples"]
             )
 
     @pytest.mark.parametrize(
@@ -122,11 +136,25 @@ class TestProject:
                 tag="default",
                 raw=False,
             )
-            orgiginal_prj = peppy.Project(get_path_to_example_file(namespace, name))
-
-            assert prj_samples == orgiginal_prj.sample_table.replace({np.nan: None}).to_dict(
-                orient="records"
+            orgiginal_prj = peprs.Project(get_path_to_example_file(namespace, name))
+            expected = (
+                orgiginal_prj.to_pandas()
+                .replace({np.nan: None})
+                .to_dict(orient="records")
             )
+
+            # Normalize numpy arrays (used for subsample list columns) to plain lists
+            # so dict equality works without raising "truth value is ambiguous".
+            def _normalize(samples):
+                return [
+                    {
+                        k: (v.tolist() if isinstance(v, np.ndarray) else v)
+                        for k, v in s.items()
+                    }
+                    for s in samples
+                ]
+
+            assert _normalize(prj_samples) == _normalize(expected)
 
     @pytest.mark.parametrize(
         "namespace, name,tag",
@@ -164,7 +192,9 @@ class TestProject:
                 overwrite=True,
             )
 
-            assert agent.project.get(namespace=namespace, name=name, raw=False) == new_prj
+            assert (
+                agent.project.get(namespace=namespace, name=name, raw=False) == new_prj
+            )
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -183,7 +213,9 @@ class TestProject:
     def test_delete_not_existing_project(self):
         with PEPDBAgentContextManager(add_data=True) as agent:
             with pytest.raises(ProjectNotFoundError, match="Project does not exist."):
-                agent.project.delete(namespace="namespace1", name="nothing", tag="default")
+                agent.project.delete(
+                    namespace="namespace1", name="nothing", tag="default"
+                )
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -204,7 +236,9 @@ class TestProject:
                 fork_tag="new_tag",
             )
 
-            assert agent.project.exists(namespace="new_namespace", name="new_name", tag="new_tag")
+            assert agent.project.exists(
+                namespace="new_namespace", name="new_name", tag="new_tag"
+            )
             result = agent.annotation.get(
                 namespace="new_namespace", name="new_name", tag="new_tag"
             )
@@ -231,9 +265,13 @@ class TestProject:
                 fork_tag="new_tag",
             )
 
-            assert agent.project.exists(namespace="new_namespace", name="new_name", tag="new_tag")
+            assert agent.project.exists(
+                namespace="new_namespace", name="new_name", tag="new_tag"
+            )
             agent.project.delete(namespace=namespace, name=name, tag="default")
-            assert agent.project.exists(namespace="new_namespace", name="new_name", tag="new_tag")
+            assert agent.project.exists(
+                namespace="new_namespace", name="new_name", tag="new_tag"
+            )
 
     @pytest.mark.parametrize(
         "namespace, name",
@@ -256,9 +294,13 @@ class TestProject:
                 fork_tag="new_tag",
             )
 
-            assert agent.project.exists(namespace="new_namespace", name="new_name", tag="new_tag")
+            assert agent.project.exists(
+                namespace="new_namespace", name="new_name", tag="new_tag"
+            )
             assert agent.project.exists(namespace=namespace, name=name, tag="default")
-            agent.project.delete(namespace="new_namespace", name="new_name", tag="new_tag")
+            agent.project.delete(
+                namespace="new_namespace", name="new_name", tag="new_tag"
+            )
             assert agent.project.exists(namespace=namespace, name=name, tag="default")
 
     @pytest.mark.parametrize(

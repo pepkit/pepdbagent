@@ -7,4 +7,3 @@ sample_modifiers:
     attributes: [file_path]
     sources:
       source1: $HOME/data/lab/project/{organism}_{time}h.fastq
-      source2: /path/from/collaborator/weirdNamingScheme_{external_id}.fastq
