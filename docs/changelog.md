@@ -3,6 +3,9 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
 
+## [Unreleased]
+- Added namespace-oriented performance indexes on `projects`: composite `(namespace, last_update_date)` for namespace project listings, a covering partial index `(namespace) INCLUDE (number_of_samples, name) WHERE private IS FALSE` for namespace aggregation, and a trigram GIN index on `namespace` for `ILIKE` search
+
 ## [0.13.0] -- 2026-07-01
 - Migrated from `peppy` to `peprs` across all modules (project, sample, view, models, utils)
 - Updated subsample key constant: `SUBSAMPLE_RAW_LIST_KEY` → `SUBSAMPLE_RAW_DICT_KEY`
