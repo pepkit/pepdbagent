@@ -166,6 +166,30 @@ class Projects(Base):
         Index("ix_projects_last_update_date", "last_update_date"),
         Index("ix_projects_submission_date", "submission_date"),
         Index("ix_projects_number_of_stars", "number_of_stars"),
+        # Composite for namespace project listings
+        # (WHERE namespace = ? ORDER BY last_update_date DESC LIMIT n): a bounded
+        # index range scan instead of walking the global last_update_date index
+        # and filtering by namespace (the plan flip that scans most of the table
+        # for a namespace whose rows are not near the date tip), and no full sort.
+        Index("ix_projects_namespace_update_date", "namespace", "last_update_date"),
+        # Covering partial index for namespace aggregation
+        # (SELECT namespace, count(name), sum(number_of_samples) GROUP BY namespace):
+        # an index-only scan (~25 MB) instead of a ~250 MB heap seq scan. Covers
+        # only the public rows aggregated and INCLUDEs the summed/counted columns.
+        # (Needs a fresh visibility map — run VACUUM ANALYZE projects afterward.)
+        Index(
+            "ix_projects_ns_agg",
+            "namespace",
+            postgresql_include=["number_of_samples", "name"],
+            postgresql_where=text("private IS FALSE"),
+        ),
+        # Trigram GIN on namespace for namespace ILIKE '%str%' search.
+        Index(
+            "trgm_index_namespace",
+            "namespace",
+            postgresql_using="gin",
+            postgresql_ops={"namespace": "gin_trgm_ops"},
+        ),
     )
 
 
