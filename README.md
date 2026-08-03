@@ -56,10 +56,16 @@ to increase readability, maintainability, and user experience of pepdbagent, whi
 
 ```python
 import pepdbagent
+
 # 1) By providing credentials and connection information:
-agent = pepdbagent.PEPDatabaseAgent(user="postgres", password="docker", )
+agent = pepdbagent.PEPDatabaseAgent(
+    user="postgres",
+    password="docker",
+)
 # 2) or By providing connection string:
-agent = pepdbagent.PEPDatabaseAgent(dsn="postgresql://postgres:docker@localhost:5432/pep-db")
+agent = pepdbagent.PEPDatabaseAgent(
+    dsn="postgresql://postgres:docker@localhost:5432/pep-db"
+)
 ```
 
 #### Example of usage of the pepdbagent modules:
@@ -125,13 +131,13 @@ Example:
 ```python
 # Get info about namespace by providing query argument. Then pepdbagent will
 # search for a specified pattern of namespace in database.
-agent.namespace.get(query='Namespace')
+agent.namespace.get(query="Namespace")
 
 # By default all get functions will return namespace information for public projects,
 # To get information with private projects, admin list should be provided.
 # admin list means list of namespaces where user has admin rights
 # For example:
-agent.namespace.get(query='search_pattern', admin=['databio', 'geo', 'ncbi'])
+agent.namespace.get(query="search_pattern", admin=["databio", "geo", "ncbi"])
 ```
 For more information, developers should use `pepdbagent pytest` as documentation due to its natural language syntax and the 
 ability to write tests that serve as executable examples. 
@@ -168,6 +174,7 @@ in creation of the PEPDBAgent object. For example:
 
 ```python
 from pepdbagent import PEPDBAgent
+
 pdb = PEPDatabaseAgent(
     user="postgres",
     password="pass8743hf9h23f87h437",
