@@ -11,12 +11,14 @@ from sqlalchemy import (
     Enum,
     FetchedValue,
     ForeignKey,
+    Index,
     Result,
     Select,
     String,
     UniqueConstraint,
     event,
     select,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.engine import URL, Engine, create_engine
@@ -136,7 +138,59 @@ class Projects(Base):
         back_populates="project_mapping", cascade="all, delete-orphan"
     )
 
-    __table_args__ = (UniqueConstraint("namespace", "name", "tag"),)
+    __table_args__ = (
+        UniqueConstraint("namespace", "name", "tag"),
+        # Trigram indexes for ILIKE '%str%' search. The search condition ORs
+        # name, tag and description, so all three must be indexed — postgres
+        # falls back to a seq scan if any branch of the OR is unindexed.
+        Index(
+            "trgm_index_name",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
+        Index(
+            "trgm_index_tag",
+            "tag",
+            postgresql_using="gin",
+            postgresql_ops={"tag": "gin_trgm_ops"},
+        ),
+        Index(
+            "trgm_index_description",
+            "description",
+            postgresql_using="gin",
+            postgresql_ops={"description": "gin_trgm_ops"},
+        ),
+        # B-tree indexes for the ORDER BY options of annotation search.
+        Index("ix_projects_name", "name"),
+        Index("ix_projects_last_update_date", "last_update_date"),
+        Index("ix_projects_submission_date", "submission_date"),
+        Index("ix_projects_number_of_stars", "number_of_stars"),
+        # Composite for namespace project listings
+        # (WHERE namespace = ? ORDER BY last_update_date DESC LIMIT n): a bounded
+        # index range scan instead of walking the global last_update_date index
+        # and filtering by namespace (the plan flip that scans most of the table
+        # for a namespace whose rows are not near the date tip), and no full sort.
+        Index("ix_projects_namespace_update_date", "namespace", "last_update_date"),
+        # Covering partial index for namespace aggregation
+        # (SELECT namespace, count(name), sum(number_of_samples) GROUP BY namespace):
+        # an index-only scan (~25 MB) instead of a ~250 MB heap seq scan. Covers
+        # only the public rows aggregated and INCLUDEs the summed/counted columns.
+        # (Needs a fresh visibility map — run VACUUM ANALYZE projects afterward.)
+        Index(
+            "ix_projects_ns_agg",
+            "namespace",
+            postgresql_include=["number_of_samples", "name"],
+            postgresql_where=text("private IS FALSE"),
+        ),
+        # Trigram GIN on namespace for namespace ILIKE '%str%' search.
+        Index(
+            "trgm_index_namespace",
+            "namespace",
+            postgresql_using="gin",
+            postgresql_ops={"namespace": "gin_trgm_ops"},
+        ),
+    )
 
 
 class Samples(Base):
@@ -176,6 +230,11 @@ class Samples(Base):
 
     views: Mapped[list["ViewSampleAssociation"] | None] = relationship(
         back_populates="sample", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        Index("project_id_samp_index", "project_id"),
+        Index("guid_parent_index", "parent_guid"),
     )
 
 
@@ -488,6 +547,9 @@ class BaseEngine:
         """
         if not engine:
             engine = self._engine
+        # Required by the trigram (gin_trgm_ops) search indexes on projects.
+        with engine.begin() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         Base.metadata.create_all(engine)
         return None
 

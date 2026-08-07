@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Literal
 
 from sqlalchemy import and_, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, load_only, noload
 from sqlalchemy.sql.selectable import Select
 
 from pepdbagent.const import (
@@ -14,7 +14,7 @@ from pepdbagent.const import (
     PKG_NAME,
     SUBMISSION_DATE_KEY,
 )
-from pepdbagent.db_utils import BaseEngine, Projects
+from pepdbagent.db_utils import BaseEngine, Projects, SchemaRecords, SchemaVersions
 from pepdbagent.exceptions import FilterError, ProjectNotFoundError, RegistryPathError
 from pepdbagent.models import AnnotationList, AnnotationModel, RegistryPath
 from pepdbagent.utils import (
@@ -336,7 +336,7 @@ class PEPDatabaseAnnotation:
 
         if admin is None:
             admin = []
-        statement = select(Projects)
+        statement = select(Projects).options(*self._annotation_load_options())
 
         statement = self._add_condition(
             statement,
@@ -348,7 +348,6 @@ class PEPDatabaseAnnotation:
         statement = self._add_date_filter_if_provided(
             statement, filter_by, filter_start_date, filter_end_date
         )
-        statement = statement
         statement = self._add_order_by_keyword(statement, by=order_by, desc=order_desc)
         statement = statement.limit(limit).offset(offset)
         if pep_type:
@@ -385,6 +384,42 @@ class PEPDatabaseAnnotation:
                     )
                 )
         return results_list
+
+    @staticmethod
+    def _annotation_load_options() -> tuple:
+        """Loader options for queries that build AnnotationModel objects.
+
+        Fetch only the needed columns (skipping the config and schema_value
+        JSON payloads) and eager-load the schema and fork relationships so no
+        per-row lazy queries are issued.
+        """
+        return (
+            load_only(
+                Projects.namespace,
+                Projects.name,
+                Projects.tag,
+                Projects.private,
+                Projects.description,
+                Projects.number_of_samples,
+                Projects.submission_date,
+                Projects.last_update_date,
+                Projects.digest,
+                Projects.pop,
+                Projects.number_of_stars,
+                Projects.forked_from_id,
+            ),
+            joinedload(Projects.schema_mapping).options(
+                load_only(SchemaVersions.version),
+                joinedload(SchemaVersions.schema_mapping).load_only(
+                    SchemaRecords.namespace, SchemaRecords.name
+                ),
+                noload(SchemaVersions.tags_mapping),
+            ),
+            joinedload(Projects.forked_from_mapping).options(
+                load_only(Projects.namespace, Projects.name, Projects.tag),
+                noload(Projects.schema_mapping),
+            ),
+        )
 
     @staticmethod
     def _add_order_by_keyword(
@@ -581,7 +616,11 @@ class PEPDatabaseAnnotation:
                     results=[],
                 )
 
-            statement = select(Projects).where(or_(*or_statement_list))
+            statement = (
+                select(Projects)
+                .options(*self._annotation_load_options())
+                .where(or_(*or_statement_list))
+            )
             anno_results = []
             with Session(self._sa_engine) as session:
                 query_result = session.scalars(statement).unique()
