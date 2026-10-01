@@ -1,0 +1,6 @@
+site_name: pepdbagent
+nav:
+  - pepdbagent: README.md
+  - Database version migration: database_version_migration.md
+  - Database tutorial: db_tutorial.md
+  - Changelog: changelog.md
