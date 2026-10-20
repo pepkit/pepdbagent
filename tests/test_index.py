@@ -245,6 +245,8 @@ class TestIndex:
                 ],
             )
 
+            assert agent.index.rebuild_facets() == 4  # search keys for GSM1-4
+
             def found(**kwargs):
                 return [h.accession for h in agent.index.search(**kwargs).results]
 
@@ -271,6 +273,18 @@ class TestIndex:
             assert result.total == 4
             assert [h.accession for h in result.results] == ["GSM2", "GSM3"]
             assert [c.field for c in result.results[0].claims] == ["tissue"]
+
+            # the search keys give the same answers as reading the claims directly
+            for kwargs in (
+                dict(tissue=["liver"]),
+                dict(organism=["Homo sapiens"], tissue=["liver"]),
+                dict(tissue=["liver"], min_confidence="medium"),
+            ):
+                criteria = {k: v for k, v in kwargs.items() if k != "min_confidence"}
+                level = kwargs.get("min_confidence", "low")
+                with Session(agent.pep_db_engine.engine) as session:
+                    direct = agent.index._search_claims(session, criteria, level)
+                assert found(**kwargs) == [h.accession for h in direct.results]
 
             with pytest.raises(ValueError):
                 agent.index.search()

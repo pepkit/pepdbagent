@@ -55,6 +55,9 @@ def upgrade() -> None:
     op.create_index(
         "idx_identifier_value", "identifier", ["scheme", "value"], schema=SCHEMA
     )
+    op.create_index(
+        "idx_identifier_subject", "identifier", ["subject_id"], schema=SCHEMA
+    )
     op.create_table(
         "relation",
         sa.Column("id", sa.BigInteger(), primary_key=True),
@@ -162,6 +165,33 @@ def upgrade() -> None:
     )
     op.create_index("idx_claim_run", "claim", ["run_id"], schema=SCHEMA)
     op.create_table(
+        "facet_key",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("field", sa.String(), nullable=False),
+        sa.Column("term", sa.String(), nullable=False),
+        sa.Column("level", sa.SmallInteger(), nullable=False),
+        sa.UniqueConstraint("field", "term", "level"),
+        schema=SCHEMA,
+    )
+    op.create_table(
+        "sample_facet",
+        sa.Column(
+            "subject_id",
+            sa.BigInteger(),
+            sa.ForeignKey(f"{SCHEMA}.subject.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
+        sa.Column("keys", postgresql.ARRAY(sa.Integer()), nullable=False),
+        schema=SCHEMA,
+    )
+    op.create_index(
+        "idx_sample_facet_keys",
+        "sample_facet",
+        ["keys"],
+        postgresql_using="gin",
+        schema=SCHEMA,
+    )
+    op.create_table(
         "term",
         sa.Column("term_id", sa.String(), primary_key=True),
         sa.Column("label", sa.String(), nullable=True),
@@ -169,9 +199,7 @@ def upgrade() -> None:
         sa.Column("version", sa.String(), nullable=True),
         schema=SCHEMA,
     )
-    op.create_index(
-        "idx_term_label", "term", [sa.text("lower(label)")], schema=SCHEMA
-    )
+    op.create_index("idx_term_label", "term", [sa.text("lower(label)")], schema=SCHEMA)
     op.create_table(
         "term_ancestor",
         sa.Column("term_id", sa.String(), primary_key=True),
@@ -186,6 +214,8 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     for table in (
+        "sample_facet",
+        "facet_key",
         "term_ancestor",
         "term",
         "claim",

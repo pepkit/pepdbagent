@@ -13,8 +13,10 @@ from sqlalchemy import (
     FetchedValue,
     ForeignKey,
     Index,
+    Integer,
     Result,
     Select,
+    SmallInteger,
     String,
     UniqueConstraint,
     event,
@@ -525,6 +527,7 @@ class IndexIdentifier(Base):
     __table_args__ = (
         UniqueConstraint("scheme", "value", "subject_id"),
         Index("idx_identifier_value", "scheme", "value"),
+        Index("idx_identifier_subject", "subject_id"),
         {"schema": INDEX_SCHEMA},
     )
 
@@ -639,6 +642,44 @@ class IndexClaim(Base):
     run_id: Mapped[int] = mapped_column(
         ForeignKey(f"{INDEX_SCHEMA}.run.id", ondelete="CASCADE"), primary_key=True
     )
+
+
+class IndexFacetKey(Base):
+    """A search key: one term (or label) for one search field at one confidence level.
+
+    level is the label's confidence (1 low, 2 medium, 3 high); a search ORs the levels at or
+    above its minimum. Keys exist for every term a label points to and for its ancestors, so
+    searching "liver" finds hepatocytes.
+    """
+
+    __tablename__ = "facet_key"
+    __table_args__ = (
+        UniqueConstraint("field", "term", "level"),
+        {"schema": INDEX_SCHEMA},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    field: Mapped[str] = mapped_column()
+    term: Mapped[str] = mapped_column()
+    level: Mapped[int] = mapped_column(SmallInteger)
+
+
+class IndexSampleFacet(Base):
+    """Every search key of one sample, for fast AND/OR search with a GIN index.
+
+    Derived from claims; rebuild it with agent.index.rebuild_facets() after loading runs.
+    """
+
+    __tablename__ = "sample_facet"
+    __table_args__ = (
+        Index("idx_sample_facet_keys", "keys", postgresql_using="gin"),
+        {"schema": INDEX_SCHEMA},
+    )
+
+    subject_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{INDEX_SCHEMA}.subject.id", ondelete="CASCADE"), primary_key=True
+    )
+    keys: Mapped[list[int]] = mapped_column(ARRAY(Integer))
 
 
 class IndexTerm(Base):
