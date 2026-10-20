@@ -427,6 +427,9 @@ class IndexMatchedClaim(BaseModel):
 
 class IndexSearchHit(BaseModel):
     accession: str
+    score: float | None = (
+        None  # similarity to the text query (1 = same meaning), when one was given
+    )
     studies: list[str] = []
     peps: list[str] = []  # namespace/name:tag
     identifiers: dict[str, list[str]] = {}

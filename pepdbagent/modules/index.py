@@ -392,6 +392,7 @@ class PEPDatabaseIndex:
         match: str = "any",
         limit: int = 100,
         offset: int = 0,
+        query_embedding: list[float] | None = None,
     ) -> IndexSearchResult:
         """Find samples by what the index says about them.
 
@@ -409,9 +410,12 @@ class PEPDatabaseIndex:
                 sample's highest-confidence claims for that field count).
             limit: Page size.
             offset: Page start.
+            query_embedding: Embedding of a text query (all-MiniLM-L6-v2). Results are then
+                ranked by similarity to it, and only samples with an embedding are searched.
 
         Returns:
-            Matching samples, ordered by accession, with the claims that matched.
+            Matching samples, ordered by accession (or by similarity, with query_embedding),
+            with the claims that matched.
 
         Raises:
             ValueError: If no parameter is given, or min_confidence or match is unknown.
@@ -430,13 +434,15 @@ class PEPDatabaseIndex:
             )
             if values
         }
-        if not criteria:
+        if not criteria and query_embedding is None:
             raise ValueError(f"Give at least one of: {', '.join(SEARCH_FIELDS)}")
+        if query_embedding is not None and match != "any":
+            raise ValueError("A text query works with match='any' only")
 
         with Session(self._sa_engine) as session:
             if match == "any":
                 return self._search_facets(
-                    session, criteria, min_confidence, limit, offset
+                    session, criteria, min_confidence, limit, offset, query_embedding
                 )
             return self._search_claims(
                 session, criteria, min_confidence, match, limit, offset
@@ -556,6 +562,7 @@ class PEPDatabaseIndex:
         min_confidence: str,
         limit: int,
         offset: int,
+        query_embedding: list[float] | None = None,
     ) -> IndexSearchResult:
         """match='any' search through the sample_facet keys and their GIN index."""
         conditions, page_claims = [], []
@@ -585,6 +592,16 @@ class PEPDatabaseIndex:
             )
             page_claims.append((set(fields), below, set(lowered)))
 
+        if query_embedding is not None:
+            return self._rank_by_embedding(
+                session,
+                conditions,
+                page_claims,
+                min_confidence,
+                limit,
+                offset,
+                query_embedding,
+            )
         total = session.scalar(
             select(func.count()).select_from(IndexSampleFacet).where(*conditions)
         )
@@ -610,7 +627,65 @@ class PEPDatabaseIndex:
                 statement.order_by(IndexSubject.accession).limit(limit).offset(offset)
             ).all()
         )
-        # the page's own claims are few: fetch them by subject and keep the ones that matched
+        results = self._search_hits(
+            session,
+            page,
+            claims=self._page_claims(session, page, page_claims, min_confidence),
+        )
+        return IndexSearchResult(
+            total=total, limit=limit, offset=offset, results=results
+        )
+
+    def _rank_by_embedding(
+        self, session, conditions, page_claims, min_confidence, limit, offset, embedding
+    ) -> IndexSearchResult:
+        """Rank samples that pass the filters by cosine similarity of their description."""
+        where = select(IndexSampleFacet.subject_id).where(
+            IndexSampleFacet.subject_id == text("st.subject_id"), *conditions
+        )
+        filtered = (
+            str(
+                where.exists().compile(
+                    session.bind, compile_kwargs={"literal_binds": True}
+                )
+            )
+            if conditions
+            else "TRUE"
+        )
+        vector = "[" + ",".join(f"{x:.6f}" for x in embedding) + "]"
+        total = session.scalar(
+            text(f"SELECT count(*) FROM {INDEX_SCHEMA}.sample_text st WHERE {filtered}")
+        )
+        if (
+            total > SMALL_RESULT * 2.5
+        ):  # many candidates: walk the HNSW index, filtering as it goes
+            session.execute(text("SET LOCAL hnsw.iterative_scan = relaxed_order"))
+            session.execute(text("SET LOCAL hnsw.ef_search = 200"))
+        rows = session.execute(
+            text(
+                f"""SELECT s.id, s.accession, 1 - (te.embedding <=> CAST(:q AS halfvec)) AS score
+                FROM {INDEX_SCHEMA}.text_embedding te
+                JOIN {INDEX_SCHEMA}.sample_text st ON st.text_id = te.id
+                JOIN {INDEX_SCHEMA}.subject s ON s.id = st.subject_id
+                WHERE {filtered}
+                ORDER BY te.embedding <=> CAST(:q AS halfvec), s.accession
+                LIMIT :limit OFFSET :offset"""
+            ),
+            {"q": vector, "limit": limit, "offset": offset},
+        ).all()
+        page = {i: a for i, a, _ in rows}
+        hits = self._search_hits(
+            session,
+            page,
+            claims=self._page_claims(session, page, page_claims, min_confidence),
+        )
+        for hit, (_, _, score) in zip(hits, rows):
+            hit.score = round(float(score), 4)
+        return IndexSearchResult(total=total, limit=limit, offset=offset, results=hits)
+
+    def _page_claims(self, session, page, page_claims, min_confidence) -> dict:
+        """The page's own claims are few: fetch them by subject and keep the ones that matched
+        (all of them when there were no label filters)."""
         claims = {}
         for subject_id, m in session.execute(
             select(IndexClaim.subject_id, IndexMapping)
@@ -619,16 +694,14 @@ class PEPDatabaseIndex:
             .where(IndexClaim.subject_id.in_(list(page)))
             .order_by(IndexClaim.subject_id, IndexMapping.field, IndexMapping.id)
         ):
-            if _RANK[m.confidence_level] >= _RANK[min_confidence] and any(
+            matched = not page_claims or any(
                 m.field in fields
                 and (m.object_id in below or (m.object_label or "").lower() in lowered)
                 for fields, below, lowered in page_claims
-            ):
+            )
+            if matched and _RANK[m.confidence_level] >= _RANK[min_confidence]:
                 claims.setdefault(subject_id, []).append(m)
-        results = self._search_hits(session, page, claims=claims)
-        return IndexSearchResult(
-            total=total, limit=limit, offset=offset, results=results
-        )
+        return claims
 
     def rebuild_facets(self) -> int:
         """Rebuild the search keys (facet_key, sample_facet) from the published claims.
