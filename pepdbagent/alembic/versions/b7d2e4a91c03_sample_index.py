@@ -169,6 +169,9 @@ def upgrade() -> None:
         sa.Column("version", sa.String(), nullable=True),
         schema=SCHEMA,
     )
+    op.create_index(
+        "idx_term_label", "term", [sa.text("lower(label)")], schema=SCHEMA
+    )
     op.create_table(
         "term_ancestor",
         sa.Column("term_id", sa.String(), primary_key=True),

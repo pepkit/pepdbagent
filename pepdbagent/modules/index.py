@@ -7,11 +7,16 @@ import json
 import logging
 from collections.abc import Iterable
 
-from sqlalchemy import delete, func, select, tuple_
+from sqlalchemy import case, delete, func, intersect, or_, select, tuple_, union_all
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
-from pepdbagent.const import INDEX_CONFIDENCE_LEVELS, INDEX_FIELDS, PKG_NAME
+from pepdbagent.const import (
+    INDEX_CONFIDENCE_LEVELS,
+    INDEX_FIELDS,
+    INDEX_MATCH_MODES,
+    PKG_NAME,
+)
 from pepdbagent.db_utils import (
     BaseEngine,
     IndexClaim,
@@ -30,15 +35,32 @@ from pepdbagent.models import (
     IndexClaimOut,
     IndexIdentifierIn,
     IndexLoadResult,
+    IndexMatchedClaim,
     IndexPepLocationIn,
     IndexRelationIn,
     IndexRunIn,
+    IndexSearchHit,
+    IndexSearchResult,
     IndexSubjectRef,
 )
 
 _LOGGER = logging.getLogger(PKG_NAME)
 
 CHUNK = 5000
+
+# Search parameter -> claim fields it looks in. Cell lines carry a tissue claim
+# from Cellosaurus, so a tissue search finds them too.
+SEARCH_FIELDS = {
+    "organism": ("organism",),
+    "assay": ("assay",),
+    "tissue": ("tissue", "cell_type"),
+    "sample_type": ("sample_type",),
+}
+_RANK = {"low": 1, "medium": 2, "high": 3}
+
+
+def _rank(column):
+    return case(_RANK, value=column)
 
 
 def _chunks(items: list, size: int = CHUNK):
@@ -330,6 +352,238 @@ class PEPDatabaseIndex:
                     insert(IndexTermAncestor).on_conflict_do_nothing(), chunk
                 )
         return len(terms)
+
+    def search(
+        self,
+        organism: list[str] | None = None,
+        assay: list[str] | None = None,
+        tissue: list[str] | None = None,
+        sample_type: list[str] | None = None,
+        min_confidence: str = "low",
+        match: str = "any",
+        limit: int = 100,
+        offset: int = 0,
+    ) -> IndexSearchResult:
+        """Find samples by what the index says about them.
+
+        Parameters combine with AND; values within one parameter combine with OR.
+        Each value is a term ID or an exact term name (case-insensitive), and also
+        matches every term below it (liver finds hepatocyte).
+
+        Args:
+            organism: e.g. ['NCBITaxon:9606'] or ['Homo sapiens'].
+            assay: e.g. ['EFO:0007045'] or ['ATAC-seq'].
+            tissue: Tissue or cell type, e.g. ['UBERON:0002107'] or ['liver'].
+            sample_type: e.g. ['tissue', 'organoid'].
+            min_confidence: Ignore claims below this level.
+            match: 'any' (any claim for a field may match) or 'best' (only the
+                sample's highest-confidence claims for that field count).
+            limit: Page size.
+            offset: Page start.
+
+        Returns:
+            Matching samples, ordered by accession, with the claims that matched.
+
+        Raises:
+            ValueError: If no parameter is given, or min_confidence or match is unknown.
+        """
+        if min_confidence not in INDEX_CONFIDENCE_LEVELS:
+            raise ValueError(f"Unknown confidence level '{min_confidence}'")
+        if match not in INDEX_MATCH_MODES:
+            raise ValueError(f"Unknown match mode '{match}'")
+        criteria = {
+            name: values
+            for name, values in (
+                ("organism", organism),
+                ("assay", assay),
+                ("tissue", tissue),
+                ("sample_type", sample_type),
+            )
+            if values
+        }
+        if not criteria:
+            raise ValueError(f"Give at least one of: {', '.join(SEARCH_FIELDS)}")
+
+        with Session(self._sa_engine) as session:
+            matches = []
+            for name, values in criteria.items():
+                # The mapping table is small: resolve ids here so the claim
+                # query gets literal values, which the planner estimates well.
+                fields = SEARCH_FIELDS[name]
+                mappings = self._find_mappings(session, fields, values, min_confidence)
+                matches.append(self._matching_claims(session, fields, mappings, match))
+
+            hits = intersect(*[select(m.c.subject_id) for m in matches]).subquery()
+            total = session.scalar(select(func.count()).select_from(hits))
+            page = session.execute(
+                select(IndexSubject.id, IndexSubject.accession)
+                .join(hits, hits.c.subject_id == IndexSubject.id)
+                .where(IndexSubject.kind == "sample")
+                .order_by(IndexSubject.accession)
+                .limit(limit)
+                .offset(offset)
+            ).all()
+            results = self._search_hits(session, dict(page), matches)
+
+        return IndexSearchResult(
+            total=total, limit=limit, offset=offset, results=results
+        )
+
+    def _find_mappings(
+        self, session: Session, fields: tuple, values: list[str], min_confidence: str
+    ) -> list[tuple[int, str, str]]:
+        """(id, field, confidence_level) of mappings matching any of the values."""
+        lowered = [v.lower() for v in values]
+        named = set(
+            session.scalars(
+                union_all(
+                    select(IndexTerm.term_id).where(
+                        or_(
+                            IndexTerm.term_id.in_(values),
+                            func.lower(IndexTerm.label).in_(lowered),
+                        )
+                    ),
+                    select(IndexMapping.object_id).where(
+                        IndexMapping.field.in_(fields),
+                        IndexMapping.object_id.is_not(None),
+                        or_(
+                            IndexMapping.object_id.in_(values),
+                            func.lower(IndexMapping.object_label).in_(lowered),
+                        ),
+                    ),
+                )
+            )
+        )
+        terms = named | set(
+            session.scalars(
+                select(IndexTermAncestor.term_id).where(
+                    IndexTermAncestor.ancestor_id.in_(named)
+                )
+            )
+        )
+        return session.execute(
+            select(
+                IndexMapping.id, IndexMapping.field, IndexMapping.confidence_level
+            ).where(
+                IndexMapping.field.in_(fields),
+                _rank(IndexMapping.confidence_level) >= _RANK[min_confidence],
+                or_(
+                    IndexMapping.object_id.in_(terms),
+                    # some fields (sample_type) have labels but no term
+                    func.lower(IndexMapping.object_label).in_(lowered),
+                ),
+            )
+        ).all()
+
+    def _matching_claims(
+        self, session: Session, fields: tuple, mappings: list, match: str
+    ):
+        """(subject_id, mapping_id) of claims that use the given mappings.
+
+        With match='best', a claim counts only if its subject has no claim of
+        higher confidence for the same field.
+        """
+
+        def claims(mapping_ids, higher_ids=()):
+            statement = select(
+                IndexClaim.subject_id.label("subject_id"),
+                IndexClaim.mapping_id.label("mapping_id"),
+            ).where(IndexClaim.mapping_id.in_(mapping_ids))
+            if higher_ids:
+                other = aliased(IndexClaim)
+                statement = statement.where(
+                    ~select(other.subject_id)
+                    .where(
+                        other.subject_id == IndexClaim.subject_id,
+                        other.mapping_id.in_(higher_ids),
+                    )
+                    .exists()
+                )
+            return statement
+
+        if match == "any" or not mappings:
+            return claims([i for i, _, _ in mappings]).subquery()
+
+        # The mapping table is small, so rank in Python and give Postgres id lists.
+        lowest = min(_RANK[level] for _, _, level in mappings)
+        others = session.execute(
+            select(
+                IndexMapping.id, IndexMapping.field, IndexMapping.confidence_level
+            ).where(
+                IndexMapping.field.in_(fields),
+                _rank(IndexMapping.confidence_level) > lowest,
+            )
+        ).all()
+        groups = {}
+        for i, field, level in mappings:
+            groups.setdefault((field, _RANK[level]), []).append(i)
+        return union_all(
+            *[
+                claims(
+                    ids,
+                    [i for i, f, lv in others if f == field and _RANK[lv] > rank],
+                )
+                for (field, rank), ids in groups.items()
+            ]
+        ).subquery()
+
+    def _search_hits(
+        self, session: Session, page: dict[int, str], matches: list
+    ) -> list[IndexSearchHit]:
+        hits = {i: IndexSearchHit(accession=a) for i, a in page.items()}
+        ids = list(hits)
+
+        claims = union_all(
+            *[select(m.c.subject_id, m.c.mapping_id) for m in matches]
+        ).subquery()
+        rows = session.execute(
+            select(claims.c.subject_id, IndexMapping)
+            .distinct()
+            .join(IndexMapping, IndexMapping.id == claims.c.mapping_id)
+            .where(claims.c.subject_id.in_(ids))
+            .order_by(claims.c.subject_id, IndexMapping.field, IndexMapping.id)
+        )
+        for subject_id, m in rows:
+            hits[subject_id].claims.append(
+                IndexMatchedClaim(
+                    **{k: getattr(m, k) for k in IndexMatchedClaim.model_fields}
+                )
+            )
+
+        study = aliased(IndexSubject)
+        for to_id, accession in session.execute(
+            select(IndexRelation.to_id, study.accession)
+            .join(study, study.id == IndexRelation.from_id)
+            .where(IndexRelation.to_id.in_(ids), IndexRelation.rel == "has_sample")
+            .order_by(study.accession)
+        ):
+            hits[to_id].studies.append(accession)
+
+        for subject_id, namespace, name, tag in session.execute(
+            select(
+                IndexPepLocation.subject_id,
+                Projects.namespace,
+                Projects.name,
+                Projects.tag,
+            )
+            .join(Projects, Projects.id == IndexPepLocation.project_id)
+            .where(IndexPepLocation.subject_id.in_(ids))
+            .order_by(Projects.namespace, Projects.name, Projects.tag)
+        ):
+            hits[subject_id].peps.append(f"{namespace}/{name}:{tag}")
+
+        for subject_id, scheme, value in session.execute(
+            select(
+                IndexIdentifier.subject_id,
+                IndexIdentifier.scheme,
+                IndexIdentifier.value,
+            )
+            .where(IndexIdentifier.subject_id.in_(ids))
+            .order_by(IndexIdentifier.scheme, IndexIdentifier.value)
+        ):
+            hits[subject_id].identifiers.setdefault(scheme, []).append(value)
+
+        return list(hits.values())
 
     def count_claims(self) -> int:
         with Session(self._sa_engine) as session:

@@ -24,6 +24,9 @@ INDEX_FIELDS: tuple[str, ...] = (
     "sample_type",
 )
 INDEX_CONFIDENCE_LEVELS: tuple[str, ...] = ("high", "medium", "low")
+# "any": a sample matches if any of its claims for a field matches.
+# "best": only its highest-confidence claims for that field count.
+INDEX_MATCH_MODES: tuple[str, ...] = ("any", "best")
 
 DEFAULT_LIMIT_INFO: int = 5
 

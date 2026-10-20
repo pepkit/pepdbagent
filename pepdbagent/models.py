@@ -411,3 +411,30 @@ class IndexClaimOut(IndexClaimIn):
     run_id: int
     mapping_tool: str | None = None
     mapping_tool_version: str | None = None
+
+
+class IndexMatchedClaim(BaseModel):
+    """A claim that made a sample match a search."""
+
+    field: str
+    object_id: str | None = None
+    object_label: str | None = None
+    confidence_level: str
+    subject_source: str | None = None
+    subject_label: str | None = None
+    curation_rule: str | None = None
+
+
+class IndexSearchHit(BaseModel):
+    accession: str
+    studies: list[str] = []
+    peps: list[str] = []  # namespace/name:tag
+    identifiers: dict[str, list[str]] = {}
+    claims: list[IndexMatchedClaim] = []
+
+
+class IndexSearchResult(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    results: list[IndexSearchHit]

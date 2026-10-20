@@ -18,6 +18,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     event,
+    func,
     select,
     text,
 )
@@ -642,7 +643,10 @@ class IndexClaim(Base):
 
 class IndexTerm(Base):
     __tablename__ = "term"
-    __table_args__ = ({"schema": INDEX_SCHEMA},)
+    __table_args__ = (
+        Index("idx_term_label", func.lower(text("label"))),
+        {"schema": INDEX_SCHEMA},
+    )
 
     term_id: Mapped[str] = mapped_column(primary_key=True)
     label: Mapped[str | None] = mapped_column()

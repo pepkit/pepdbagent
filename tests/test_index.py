@@ -209,3 +209,68 @@ class TestIndex:
             with agent.pep_db_engine.engine.connect() as conn:
                 found = conn.execute(query, {"term": "UBERON:0002107"}).scalars().all()
             assert found == ["GSM1", "GSM3"]
+
+    def test_search(self):
+        with PEPDBAgentContextManager(add_data=False) as agent:
+            agent.index.replace_terms(
+                terms=[
+                    {
+                        "term_id": "UBERON:0002107",
+                        "label": "liver",
+                        "ontology": "UBERON",
+                    },
+                    {"term_id": "CL:0000182", "label": "hepatocyte", "ontology": "CL"},
+                ],
+                ancestors=[("CL:0000182", "UBERON:0002107")],
+                ontologies=["UBERON", "CL"],
+            )
+            human = ("organism", "NCBITaxon:9606", "Homo sapiens")
+            mouse = ("organism", "NCBITaxon:10090", "Mus musculus")
+            lung = ("tissue", "UBERON:0002048", "lung")
+            low_liver = claim("GSM4").model_copy(update={"confidence_level": "low"})
+            organoid = claim("GSM2", "sample_type", None, "organoid")
+            agent.index.replace_run(
+                run(),
+                [
+                    claim("GSM1", *human),
+                    claim("GSM1", "cell_type", "CL:0000182", "hepatocyte"),
+                    claim("GSM2", *human),
+                    claim("GSM2"),
+                    organoid,
+                    claim("GSM3", *mouse),
+                    claim("GSM3"),
+                    claim("GSM4", *human),
+                    claim("GSM4", *lung),
+                    low_liver,
+                ],
+            )
+
+            def found(**kwargs):
+                return [h.accession for h in agent.index.search(**kwargs).results]
+
+            # AND across parameters, OR within one; hierarchy; names or ids
+            assert found(organism=["Homo sapiens"], tissue=["liver"]) == [
+                "GSM1",
+                "GSM2",
+                "GSM4",
+            ]
+            assert found(
+                organism=["NCBITaxon:9606", "NCBITaxon:10090"], tissue=["CL:0000182"]
+            ) == ["GSM1"]
+            assert found(tissue=["liver"], sample_type=["Organoid"]) == ["GSM2"]
+            assert found(tissue=["liver"], min_confidence="medium") == [
+                "GSM1",
+                "GSM2",
+                "GSM3",
+            ]
+            # GSM4's lung claim outranks its liver claim
+            assert "GSM4" not in found(tissue=["liver"], match="best")
+            assert found(tissue=["no such tissue"]) == []
+
+            result = agent.index.search(tissue=["liver"], limit=2, offset=1)
+            assert result.total == 4
+            assert [h.accession for h in result.results] == ["GSM2", "GSM3"]
+            assert [c.field for c in result.results[0].claims] == ["tissue"]
+
+            with pytest.raises(ValueError):
+                agent.index.search()
