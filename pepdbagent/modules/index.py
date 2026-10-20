@@ -7,7 +7,17 @@ import json
 import logging
 from collections.abc import Iterable
 
-from sqlalchemy import case, delete, func, intersect, or_, select, tuple_, union_all
+from sqlalchemy import (
+    case,
+    delete,
+    func,
+    intersect,
+    or_,
+    select,
+    text,
+    tuple_,
+    union_all,
+)
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, aliased
 
@@ -15,6 +25,7 @@ from pepdbagent.const import (
     INDEX_CONFIDENCE_LEVELS,
     INDEX_FIELDS,
     INDEX_MATCH_MODES,
+    INDEX_SCHEMA,
     PKG_NAME,
 )
 from pepdbagent.db_utils import (
@@ -66,6 +77,35 @@ def _rank(column):
 def _chunks(items: list, size: int = CHUNK):
     for i in range(0, len(items), size):
         yield items[i : i + size]
+
+
+def _copy(session: Session, target: str, rows: Iterable[tuple]) -> None:
+    """Bulk-load rows with COPY, inside the session's transaction."""
+    cursor = session.connection().connection.driver_connection.cursor()
+    with cursor.copy(f"COPY {target} FROM STDIN") as copy:
+        for row in rows:
+            copy.write_row(row)
+
+
+def _copy_upsert(
+    session: Session, table: str, columns: str, rows: Iterable[tuple]
+) -> None:
+    """COPY rows into a temporary staging table, then add the new ones to the idx table.
+
+    The staging table _stage_<table> lives until the transaction ends, so callers can join to it.
+    """
+    names = ", ".join(c.split()[0] for c in columns.split(","))
+    session.execute(
+        text(f"CREATE TEMP TABLE _stage_{table} ({columns}) ON COMMIT DROP")
+    )
+    _copy(session, f"_stage_{table} ({names})", rows)
+    session.execute(
+        text(
+            f"INSERT INTO {INDEX_SCHEMA}.{table} ({names}) "
+            f"SELECT DISTINCT {names} FROM _stage_{table} ORDER BY {names} "
+            "ON CONFLICT DO NOTHING"  # a fixed order, so concurrent loads cannot deadlock
+        )
+    )
 
 
 def _mapping_key(mapping: dict) -> str:
@@ -145,30 +185,18 @@ class PEPDatabaseIndex:
             def sid(ref: IndexSubjectRef) -> int:
                 return ids[(ref.kind, ref.accession)]
 
-            for chunk in _chunks(
-                [
-                    {
-                        "subject_id": sid(i.subject),
-                        "scheme": i.scheme,
-                        "value": i.value,
-                        "source": i.source,
-                    }
-                    for i in identifiers
-                ]
-            ):
-                session.execute(insert(IndexIdentifier).on_conflict_do_nothing(), chunk)
-
-            for chunk in _chunks(
-                [
-                    {
-                        "from_id": sid(r.from_subject),
-                        "rel": r.rel,
-                        "to_id": sid(r.to_subject),
-                    }
-                    for r in relations
-                ]
-            ):
-                session.execute(insert(IndexRelation).on_conflict_do_nothing(), chunk)
+            _copy_upsert(
+                session,
+                "identifier",
+                "subject_id bigint, scheme text, value text, source text",
+                ((sid(i.subject), i.scheme, i.value, i.source) for i in identifiers),
+            )
+            _copy_upsert(
+                session,
+                "relation",
+                "from_id bigint, rel text, to_id bigint",
+                ((sid(r.from_subject), r.rel, sid(r.to_subject)) for r in relations),
+            )
 
             located, missing = self._add_pep_locations(session, pep_locations, sid)
 
@@ -187,21 +215,20 @@ class PEPDatabaseIndex:
                 (sid(c.subject), mapping_ids[_mapping_key(m)])
                 for c, m in zip(claims, mappings)
             }
-            for chunk in _chunks(
-                [
-                    {"subject_id": s, "mapping_id": m, "run_id": run_row.id}
-                    for s, m in sorted(rows)
-                ]
-            ):
-                session.execute(insert(IndexClaim), chunk)
-
-            session.execute(
-                delete(IndexMapping).where(
-                    ~select(IndexClaim.mapping_id)
-                    .where(IndexClaim.mapping_id == IndexMapping.id)
-                    .exists()
-                )
+            _copy(
+                session,
+                f"{INDEX_SCHEMA}.claim (subject_id, mapping_id, run_id)",
+                ((s, m, run_row.id) for s, m in sorted(rows)),
             )
+
+            if replaced:  # only replaced claims can leave unused mappings; skipping this keeps parallel loads safe
+                session.execute(
+                    delete(IndexMapping).where(
+                        ~select(IndexClaim.mapping_id)
+                        .where(IndexClaim.mapping_id == IndexMapping.id)
+                        .exists()
+                    )
+                )
 
             run_row.finished = datetime.datetime.now(datetime.timezone.utc)
             run_id = run_row.id
@@ -221,19 +248,14 @@ class PEPDatabaseIndex:
         )
 
     def _upsert_subjects(self, session: Session, refs: list[tuple[str, str]]) -> dict:
-        ids = {}
-        for chunk in _chunks(refs):
-            session.execute(
-                insert(IndexSubject).on_conflict_do_nothing(),
-                [{"kind": k, "accession": a} for k, a in chunk],
+        _copy_upsert(session, "subject", "kind text, accession text", refs)
+        rows = session.execute(
+            text(
+                f"SELECT s.kind, s.accession, s.id FROM {INDEX_SCHEMA}.subject s "
+                "JOIN _stage_subject t USING (kind, accession)"
             )
-            rows = session.execute(
-                select(
-                    IndexSubject.kind, IndexSubject.accession, IndexSubject.id
-                ).where(tuple_(IndexSubject.kind, IndexSubject.accession).in_(chunk))
-            )
-            ids.update({(k, a): i for k, a, i in rows})
-        return ids
+        )
+        return {(k, a): i for k, a, i in rows}
 
     def _upsert_mappings(self, session: Session, mappings: list[dict]) -> dict:
         unique = {_mapping_key(m): m for m in mappings}
