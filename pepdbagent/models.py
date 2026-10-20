@@ -337,3 +337,76 @@ class TarNamespaceModelReturn(BaseModel):
 
     count: int
     results: list[TarNamespaceModel]
+
+
+# ---------- Sample index ----------
+
+
+class IndexSubjectRef(BaseModel):
+    """A sample or study, by public accession."""
+
+    kind: str = "sample"
+    accession: str
+
+
+class IndexClaimIn(BaseModel):
+    """One claim to load. Column names follow SSSOM where SSSOM has one."""
+
+    subject: IndexSubjectRef
+    field: str
+    subject_label: str | None = None
+    subject_source: str | None = None
+    object_id: str | None = None
+    object_label: str | None = None
+    object_candidates: list[str] | None = None
+    mapping_justification: str
+    curation_rule: str | None = None
+    mapping_tool: str | None = None
+    mapping_tool_version: str | None = None
+    confidence: float | None = None
+    confidence_level: str
+    comment: str | None = None
+
+
+class IndexIdentifierIn(BaseModel):
+    subject: IndexSubjectRef
+    scheme: str
+    value: str
+    source: str | None = None
+
+
+class IndexRelationIn(BaseModel):
+    from_subject: IndexSubjectRef
+    rel: str
+    to_subject: IndexSubjectRef
+
+
+class IndexPepLocationIn(BaseModel):
+    subject: IndexSubjectRef
+    namespace: str
+    name: str
+    tag: str
+    match_key: str
+
+
+class IndexRunIn(BaseModel):
+    labeler: str
+    scope: str
+    code_version: str | None = None
+    maps_version: str | None = None
+    sources: dict | None = None
+
+
+class IndexLoadResult(BaseModel):
+    run_id: int
+    subjects: int
+    claims: int
+    claims_replaced: int
+    identifiers: int
+    relations: int
+    pep_locations: int
+    pep_locations_missing: int
+
+
+class IndexClaimOut(IndexClaimIn):
+    run_id: int

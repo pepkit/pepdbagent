@@ -8,6 +8,7 @@ from alembic.config import Config
 from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
+    CheckConstraint,
     Enum,
     FetchedValue,
     ForeignKey,
@@ -20,13 +21,19 @@ from sqlalchemy import (
     select,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB
 from sqlalchemy.engine import URL, Engine, create_engine
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 
-from pepdbagent.const import PKG_NAME, POSTGRES_DIALECT
+from pepdbagent.const import (
+    INDEX_CONFIDENCE_LEVELS,
+    INDEX_FIELDS,
+    INDEX_SCHEMA,
+    PKG_NAME,
+    POSTGRES_DIALECT,
+)
 from pepdbagent.exceptions import SchemaError
 
 _LOGGER = logging.getLogger(PKG_NAME)
@@ -489,6 +496,158 @@ class BedBaseStats(Base):
     submission_date: Mapped[str | None] = mapped_column()
 
 
+# ---------- Sample index (schema "idx") ----------
+# What we work out about each sample, kept apart from what the submitter wrote.
+# Subjects are keyed by public accession, never by samples.guid: overwrite deletes
+# and recreates sample rows. See ADR pephub/index_tables_adr.md.
+
+
+def _in_list(column: str, values: tuple[str, ...]) -> str:
+    return f"{column} IN ({', '.join(repr(v) for v in values)})"
+
+
+class IndexSubject(Base):
+    __tablename__ = "subject"
+    __table_args__ = (
+        UniqueConstraint("kind", "accession"),
+        CheckConstraint(_in_list("kind", ("sample", "study"))),
+        {"schema": INDEX_SCHEMA},
+    )
+
+    id: Mapped[int] = mapped_column(BIGSERIAL, primary_key=True)
+    kind: Mapped[str] = mapped_column()
+    accession: Mapped[str] = mapped_column()
+
+
+class IndexIdentifier(Base):
+    __tablename__ = "identifier"
+    __table_args__ = (
+        UniqueConstraint("scheme", "value", "subject_id"),
+        Index("idx_identifier_value", "scheme", "value"),
+        {"schema": INDEX_SCHEMA},
+    )
+
+    id: Mapped[int] = mapped_column(BIGSERIAL, primary_key=True)
+    subject_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{INDEX_SCHEMA}.subject.id", ondelete="CASCADE")
+    )
+    scheme: Mapped[str] = mapped_column()
+    value: Mapped[str] = mapped_column()
+    source: Mapped[str | None] = mapped_column()
+
+
+class IndexRelation(Base):
+    __tablename__ = "relation"
+    __table_args__ = (
+        UniqueConstraint("from_id", "rel", "to_id"),
+        Index("idx_relation_to", "to_id"),
+        {"schema": INDEX_SCHEMA},
+    )
+
+    id: Mapped[int] = mapped_column(BIGSERIAL, primary_key=True)
+    from_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{INDEX_SCHEMA}.subject.id", ondelete="CASCADE")
+    )
+    rel: Mapped[str] = mapped_column()
+    to_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{INDEX_SCHEMA}.subject.id", ondelete="CASCADE")
+    )
+
+
+class IndexPepLocation(Base):
+    """Where a subject's raw rows live: a project plus the sample column holding its accession."""
+
+    __tablename__ = "pep_location"
+    __table_args__ = (
+        UniqueConstraint("subject_id", "project_id"),
+        {"schema": INDEX_SCHEMA},
+    )
+
+    id: Mapped[int] = mapped_column(BIGSERIAL, primary_key=True)
+    subject_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{INDEX_SCHEMA}.subject.id", ondelete="CASCADE")
+    )
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    match_key: Mapped[str] = mapped_column()
+
+
+class IndexRun(Base):
+    """One execution of one labeler (a W3C PROV activity)."""
+
+    __tablename__ = "run"
+    __table_args__ = ({"schema": INDEX_SCHEMA},)
+
+    id: Mapped[int] = mapped_column(BIGSERIAL, primary_key=True)
+    labeler: Mapped[str] = mapped_column()
+    code_version: Mapped[str | None] = mapped_column()
+    maps_version: Mapped[str | None] = mapped_column()
+    sources: Mapped[dict | None] = mapped_column(JSONB)
+    scope: Mapped[str] = mapped_column()
+    started: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
+    finished: Mapped[datetime.datetime | None] = mapped_column()
+
+
+class IndexClaim(Base):
+    """One statement about one subject. Column names follow SSSOM where SSSOM has one."""
+
+    __tablename__ = "claim"
+    __table_args__ = (
+        CheckConstraint(_in_list("field", INDEX_FIELDS)),
+        CheckConstraint(_in_list("confidence_level", INDEX_CONFIDENCE_LEVELS)),
+        CheckConstraint("confidence IS NULL OR (confidence >= 0 AND confidence <= 1)"),
+        Index("idx_claim_field_object", "field", "object_id"),
+        Index("idx_claim_subject_field", "subject_id", "field"),
+        Index("idx_claim_run", "run_id"),
+        {"schema": INDEX_SCHEMA},
+    )
+
+    id: Mapped[int] = mapped_column(BIGSERIAL, primary_key=True)
+    subject_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{INDEX_SCHEMA}.subject.id", ondelete="CASCADE")
+    )
+    field: Mapped[str] = mapped_column()
+    subject_label: Mapped[str | None] = mapped_column()
+    subject_source: Mapped[str | None] = mapped_column()
+    object_id: Mapped[str | None] = mapped_column()
+    object_label: Mapped[str | None] = mapped_column()
+    object_candidates: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    mapping_justification: Mapped[str] = mapped_column()
+    curation_rule: Mapped[str | None] = mapped_column()
+    mapping_tool: Mapped[str | None] = mapped_column()
+    mapping_tool_version: Mapped[str | None] = mapped_column()
+    confidence: Mapped[float | None] = mapped_column()
+    confidence_level: Mapped[str] = mapped_column()
+    comment: Mapped[str | None] = mapped_column()
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{INDEX_SCHEMA}.run.id", ondelete="CASCADE")
+    )
+
+
+class IndexTerm(Base):
+    __tablename__ = "term"
+    __table_args__ = ({"schema": INDEX_SCHEMA},)
+
+    term_id: Mapped[str] = mapped_column(primary_key=True)
+    label: Mapped[str | None] = mapped_column()
+    ontology: Mapped[str] = mapped_column()
+    version: Mapped[str | None] = mapped_column()
+
+
+class IndexTermAncestor(Base):
+    """Closure table over is_a and part_of, so hierarchy search is plain SQL."""
+
+    __tablename__ = "term_ancestor"
+    __table_args__ = (
+        Index("idx_term_ancestor_ancestor", "ancestor_id"),
+        {"schema": INDEX_SCHEMA},
+    )
+
+    term_id: Mapped[str] = mapped_column(primary_key=True)
+    ancestor_id: Mapped[str] = mapped_column(primary_key=True)
+
+
 class BaseEngine:
     """
     A class with base methods, that are used in several classes. e.g. fetch_one or fetch_all
@@ -550,6 +709,7 @@ class BaseEngine:
         # Required by the trigram (gin_trgm_ops) search indexes on projects.
         with engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {INDEX_SCHEMA}"))
         Base.metadata.create_all(engine)
         return None
 

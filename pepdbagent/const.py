@@ -13,6 +13,18 @@ DEFAULT_LIMIT: int = 100
 # db_dialects
 POSTGRES_DIALECT: str = "postgresql+psycopg"
 
+# Sample index (see ADR pephub/index_tables_adr.md)
+INDEX_SCHEMA: str = "idx"
+INDEX_FIELDS: tuple[str, ...] = (
+    "organism",
+    "assay",
+    "tissue",
+    "cell_type",
+    "cell_line",
+    "sample_type",
+)
+INDEX_CONFIDENCE_LEVELS: tuple[str, ...] = ("high", "medium", "low")
+
 DEFAULT_LIMIT_INFO: int = 5
 
 SUBMISSION_DATE_KEY: str = "submission_date"

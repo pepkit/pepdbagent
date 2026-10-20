@@ -1,6 +1,7 @@
 from pepdbagent.const import POSTGRES_DIALECT
 from pepdbagent.db_utils import BaseEngine
 from pepdbagent.modules.annotation import PEPDatabaseAnnotation
+from pepdbagent.modules.index import PEPDatabaseIndex
 from pepdbagent.modules.namespace import PEPDatabaseNamespace
 from pepdbagent.modules.project import PEPDatabaseProject
 from pepdbagent.modules.sample import PEPDatabaseSample
@@ -59,6 +60,7 @@ class PEPDatabaseAgent(object):
         self._user = PEPDatabaseUser(pep_db_engine)
         self._view = PEPDatabaseView(pep_db_engine)
         self._schema = PEPDatabaseSchema(pep_db_engine)
+        self._index = PEPDatabaseIndex(pep_db_engine)
 
         self._db_name = database
 
@@ -89,6 +91,10 @@ class PEPDatabaseAgent(object):
     @property
     def schema(self) -> PEPDatabaseSchema:
         return self._schema
+
+    @property
+    def index(self) -> PEPDatabaseIndex:
+        return self._index
 
     def __str__(self):
         return f"Connection to the database: '{self.__db_name}' is set!"
