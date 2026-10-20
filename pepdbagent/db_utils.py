@@ -583,30 +583,30 @@ class IndexRun(Base):
     labeler: Mapped[str] = mapped_column()
     code_version: Mapped[str | None] = mapped_column()
     maps_version: Mapped[str | None] = mapped_column()
+    mapping_tool: Mapped[str | None] = mapped_column()
+    mapping_tool_version: Mapped[str | None] = mapped_column()
     sources: Mapped[dict | None] = mapped_column(JSONB)
     scope: Mapped[str] = mapped_column()
     started: Mapped[datetime.datetime] = mapped_column(default=deliver_update_date)
     finished: Mapped[datetime.datetime | None] = mapped_column()
 
 
-class IndexClaim(Base):
-    """One statement about one subject. Column names follow SSSOM where SSSOM has one."""
+class IndexMapping(Base):
+    """One distinct statement (submitter text -> term, by a rule), shared by every claim
+    that makes it. Column names follow SSSOM where SSSOM has one. key is a hash of the
+    other columns, so each mapping is stored once."""
 
-    __tablename__ = "claim"
+    __tablename__ = "mapping"
     __table_args__ = (
         CheckConstraint(_in_list("field", INDEX_FIELDS)),
         CheckConstraint(_in_list("confidence_level", INDEX_CONFIDENCE_LEVELS)),
         CheckConstraint("confidence IS NULL OR (confidence >= 0 AND confidence <= 1)"),
-        Index("idx_claim_field_object", "field", "object_id"),
-        Index("idx_claim_subject_field", "subject_id", "field"),
-        Index("idx_claim_run", "run_id"),
+        Index("idx_mapping_field_object", "field", "object_id"),
         {"schema": INDEX_SCHEMA},
     )
 
     id: Mapped[int] = mapped_column(BIGSERIAL, primary_key=True)
-    subject_id: Mapped[int] = mapped_column(
-        ForeignKey(f"{INDEX_SCHEMA}.subject.id", ondelete="CASCADE")
-    )
+    key: Mapped[str] = mapped_column(unique=True)
     field: Mapped[str] = mapped_column()
     subject_label: Mapped[str | None] = mapped_column()
     subject_source: Mapped[str | None] = mapped_column()
@@ -615,13 +615,28 @@ class IndexClaim(Base):
     object_candidates: Mapped[list[str] | None] = mapped_column(ARRAY(String))
     mapping_justification: Mapped[str] = mapped_column()
     curation_rule: Mapped[str | None] = mapped_column()
-    mapping_tool: Mapped[str | None] = mapped_column()
-    mapping_tool_version: Mapped[str | None] = mapped_column()
     confidence: Mapped[float | None] = mapped_column()
     confidence_level: Mapped[str] = mapped_column()
-    comment: Mapped[str | None] = mapped_column()
+
+
+class IndexClaim(Base):
+    """One run saying one mapping holds for one subject."""
+
+    __tablename__ = "claim"
+    __table_args__ = (
+        Index("idx_claim_mapping", "mapping_id", "subject_id"),
+        Index("idx_claim_run", "run_id"),
+        {"schema": INDEX_SCHEMA},
+    )
+
+    subject_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{INDEX_SCHEMA}.subject.id", ondelete="CASCADE"), primary_key=True
+    )
+    mapping_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{INDEX_SCHEMA}.mapping.id"), primary_key=True
+    )
     run_id: Mapped[int] = mapped_column(
-        ForeignKey(f"{INDEX_SCHEMA}.run.id", ondelete="CASCADE")
+        ForeignKey(f"{INDEX_SCHEMA}.run.id", ondelete="CASCADE"), primary_key=True
     )
 
 

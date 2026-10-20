@@ -103,6 +103,8 @@ def upgrade() -> None:
         sa.Column("labeler", sa.String(), nullable=False),
         sa.Column("code_version", sa.String(), nullable=True),
         sa.Column("maps_version", sa.String(), nullable=True),
+        sa.Column("mapping_tool", sa.String(), nullable=True),
+        sa.Column("mapping_tool_version", sa.String(), nullable=True),
         sa.Column("sources", postgresql.JSONB(), nullable=True),
         sa.Column("scope", sa.String(), nullable=False),
         sa.Column("started", sa.TIMESTAMP(timezone=True), nullable=False),
@@ -110,14 +112,9 @@ def upgrade() -> None:
         schema=SCHEMA,
     )
     op.create_table(
-        "claim",
+        "mapping",
         sa.Column("id", sa.BigInteger(), primary_key=True),
-        sa.Column(
-            "subject_id",
-            sa.BigInteger(),
-            sa.ForeignKey(f"{SCHEMA}.subject.id", ondelete="CASCADE"),
-            nullable=False,
-        ),
+        sa.Column("key", sa.String(), nullable=False, unique=True),
         sa.Column("field", sa.String(), nullable=False),
         sa.Column("subject_label", sa.String(), nullable=True),
         sa.Column("subject_source", sa.String(), nullable=True),
@@ -126,17 +123,8 @@ def upgrade() -> None:
         sa.Column("object_candidates", postgresql.ARRAY(sa.String()), nullable=True),
         sa.Column("mapping_justification", sa.String(), nullable=False),
         sa.Column("curation_rule", sa.String(), nullable=True),
-        sa.Column("mapping_tool", sa.String(), nullable=True),
-        sa.Column("mapping_tool_version", sa.String(), nullable=True),
         sa.Column("confidence", sa.Float(), nullable=True),
         sa.Column("confidence_level", sa.String(), nullable=False),
-        sa.Column("comment", sa.String(), nullable=True),
-        sa.Column(
-            "run_id",
-            sa.BigInteger(),
-            sa.ForeignKey(f"{SCHEMA}.run.id", ondelete="CASCADE"),
-            nullable=False,
-        ),
         sa.CheckConstraint(FIELDS),
         sa.CheckConstraint(LEVELS),
         sa.CheckConstraint(
@@ -145,10 +133,32 @@ def upgrade() -> None:
         schema=SCHEMA,
     )
     op.create_index(
-        "idx_claim_field_object", "claim", ["field", "object_id"], schema=SCHEMA
+        "idx_mapping_field_object", "mapping", ["field", "object_id"], schema=SCHEMA
+    )
+    op.create_table(
+        "claim",
+        sa.Column(
+            "subject_id",
+            sa.BigInteger(),
+            sa.ForeignKey(f"{SCHEMA}.subject.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
+        sa.Column(
+            "mapping_id",
+            sa.BigInteger(),
+            sa.ForeignKey(f"{SCHEMA}.mapping.id"),
+            primary_key=True,
+        ),
+        sa.Column(
+            "run_id",
+            sa.BigInteger(),
+            sa.ForeignKey(f"{SCHEMA}.run.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
+        schema=SCHEMA,
     )
     op.create_index(
-        "idx_claim_subject_field", "claim", ["subject_id", "field"], schema=SCHEMA
+        "idx_claim_mapping", "claim", ["mapping_id", "subject_id"], schema=SCHEMA
     )
     op.create_index("idx_claim_run", "claim", ["run_id"], schema=SCHEMA)
     op.create_table(
@@ -176,6 +186,7 @@ def downgrade() -> None:
         "term_ancestor",
         "term",
         "claim",
+        "mapping",
         "run",
         "pep_location",
         "relation",

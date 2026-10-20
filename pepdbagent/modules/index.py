@@ -2,6 +2,8 @@
 # See ADR pephub/index_tables_adr.md.
 
 import datetime
+import hashlib
+import json
 import logging
 from collections.abc import Iterable
 
@@ -14,6 +16,7 @@ from pepdbagent.db_utils import (
     BaseEngine,
     IndexClaim,
     IndexIdentifier,
+    IndexMapping,
     IndexPepLocation,
     IndexRelation,
     IndexRun,
@@ -43,12 +46,18 @@ def _chunks(items: list, size: int = CHUNK):
         yield items[i : i + size]
 
 
+def _mapping_key(mapping: dict) -> str:
+    return hashlib.sha256(json.dumps(mapping, sort_keys=True).encode()).hexdigest()[:32]
+
+
 class PEPDatabaseIndex:
     """
     Class that represents the sample index in the database.
 
     Labelers write claims through runs: loading a run replaces the claims of earlier
     runs of the same labeler over the same scope, and leaves everything else alone.
+    Each distinct mapping (submitter text -> term, by a rule) is stored once in
+    idx.mapping; a claim is just (subject, mapping, run).
     """
 
     def __init__(self, pep_db_engine: BaseEngine):
@@ -150,28 +159,38 @@ class PEPDatabaseIndex:
                 delete(IndexClaim).where(IndexClaim.run_id.in_(old_runs))
             ).rowcount
 
+            mappings = [c.model_dump(exclude={"subject"}) for c in claims]
+            mapping_ids = self._upsert_mappings(session, mappings)
+            rows = {
+                (sid(c.subject), mapping_ids[_mapping_key(m)])
+                for c, m in zip(claims, mappings)
+            }
             for chunk in _chunks(
                 [
-                    {
-                        **c.model_dump(exclude={"subject"}),
-                        "subject_id": sid(c.subject),
-                        "run_id": run_row.id,
-                    }
-                    for c in claims
+                    {"subject_id": s, "mapping_id": m, "run_id": run_row.id}
+                    for s, m in sorted(rows)
                 ]
             ):
                 session.execute(insert(IndexClaim), chunk)
+
+            session.execute(
+                delete(IndexMapping).where(
+                    ~select(IndexClaim.mapping_id)
+                    .where(IndexClaim.mapping_id == IndexMapping.id)
+                    .exists()
+                )
+            )
 
             run_row.finished = datetime.datetime.now(datetime.timezone.utc)
             run_id = run_row.id
 
         _LOGGER.info(
-            f"Index run {run_id} ({run.labeler}, {run.scope}): {len(claims)} claims, {replaced} replaced"
+            f"Index run {run_id} ({run.labeler}, {run.scope}): {len(rows)} claims, {replaced} replaced"
         )
         return IndexLoadResult(
             run_id=run_id,
             subjects=len(refs),
-            claims=len(claims),
+            claims=len(rows),
             claims_replaced=replaced,
             identifiers=len(identifiers),
             relations=len(relations),
@@ -192,6 +211,22 @@ class PEPDatabaseIndex:
                 ).where(tuple_(IndexSubject.kind, IndexSubject.accession).in_(chunk))
             )
             ids.update({(k, a): i for k, a, i in rows})
+        return ids
+
+    def _upsert_mappings(self, session: Session, mappings: list[dict]) -> dict:
+        unique = {_mapping_key(m): m for m in mappings}
+        ids = {}
+        for chunk in _chunks(sorted(unique)):
+            session.execute(
+                insert(IndexMapping).on_conflict_do_nothing(),
+                [{"key": k, **unique[k]} for k in chunk],
+            )
+            rows = session.execute(
+                select(IndexMapping.key, IndexMapping.id).where(
+                    IndexMapping.key.in_(chunk)
+                )
+            )
+            ids.update(dict(rows.all()))
         return ids
 
     def _add_pep_locations(
@@ -240,23 +275,27 @@ class PEPDatabaseIndex:
             Claims, ordered by field.
         """
         statement = (
-            select(IndexClaim, IndexSubject)
+            select(IndexClaim.run_id, IndexMapping, IndexRun)
+            .join(IndexMapping, IndexMapping.id == IndexClaim.mapping_id)
+            .join(IndexRun, IndexRun.id == IndexClaim.run_id)
             .join(IndexSubject, IndexSubject.id == IndexClaim.subject_id)
             .where(IndexSubject.kind == kind, IndexSubject.accession == accession)
-            .order_by(IndexClaim.field, IndexClaim.id)
+            .order_by(IndexMapping.field, IndexClaim.run_id, IndexMapping.id)
         )
         with Session(self._sa_engine) as session:
             return [
                 IndexClaimOut(
-                    subject=IndexSubjectRef(kind=s.kind, accession=s.accession),
-                    run_id=c.run_id,
+                    subject=IndexSubjectRef(kind=kind, accession=accession),
+                    run_id=run_id,
+                    mapping_tool=r.mapping_tool,
+                    mapping_tool_version=r.mapping_tool_version,
                     **{
-                        k: getattr(c, k)
+                        k: getattr(m, k)
                         for k in IndexClaimIn.model_fields
                         if k != "subject"
                     },
                 )
-                for c, s in session.execute(statement)
+                for run_id, m, r in session.execute(statement)
             ]
 
     def replace_terms(

@@ -3,7 +3,7 @@ import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from pepdbagent.db_utils import IndexClaim, IndexPepLocation, Samples
+from pepdbagent.db_utils import IndexClaim, IndexMapping, IndexPepLocation, Samples
 from pepdbagent.models import (
     IndexClaimIn,
     IndexIdentifierIn,
@@ -31,7 +31,13 @@ def claim(accession, field="tissue", object_id="UBERON:0002107", label="liver"):
 
 
 def run(labeler="rules", scope="namespace:namespace1"):
-    return IndexRunIn(labeler=labeler, scope=scope, code_version="test")
+    return IndexRunIn(
+        labeler=labeler,
+        scope=scope,
+        code_version="test",
+        mapping_tool="test-tool",
+        mapping_tool_version="1",
+    )
 
 
 @pytest.mark.skipif(
@@ -68,6 +74,7 @@ class TestIndex:
             assert [c.field for c in claims] == ["organism", "tissue"]
             assert claims[1].object_id == "UBERON:0002107"
             assert claims[1].run_id == result.run_id
+            assert claims[1].mapping_tool == "test-tool"
 
     def test_rerun_replaces_only_its_own_claims(self):
         with PEPDBAgentContextManager(add_data=False) as agent:
@@ -81,6 +88,33 @@ class TestIndex:
             assert agent.index.get_claims("GSM2") == []
             assert len(agent.index.get_claims("GSM1")) == 2  # rules (new) + model
             assert len(agent.index.get_claims("GSM3")) == 1  # other scope untouched
+
+    def test_claims_share_mappings(self):
+        with PEPDBAgentContextManager(add_data=False) as agent:
+
+            def count_mappings():
+                with Session(agent.pep_db_engine.engine) as session:
+                    return session.scalar(
+                        select(func.count()).select_from(IndexMapping)
+                    )
+
+            result = agent.index.replace_run(
+                run(), [claim("GSM1"), claim("GSM2"), claim("GSM2")]
+            )
+            assert result.claims == 2  # the repeated claim is stored once
+            assert count_mappings() == 1
+            agent.index.replace_run(run(labeler="model"), [claim("GSM3")])
+            assert count_mappings() == 1  # other labelers reuse it
+
+            agent.index.replace_run(
+                run(), [claim("GSM1", "tissue", "UBERON:0002048", "lung")]
+            )
+            assert count_mappings() == 2  # liver kept: the model run still uses it
+            agent.index.replace_run(
+                run(labeler="model"),
+                [claim("GSM3", "tissue", "UBERON:0002048", "lung")],
+            )
+            assert count_mappings() == 1  # liver is gone once nothing uses it
 
     def test_invalid_claim_writes_nothing(self):
         with PEPDBAgentContextManager(add_data=False) as agent:
@@ -165,7 +199,8 @@ class TestIndex:
             query = text(
                 """
                 SELECT DISTINCT s.accession FROM idx.subject s
-                JOIN idx.claim t ON t.subject_id = s.id AND t.field IN ('tissue', 'cell_type')
+                JOIN idx.claim c ON c.subject_id = s.id
+                JOIN idx.mapping t ON t.id = c.mapping_id AND t.field IN ('tissue', 'cell_type')
                 WHERE t.object_id = :term
                    OR t.object_id IN (SELECT term_id FROM idx.term_ancestor WHERE ancestor_id = :term)
                 ORDER BY 1

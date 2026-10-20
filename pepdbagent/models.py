@@ -361,11 +361,8 @@ class IndexClaimIn(BaseModel):
     object_candidates: list[str] | None = None
     mapping_justification: str
     curation_rule: str | None = None
-    mapping_tool: str | None = None
-    mapping_tool_version: str | None = None
     confidence: float | None = None
     confidence_level: str
-    comment: str | None = None
 
 
 class IndexIdentifierIn(BaseModel):
@@ -394,6 +391,8 @@ class IndexRunIn(BaseModel):
     scope: str
     code_version: str | None = None
     maps_version: str | None = None
+    mapping_tool: str | None = None
+    mapping_tool_version: str | None = None
     sources: dict | None = None
 
 
@@ -410,3 +409,5 @@ class IndexLoadResult(BaseModel):
 
 class IndexClaimOut(IndexClaimIn):
     run_id: int
+    mapping_tool: str | None = None
+    mapping_tool_version: str | None = None
